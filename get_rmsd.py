@@ -15,7 +15,7 @@ parser.add_argument('file_path', nargs=1, type= str,
                   default=sys.stdin, help = 'path to pdb ids file. Structure: #uid	pdb_id.')
 
 parser.add_argument('dir_path', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to directory with .pdb structures (include / in end.')
+                  default=sys.stdin, help = 'path to directory with .pdb structures (include / in end).')
 
 args = parser.parse_args()
 
@@ -30,13 +30,16 @@ pdb_ids = df['pdb']
 #Do structural alignment with TMalign
 count = 0
 position = 0
+end = len(pdb_ids)
 while len(pdb_ids)>1: #While structures are left to be aligned
-	for i in range(position+1, len(pdb_ids)):
+	for i in range(position+1, end):
 		subprocess.call(["/home/pbryant/TMalign", dir_path+pdb_ids[position]+'.pdb', dir_path+pdb_ids[i]+'.pdb' ])
 		count+=1
-		print(count)
-	print(pdb_ids)
 	pdb_ids.pop(position)
 	position+=1
+
+
+number_possible_pairs = int((end/2)*(end-1))
+print(str(count)+' alignmets were made out of '+ str(number_possible_pairs) + ' possible pairs.')
 	
 

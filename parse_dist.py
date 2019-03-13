@@ -18,6 +18,9 @@ parser.add_argument('file_path', nargs=1, type= str,
 
 
 def get_pairwise_dist(file_path):
+	'''A function that gets the uids and the corresponding scores
+	and returns them as lists.
+	'''
 
 	uids = [] #List with unique ids
 	all_distances = [] #List with distances in order of ids in uids
@@ -40,17 +43,18 @@ def get_pairwise_dist(file_path):
 						new_distances.append(item)
 				if len(new_distances) == number_of_seqs:
 					all_distances.append(new_distances)
+	return(uids, all_distances)
 
 
-		pdb.set_trace()
+
+def format_distances(uids, all_distances):
+	'''A function that formats all pairwise distances
+	'''
 
 
-			
-	
 
-	return None
 
 #Main program
 args = parser.parse_args()
 file_path = args.file_path[0]
-dist_dict=get_pairwise_dist(file_path) #creates dict of file
+(uids, all_distances)=get_pairwise_dist(file_path) #Get uids and distances
