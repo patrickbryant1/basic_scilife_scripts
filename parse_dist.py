@@ -53,6 +53,7 @@ def format_distances(uids, all_distances):
 
 	end = len(uids) #Number of uids
 	count = 0 #Keep track of number of distances
+	print('uid1' + '\t' + 'uid2' + '\t' + 'MLdistance')
 	for i in range(0,end):
 		for j in range(i+1,end):
 			count+=1

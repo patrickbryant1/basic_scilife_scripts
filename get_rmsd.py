@@ -26,6 +26,7 @@ dir_path = args.dir_path[0]
 df = pd.read_csv(file_path, sep='\t')#get_ids
 
 pdb_ids = df['pdb']
+uids = df['#uid']
 
 #Do structural alignment with TMalign
 count = 0
@@ -33,7 +34,7 @@ position = 0
 end = len(pdb_ids)
 while len(pdb_ids)>1: #While structures are left to be aligned
 	for i in range(position+1, end):
-		subprocess.call(["/home/pbryant/TMalign", dir_path+pdb_ids[position]+'.pdb', dir_path+pdb_ids[i]+'.pdb' ])
+		subprocess.call(["/home/pbryant/TMalign", dir_path+pdb_ids[position]+'.pdb', dir_path+pdb_ids[i]+'.pdb', '-a'])
 		count+=1
 	pdb_ids.pop(position)
 	position+=1
