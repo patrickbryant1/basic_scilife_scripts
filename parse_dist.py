@@ -51,10 +51,21 @@ def format_distances(uids, all_distances):
 	'''A function that formats all pairwise distances
 	'''
 
+	end = len(uids) #Number of uids
+	count = 0 #Keep track of number of distances
+	for i in range(0,end):
+		for j in range(i+1,end):
+			count+=1
+			print(uids[i] + '\t' + uids[j] + '\t' + all_distances[i][j])
 
+
+	number_possible_pairs = int((end/2)*(end-1))
+	print(str(count)+' alignmets were made out of '+ str(number_possible_pairs) + ' possible pairs.')
+	return None
 
 
 #Main program
 args = parser.parse_args()
 file_path = args.file_path[0]
 (uids, all_distances)=get_pairwise_dist(file_path) #Get uids and distances
+format_distances(uids, all_distances)
