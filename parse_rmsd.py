@@ -9,7 +9,7 @@ import subprocess
 import pdb
 
 #Arguments for argparse module:
-parser = argparse.ArgumentParser(description = '''A program that runs parses TMalign output.''')
+parser = argparse.ArgumentParser(description = '''A program that parses TMalign output.''')
  
 parser.add_argument('id_file', nargs=1, type= str,
                   default=sys.stdin, help = 'path to pdb ids file. Structure: #uid	pdb_id.')
