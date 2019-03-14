@@ -26,7 +26,7 @@ def get_pairwise_dist(file_path, df):
 	uid_pairs = [] #List with unique ids
 
 	#df.loc[df['pdb'] == '1zmq']
-
+	print('uid1' + '\t' + 'uid2' + '\t' + 'RMSD')
 	with open(file_path) as file:
 		for line in file:
 			if 'Name of Chain' in line:
@@ -48,23 +48,6 @@ def get_pairwise_dist(file_path, df):
 
 
 
-	return None
-
-def format_distances(uids, all_distances):
-	'''A function that formats all pairwise distances
-	'''
-
-	end = len(uids) #Number of uids
-	count = 0 #Keep track of number of distances
-	print('uid1' + '\t' + 'uid2' + '\t' + 'MLdistance')
-	for i in range(0,end):
-		for j in range(i+1,end):
-			count+=1
-			print(uids[i] + '\t' + uids[j] + '\t' + all_distances[i][j])
-
-
-	number_possible_pairs = int((end/2)*(end-1))
-	print(str(count)+' alignmets were made out of '+ str(number_possible_pairs) + ' possible pairs.')
 	return None
 
 

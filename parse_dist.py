@@ -9,6 +9,7 @@ import pandas as pd
 import subprocess
 import pdb
 
+
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that parses .dist ouput from tree-puzzle.''')
  
@@ -61,7 +62,8 @@ def format_distances(uids, all_distances):
 
 
 	number_possible_pairs = int((end/2)*(end-1))
-	print(str(count)+' alignmets were made out of '+ str(number_possible_pairs) + ' possible pairs.')
+	if number_possible_pairs != count:
+		raise ValueError(str(count)+' alignmets were made out of '+ str(number_possible_pairs) + ' possible pairs.')
 	return None
 
 
