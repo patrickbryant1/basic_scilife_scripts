@@ -74,7 +74,7 @@ plt.title('Defensin related' + '\n' + 'R-squared: ' + str((r_value**2).round(3))
 plt.xlabel('ML AA sequence distance')
 plt.ylabel('RMSD')
 pdb.set_trace()
-plt.plot(seq_distances, intercept + slope*seq_distances, 'r', label='fitted line')
+plt.plot(seq_distances, intercept + slope*np.array(seq_distances), 'r')
 plt.show()
 
 #RMSD_df['uid1'] = np.select(RMSD_df['uid2']==ev_dist_df['uid2'])
