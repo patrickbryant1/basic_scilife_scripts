@@ -7,6 +7,7 @@ import sys
 import os
 import pandas as pd
 import subprocess
+import pexpect
 import pdb
 
 
@@ -30,6 +31,7 @@ def get_alignments(file_path, df):
 	uid_pairs = [] #List with unique ids
 	aligned_seqs = [] #List with aligned residue pairs
 	fetch_next_3 = False #Keeping track of lines
+	file_names = [] #Store file names
 
 	with open(file_path) as file:
 		for line in file:
@@ -51,7 +53,8 @@ def get_alignments(file_path, df):
 					line = line.rstrip() #remove \n
 					aligned_seqs.append(line) #Append to list
 				else:
-					make_phylip(uid_pairs, aligned_seqs)
+					file_name = make_phylip(uid_pairs, aligned_seqs)
+					file_names.append(file_name)
 					fetch_next_3 = False
 					uid_pairs = [] #reset list of pairs
 					aligned_seqs = [] #reset aligned seqs
@@ -63,7 +66,7 @@ def get_alignments(file_path, df):
 			
 
 
-	return None
+	return file_names
 
 def make_phylip(uid_pairs, aligned_seqs):
 	'''Print phylip format for tree-puzzle calculations
@@ -81,7 +84,7 @@ def make_phylip(uid_pairs, aligned_seqs):
 	with open(file_name, "w") as file:
 		file.write(text)
 
-	return None
+	return file_name
 
 
 #Main program
@@ -93,7 +96,13 @@ align_file = args.align_file[0]
 #Read tsv file as pandas dataframe
 df = pd.read_csv(id_file, sep='\t')#get_ids
 
-#Make .phy files with alignments
-get_alignments(align_file, df)
 
+#Make .phy files with alignments
+file_names = get_alignments(align_file, df)
+pdb.set_trace()
 #Run tree-puzzle on the files
+for name in file_names:
+	child = pexpect.spawn("puzzle " + name)
+	child.expect("WELCOME TO TREE-PUZZLE 5.3.rc16!")
+	child.sendline('y')
+
