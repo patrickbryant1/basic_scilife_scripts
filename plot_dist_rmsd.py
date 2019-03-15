@@ -32,7 +32,7 @@ RMSD_file = args.RMSD_file[0]
 #Read tsv file as pandas dataframe
 seq_dist_df = pd.read_csv(seq_dist_file, sep='\t')#get ev_dist
 RMSD_df = pd.read_csv(RMSD_file, sep='\t')#get RMSD
-
+pdb.set_trace()
 if len(seq_dist_df) != len(RMSD_df):
 	raise ValueError('The dataframes are not of equal lengths')
 

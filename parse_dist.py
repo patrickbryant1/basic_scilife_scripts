@@ -26,8 +26,12 @@ def print_pairwise_dist(dir_path):
 	and prints them in .tsv format.
 	'''
 	print('uid1' + '\t' + 'uid2' + '\t' + 'MLdistance')
+	count = 0 #Keep track of number of files used
 	os.chdir(dir_path)
 	for file in glob.glob("*.dist"):
+		#count+=1
+		#print(count)
+
 		name = file.split('.') #Split filename on .
 		uids = name[0].split('_') #Separate uids
 		uid_1 = uids[0] #Get uid_1

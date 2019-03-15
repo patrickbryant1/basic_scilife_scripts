@@ -99,10 +99,15 @@ df = pd.read_csv(id_file, sep='\t')#get_ids
 
 #Make .phy files with alignments
 file_names = get_alignments(align_file, df)
-pdb.set_trace()
+print(len(file_names))
 #Run tree-puzzle on the files
 for name in file_names:
-	child = pexpect.spawn("puzzle " + name)
-	child.expect("WELCOME TO TREE-PUZZLE 5.3.rc16!")
-	child.sendline('y')
+
+	try:
+		child = pexpect.spawn("puzzle " + name)
+		child.expect("WELCOME TO TREE-PUZZLE 5.3.rc16!")
+		child.sendline('y')
+	except:
+		raise IOerror(name)
+
 
