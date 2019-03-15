@@ -32,7 +32,6 @@ RMSD_file = args.RMSD_file[0]
 #Read tsv file as pandas dataframe
 seq_dist_df = pd.read_csv(seq_dist_file, sep='\t')#get ev_dist
 RMSD_df = pd.read_csv(RMSD_file, sep='\t')#get RMSD
-pdb.set_trace()
 if len(seq_dist_df) != len(RMSD_df):
 	raise ValueError('The dataframes are not of equal lengths')
 
@@ -73,7 +72,6 @@ plt.scatter(seq_distances, structural_distances)
 plt.title('Defensin related' + '\n' + 'R-squared: ' + str((r_value**2).round(3)))
 plt.xlabel('ML AA sequence distance')
 plt.ylabel('RMSD')
-pdb.set_trace()
 plt.plot(seq_distances, intercept + slope*np.array(seq_distances), 'r')
 plt.show()
 

@@ -99,7 +99,7 @@ df = pd.read_csv(id_file, sep='\t')#get_ids
 
 #Make .phy files with alignments
 file_names = get_alignments(align_file, df)
-print(len(file_names))
+print('Number of files to tree-puzzle: '+str(len(file_names)))
 #Run tree-puzzle on the files
 for name in file_names:
 

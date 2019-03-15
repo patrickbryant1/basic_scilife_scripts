@@ -63,4 +63,5 @@ df = pd.read_csv(id_file, sep='\t')#get_ids
 pdb_ids = df['pdb']
 uids = df['#uid']
 
+#Get pairwise RMSD and print in tsv
 get_pairwise_dist(align_file, df)
