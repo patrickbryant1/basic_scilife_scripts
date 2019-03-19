@@ -27,24 +27,32 @@ H_group_file = args.H_group_file[0]
 domain_file = args.domain_file[0]
 
 
-H_group_df = pd.read_csv(H_group_file, sep='\n')#get H groups
+def read_groups(H_group_file):
+	'''Read X_group.H_group s into list
+	'''
+
+	H_groups = [] #Store H-groups
+	with open(H_group_file) as file:
+		for line in file:
+			line = line.rstrip() #remove \n
+			H_groups.append(line)
+
+	return H_groups
 
 #Functions
-def group_ids(domain_file, H_group_df):
+def group_ids(domain_file, H_groups):
 	'''A function that gets the ids for each H-group and writes
 	them to a file called X_group.H_group.txt
 	'''
 	count_H_groups = 0 #Count H groups
 	
-	for H_group in H_group_df['H_group']:
+	for H_group in H_groups:
 		uids = [] #Save uids
 		count_H_groups +=1
 		
-		if len(H_group.split('.')[1])>3:
-			H_group = round(H_group, 3) #round to 3 decimal points if undsable float
-			pdb.set_trace()
-		fam = str(H_group).split('.')[0] #family level
+		x_group = str(H_group).split('.')[0] #family level
 		hom = str(H_group).split('.')[1] #homology level
+		file_name = H_group +'.txt'
 		with open(domain_file) as file:
 			for line in file:
 				line = line.rstrip() #remove \n
@@ -52,32 +60,33 @@ def group_ids(domain_file, H_group_df):
 				if line[0] != '#': #Comment lines, include meta
 					line = line.split("\t") #split on tab
 					match_group = line[3].split('.')[0:2]
-					if fam == match_group[0]:
+					if x_group == match_group[0]:
 						if hom == match_group[1]:
 							uid = line[0]
 							uids.append(uid)
 				
 			#After going through the entire file, the matched uids are written to a file
-			try:
-				write_file(H_group, uids)
-			except:
-
-			print(count_H_groups)
+			write_file(file_name, uids)
 			print(H_group)
-				
 	
+	print(count_H_groups)
 	return None
 
 
-def write_file(H_group, uids):
+def write_file(file_name, uids):
 	'''Write uids in same homology group to file
 	'''
-	file_name = str(H_group) + '.txt'
-	with open(file_name, "w") as file:
-		for uid in uids:
-			file.write(uid+'\n')
+	try:
+		with open(file_name, "w") as file:
+			for uid in uids:
+				file.write(uid+'\n')
+
+	except:
+		IOerror('Could not write file: ' + file_name)
 
 	return None
 
 
-group_ids(domain_file, H_group_df)
+#####MAIN PROGRAM#####
+H_groups = read_groups(H_group_file)
+group_ids(domain_file, H_groups)
