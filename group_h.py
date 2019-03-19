@@ -58,6 +58,7 @@ def group_ids(domain_file, H_group_df):
 			#After going through the entire file, the matched uids are written to a file
 			write_file(H_group, uids)
 			print(count_H_groups)
+			print(H_group)
 				
 	
 	return None
