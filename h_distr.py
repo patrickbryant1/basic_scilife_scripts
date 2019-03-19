@@ -12,27 +12,23 @@ import pdb
 
 
 #Arguments for argparse module:
-parser = argparse.ArgumentParser(description = '''A program that groups uids into their h-groups.''')
+parser = argparse.ArgumentParser(description = '''A program that investigates the distribution of
+									uids in each H-group in ECOD.''')
  
-parser.add_argument('H_group_file', nargs=1, type= str,
+parser.add_argument('dir_path', nargs=1, type= str,
                   default=sys.stdin, help = 'path to file with H-groups.')
-
-parser.add_argument('domain_file', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to file ECOD domain description.')
 
 
 args = parser.parse_args()
 
-H_group_file = args.H_group_file[0]
-domain_file = args.domain_file[0]
-
+dir_path= args.dir_path[0]
 
 H_group_df = pd.read_csv(H_group_file, sep='\n')#get H groups
 
 #Functions
-def group_ids(domain_file, H_group_df):
+def compute_stats(dir_path):
 	'''A function that gets the ids for each H-group and writes
-	them to a file called X_group.H_group.txt
+	them to a file called F_group.H_group.txt
 	'''
 	count_H_groups = 0 #Count H groups
 	
