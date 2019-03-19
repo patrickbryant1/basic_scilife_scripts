@@ -12,8 +12,7 @@ import pdb
 
 
 #Arguments for argparse module:
-parser = argparse.ArgumentParser(description = '''A program that takes aligned residue pairs from the structural
-								alignment from TMalign and runs tree-puzzle on them.''')
+parser = argparse.ArgumentParser(description = '''A program that groups uids into their h-groups.''')
  
 parser.add_argument('H_group_file', nargs=1, type= str,
                   default=sys.stdin, help = 'path to file with H-groups.')
@@ -40,7 +39,8 @@ def group_ids(domain_file, H_group_df):
 	for H_group in H_group_df['H_group']:
 		uids = [] #Save uids
 		count_H_groups +=1
-			
+		
+		H_group = round(H_group, 3) #round to 3 decimal points if undtable float
 		fam = str(H_group).split('.')[0] #family level
 		hom = str(H_group).split('.')[1] #homology level
 		with open(domain_file) as file:
