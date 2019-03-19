@@ -40,7 +40,9 @@ def group_ids(domain_file, H_group_df):
 		uids = [] #Save uids
 		count_H_groups +=1
 		
-		H_group = round(H_group, 3) #round to 3 decimal points if undtable float
+		if len(H_group.split('.')[1])>3:
+			H_group = round(H_group, 3) #round to 3 decimal points if undsable float
+			pdb.set_trace()
 		fam = str(H_group).split('.')[0] #family level
 		hom = str(H_group).split('.')[1] #homology level
 		with open(domain_file) as file:
@@ -56,7 +58,10 @@ def group_ids(domain_file, H_group_df):
 							uids.append(uid)
 				
 			#After going through the entire file, the matched uids are written to a file
-			write_file(H_group, uids)
+			try:
+				write_file(H_group, uids)
+			except:
+
 			print(count_H_groups)
 			print(H_group)
 				

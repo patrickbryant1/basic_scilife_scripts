@@ -7,7 +7,8 @@ import sys
 import os
 import pandas as pd
 import subprocess
-import pexpect
+import glob
+import matplotlib.pyplot as plt
 import pdb
 
 
@@ -23,52 +24,38 @@ args = parser.parse_args()
 
 dir_path= args.dir_path[0]
 
-H_group_df = pd.read_csv(H_group_file, sep='\n')#get H groups
+
 
 #Functions
 def compute_stats(dir_path):
-	'''A function that gets the ids for each H-group and writes
-	them to a file called F_group.H_group.txt
+	'''A function that counts the ids for each H-group and returns
+	statistics regarding them.	
 	'''
-	count_H_groups = 0 #Count H groups
-	
-	for H_group in H_group_df['H_group']:
-		uids = [] #Save uids
-		count_H_groups +=1
-		
-		H_group = round(H_group, 3) #round to 3 decimal points if undtable float
-		fam = str(H_group).split('.')[0] #family level
-		hom = str(H_group).split('.')[1] #homology level
-		with open(domain_file) as file:
-			for line in file:
-				line = line.rstrip() #remove \n
-				
-				if line[0] != '#': #Comment lines, include meta
-					line = line.split("\t") #split on tab
-					match_group = line[3].split('.')[0:2]
-					if fam == match_group[0]:
-						if hom == match_group[1]:
-							uid = line[0]
-							uids.append(uid)
-				
-			#After going through the entire file, the matched uids are written to a file
-			write_file(H_group, uids)
-			print(count_H_groups)
-			print(H_group)
-				
-	
-	return None
+
+	h_counts = {} #dir to save id counts of each H-group
+	h_group = [] #Store h_group
+	id_count = [] #Store id counts for histogram
+
+	os.chdir(dir_path)
+	for file in glob.glob("*.txt"):
+		if os.stat(file).st_size == 0:
+			print('empty_file: '+file)
+		else:
+			id_df = pd.read_csv(file, header = None, sep='\n')#get ids for H group, don't read header (no header)
+			num_ids = len(id_df)
+			h_counts[file] = num_ids
+			h_group.append(file)
+			id_count.append(num_ids)
+	pdb.set_trace()
 
 
-def write_file(H_group, uids):
-	'''Write uids in same homology group to file
-	'''
-	file_name = str(H_group) + '.txt'
-	with open(file_name, "w") as file:
-		for uid in uids:
-			file.write(uid+'\n')
+	return(h_counts, h_group, id_count)
+
+def plot_hist(id_count):
+	plt.hist(id_count, normed = True, bins = 300)
 
 	return None
 
+(h_counts, h_group, id_count) = compute_stats(dir_path)
 
-group_ids(domain_file, H_group_df)
+	
