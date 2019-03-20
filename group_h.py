@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /hpc2n/eb/software/Core/Anaconda2/4.3.1/bin/python
 # -*- coding: utf-8 -*-
 
 
