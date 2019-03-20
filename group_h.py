@@ -48,6 +48,7 @@ def group_ids(domain_file, H_groups):
 	
 	for H_group in H_groups:
 		uids = [] #Save uids
+		pdb_ids = [] #Save pdb_ids
 		count_H_groups +=1
 		
 		x_group = str(H_group).split('.')[0] #family level
@@ -63,26 +64,28 @@ def group_ids(domain_file, H_groups):
 					if x_group == match_group[0]:
 						if hom == match_group[1]:
 							uid = line[0]
+							pdb_id = line[1]
 							uids.append(uid)
+							pdb_ids.append(pdb_id)
 				
 			#After going through the entire file, the matched uids are written to a file
-			write_file(file_name, uids)
+			write_file(file_name, uids, pdb_ids)
 			print(H_group)
 	
 	print(count_H_groups)
 	return None
 
 
-def write_file(file_name, uids):
+def write_file(file_name, uids, pdb_ids):
 	'''Write uids in same homology group to file
 	'''
 	try:
 		with open(file_name, "w") as file:
-			for uid in uids:
-				file.write(uid+'\n')
+			for i in range(0, len(uids)):
+				file.write(uids[i]+ '\t' + pdb_ids[i] + '\n')
 
 	except:
-		IOerror('Could not write file: ' + file_name)
+		raise IOerror('Could not write file: ' + file_name)
 
 	return None
 

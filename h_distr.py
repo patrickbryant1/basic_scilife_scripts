@@ -58,13 +58,28 @@ def plot_hist(id_count, bins):
 
 	return None
 
+def select_n(h_counts, n):
+	'''Select H-groups with at least n entries.
+	'''
+
+	over_n = {}
+	for key in h_counts:
+		n_entries = h_counts[key]
+		if n_entries >= n:
+			print(key)
+			over_n[key] = n_entries
+
+	print('Number of H-groups with at least ' + str(n) + 'entries: ' + str(len(over_n)))
+
+	return over_n
+
 
 #######################MAIN################################
 (h_counts, h_group, id_count) = compute_stats(dir_path)
 
 log_id_count = numpy.log10(id_count)
+over_n = select_n(h_counts, 10)
 
-plot_hist(log_id_count, 100)
 pdb.set_trace()
 
 
