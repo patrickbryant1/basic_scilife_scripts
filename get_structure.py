@@ -42,8 +42,7 @@ address = args.address[0]
 (uids, pdb_ids) = read_groups(file_path)
 
 #wget http://www.rcsb.org/pdb/files/1ZMQ.pdb.gz
-database_path = 'http://www.rcsb.org/pdb/files/'
 for i in pdb_ids:
-	subprocess.call(["wget",database_path+i+'.pdb.gz'])
+	subprocess.call(["wget",address+i])
 
 
