@@ -10,6 +10,7 @@ import subprocess
 import glob
 import matplotlib.pyplot as plt
 import pdb
+import numpy
 
 
 #Arguments for argparse module:
@@ -46,16 +47,24 @@ def compute_stats(dir_path):
 			h_counts[file] = num_ids
 			h_group.append(file)
 			id_count.append(num_ids)
-	pdb.set_trace()
+
 
 
 	return(h_counts, h_group, id_count)
 
-def plot_hist(id_count):
-	plt.hist(id_count, normed = True, bins = 300)
+def plot_hist(id_count, bins):
+	plt.hist(id_count, normed = True, bins = bins)
+	plt.show()
 
 	return None
 
+
+#######################MAIN################################
 (h_counts, h_group, id_count) = compute_stats(dir_path)
 
-	
+log_id_count = numpy.log10(id_count)
+
+plot_hist(log_id_count, 100)
+pdb.set_trace()
+
+
