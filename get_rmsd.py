@@ -7,13 +7,11 @@ import sys
 import pandas as pd
 import subprocess
 import pdb
+import glob
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that runs TMalign for pdb structures.''')
  
-parser.add_argument('file_path', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to file with grouped uid. Structure: #uid	pdb_id.')
-
 parser.add_argument('dir_path', nargs=1, type= str,
                   default=sys.stdin, help = 'path to base directory with .pdb structures (include / in end).')
 
@@ -23,17 +21,20 @@ parser.add_argument('cutoff', nargs=1, type= str,
 
 ###FUNCTIONS###
 
-def read_ids(file_path):
-	'''Read uids into list
+def read_ids(dir_path):
+	'''Read pdb_ids into list
 	'''
 
-	uids = [] #Store uids
-	with open(file_path) as file:
-		for line in file:
-			line = line.rstrip() #remove \n
-			uids.append(line)
+	pdb_ids = [] #Store pdb ids
 
-	return uids
+	for text_file in glob.glob(dir_path + '*.txt'):
+		with open(text_file) as file:
+			for line in file:
+				line = line.rstrip() #remove \n
+				pdb_id = line.split('\t')[1] #Get pdb id
+				pdb_ids.append(pdb_id)
+
+	return pdb_ids
 
 def get_pdb_file(uid):
 	'''A function for formatting the path to the .pdb file
@@ -48,7 +49,7 @@ def get_pdb_file(uid):
 
 	return file_path
 	
-def align_structures(uids, dir_path):
+def align_structures(pdb_ids, dir_path):
 	'''Do structural alignment with TMalign
         '''
    
@@ -70,11 +71,9 @@ def align_structures(uids, dir_path):
 ###MAIN###	
 args = parser.parse_args()
 
-file_path = args.file_path[0]
 dir_path = args.dir_path[0]
 cutoff = args.cutoff[0]
 
 #Get uids
-uids = read_ids(file_path)
-uids = uids[0:cutoff] #Take #cutoff first udis to compare
-align_structures(uids, dir_path)
+pdb_ids = read_ids(dir_path)
+align_structures(pdb_ids, dir_path)

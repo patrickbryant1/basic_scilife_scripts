@@ -57,6 +57,17 @@ def read_groups(file_path):
 
 	return(uids, pdb_ids)
 
+def write_ids(destination, file_name, positions, uids, pdb_ids):
+	'''Write uids and pdb_ids to .txt file
+	'''
+
+	with open(destination+'/'+file_name, "w") as file:
+		for i in positions:
+			file.write(uids[i]+ '\t' + pdb_ids[i] + '\n')
+	
+
+	return None
+
 def get_structures(address, file_name, input_dir, output_dir, n_entries, downloaded_ids):
 	'''Download .pdb structure and group into directory
 	'''
@@ -73,6 +84,8 @@ def get_structures(address, file_name, input_dir, output_dir, n_entries, downloa
 
 	for file in glob.glob(output_dir + 'str*'):
 		shutil.move(file, output_dir+dir_name)
+
+	write_ids(output_dir+dir_name, file_name, positions, uids, pdb_ids)	
 
 	
 	return downloaded_ids
