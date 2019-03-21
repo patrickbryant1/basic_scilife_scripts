@@ -15,8 +15,6 @@ parser = argparse.ArgumentParser(description = '''A program that runs TMalign fo
 parser.add_argument('dir_path', nargs=1, type= str,
                   default=sys.stdin, help = 'path to base directory with .pdb structures (include / in end).')
 
-parser.add_argument('cutoff', nargs=1, type= str,
-                  default=sys.stdin, help = 'Number of structures to use for comparison')
 
 
 ###FUNCTIONS###
@@ -36,29 +34,18 @@ def read_ids(dir_path):
 
 	return pdb_ids
 
-def get_pdb_file(uid):
-	'''A function for formatting the path to the .pdb file
-	as specified in the ECOD directory structure based on the uid.
-	'''
-	
-	step_1 = uid[0:5]
-	step_2 = uid
-	step_3 = uid + '.pdbnum.pdb'
-
-	file_path = step_1 + '/' + step_2 + '/' + step_3
-
-	return file_path
 	
 def align_structures(pdb_ids, dir_path):
 	'''Do structural alignment with TMalign
-        '''
+    '''
    
 	count = 0 #Keep track of number of alignments made
-	end = len(uids)
+	end = len(pdb_ids)
 
 	for i in range(0, end):
-		structure_i = dir_path+get_pdb_file(uids[i])
+		structure_i = dir_path+'structure?id='+pdb_ids[i] #Get structure i
 		for j in range(i+1, end):
+			structure_j = dir_path+'structure?id='+pdb_ids[j] #Get structure j
 			subprocess.call(["/home/pbryant/TMalign", structure_i , structure_j , '-a'])
 			count+=1
 
@@ -72,8 +59,9 @@ def align_structures(pdb_ids, dir_path):
 args = parser.parse_args()
 
 dir_path = args.dir_path[0]
-cutoff = args.cutoff[0]
 
-#Get uids
+
+#Get pdb_ids
 pdb_ids = read_ids(dir_path)
+#Align structures
 align_structures(pdb_ids, dir_path)
