@@ -36,7 +36,7 @@ def read_tsv(file_path):
 			line = line.rstrip() #remove \n
 			line = line.split(',')
 			uid = line[0]
-			H_group = line[1]
+			H_group = line[1:]
 
 			#Add id into right h_group
 			if H_groups:
@@ -47,7 +47,8 @@ def read_tsv(file_path):
 					if H_groups[i] == H_group:
 						uids[i].append(uid)
 						found = True
-						break
+						print(len(H_groups))
+						break #Break out of loop
 					i+=1
 
 				#If no match is found
@@ -82,7 +83,9 @@ def write_selected(over_n, n_random, outdir_path):
 
 	for i in range(0, len(over_n)):
 		#Open a file named "H-group to write to"
-		with open(outdir_path+str(over_n[i]), 'w') as file:
+		H_group = over_n[i]
+		name = str(H_group[0])+'.'+str(H_group[1])+'.'+str(H_group[2])+'.'+str(H_group[3])
+		with open(outdir_path+name, 'w') as file:
 			#Write uids to file
 			for uid in n_random[i]:
 				file.write(uid+'\n')
@@ -97,6 +100,8 @@ outdir_path = args.outdir_path[0]
 
 uids, H_groups = read_tsv(file_path)
 
+pdb.set_trace()
+
 #Count uids in each H_group:
 uid_counts = [] #Store uid_counts
 over_n = [] #Store H_groups with uid counts over n
@@ -109,6 +114,7 @@ for i in range(0, len(uids)):
 		selected = select_n_random(uids[i], n)
 		n_random.append(selected)
 
+pdb.set_trace()
 
 write_selected(over_n, n_random, outdir_path)
 
