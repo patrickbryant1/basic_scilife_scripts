@@ -5,31 +5,27 @@
 import argparse
 import sys
 import os
-import pandas as pd
-import subprocess
-import glob
 import matplotlib.pyplot as plt
-import pdb
 import numpy
-from collections import Counter
+import random
 
+import pdb
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that investigates the distribution of
-									 each H-group in CATH.''')
+									 each H-group in CATH. And writes n randomly selected entries 
+									 for each H-group into files(newline separated) in the output directory''')
  
 parser.add_argument('file_path', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to file with H-groups.')
+                  default=sys.stdin, help = 'Path to file with H-groups.')
 
-
-args = parser.parse_args()
-
-file_path= args.file_path[0]
+parser.add_argument('outdir_path', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to output directory.')
 
 
 #Functions
 def read_tsv(file_path):
-	'''Read ids and H-groups into list
+	'''Read ids and H-groups into lists 
 	'''
 
 	uids = [] #Store ids
@@ -42,8 +38,26 @@ def read_tsv(file_path):
 			uid = line[0]
 			H_group = line[1]
 
-			uids.append(uid)
-			H_groups.append(H_group)
+			#Add id into right h_group
+			if H_groups:
+				i = 0 #Reset index
+				found = False #Keep track of matches
+				while i < len(H_groups):
+					#If a match is found
+					if H_groups[i] == H_group:
+						uids[i].append(uid)
+						found = True
+						break
+					i+=1
+
+				#If no match is found
+				if found == False:
+					H_groups.append(H_group)
+					uids.append([uid])
+			else:
+				H_groups.append(H_group)
+				uids.append([uid])
+
 
 	return uids, H_groups
 
@@ -54,42 +68,53 @@ def plot_hist(id_count, bins):
 
 	return None
 
-def select_n(count_h_list, unique_h_list, n):
-	'''Select H-groups with at least n entries.
+def select_n_random(uids, n):
+	'''Select n random uids from each H_group
 	'''
 
-	over_n = [] #Store H_groups with over n entries
-	over_n_count = [] #Store counts for H_groups with over n entries
-	for i in range(0, len(count_h_list)):
-		if count_h_list[i] >= n:
-			over_n.append(unique_h_list[i])
-			over_n_count.append(count_h_list[i])
-			print(unique_h_list[i])
+	selected = random.sample(uids, n)
 
-	print('Number of H-groups with at least ' + str(n) + 'entries: ' + str(len(over_n)))
+	return selected
 
-	return(over_n, over_n_count)
+def write_selected(over_n, n_random, outdir_path):
+	'''Write the selected uids into a file named H_group
+	'''
 
+	for i in range(0, len(over_n)):
+		#Open a file named "H-group to write to"
+		with open(outdir_path+str(over_n[i]), 'w') as file:
+			#Write uids to file
+			for uid in n_random[i]:
+				file.write(uid+'\n')
+
+	return None
 
 #######################MAIN################################
+args = parser.parse_args()
+
+file_path = args.file_path[0]
+outdir_path = args.outdir_path[0]
+
 uids, H_groups = read_tsv(file_path)
 
-count_h = Counter(H_groups).values() #Count occurrence of each h group
-unique_h = Counter(H_groups).keys() #Get all unique h groups
+#Count uids in each H_group:
+uid_counts = [] #Store uid_counts
+over_n = [] #Store H_groups with uid counts over n
+n = 10 #Cutoff
+n_random = [] #Store n randomly selected uids from the H_groups with over n entries
+for i in range(0, len(uids)):
+	uid_counts.append(len(uids[i]))
+	if len(uids[i])>=n:
+		over_n.append(H_groups[i])
+		selected = select_n_random(uids[i], n)
+		n_random.append(selected)
 
-#Turn dicts into lists
-count_h_list = []
-unique_h_list = []
-for i in count_h:
-	count_h_list.append(i)
 
-for j in unique_h:
-	unique_h_list.append(j)
+write_selected(over_n, n_random, outdir_path)
+
+#Convert to log
+#log_h_count = numpy.log10(count_h_list)
 
 
-log_h_count = numpy.log10(count_h_list)
-(over_n, over_n_count) = select_n(count_h_list, unique_h_list, 10)
-
-pdb.set_trace()
 
 
