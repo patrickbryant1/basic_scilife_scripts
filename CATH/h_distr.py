@@ -11,60 +11,42 @@ import glob
 import matplotlib.pyplot as plt
 import pdb
 import numpy
+from collections import Counter
 
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that investigates the distribution of
 									 each H-group in CATH.''')
  
-parser.add_argument('dir_path', nargs=1, type= str,
+parser.add_argument('file_path', nargs=1, type= str,
                   default=sys.stdin, help = 'path to file with H-groups.')
 
 
 args = parser.parse_args()
 
-dir_path= args.dir_path[0]
+file_path= args.file_path[0]
 
 
-def read_ids(dir_path):
+#Functions
+def read_tsv(file_path):
 	'''Read ids and H-groups into list
 	'''
 
-	ids = [] #Store ids
+	uids = [] #Store ids
 	H_groups = [] #Store H-groups
 
-	for text_file in glob.glob(dir_path + '*.txt'):
-		with open(text_file) as file:
-			for line in file:
-				line = line.rstrip() #remove \n
-				pdb_id = line.split('\t')[1] #Get pdb id
-				pdb_ids.append(pdb_id)
+	with open(file_path) as file:
+		for line in file:
+			line = line.rstrip() #remove \n
+			line = line.split(',')
+			uid = line[0]
+			H_group = line[1]
 
-	return pdb_ids
-#Functions
-def compute_stats(dir_path):
-	'''A function that counts the ids for each H-group and returns
-	statistics regarding them.	
-	'''
+			uids.append(uid)
+			H_groups.append(H_group)
 
-	h_counts = {} #dir to save id counts of each H-group
-	h_group = [] #Store h_group
-	id_count = [] #Store id counts for histogram
+	return uids, H_groups
 
-	os.chdir(dir_path)
-	for file in glob.glob("*.txt"):
-		if os.stat(file).st_size == 0:
-			print('empty_file: '+file)
-		else:
-			id_df = pd.read_csv(file, header = None, sep='\n')#get ids for H group, don't read header (no header)
-			num_ids = len(id_df)
-			h_counts[file] = num_ids
-			h_group.append(file)
-			id_count.append(num_ids)
-
-
-
-	return(h_counts, h_group, id_count)
 
 def plot_hist(id_count, bins):
 	plt.hist(id_count, normed = True, bins = bins)
@@ -72,27 +54,41 @@ def plot_hist(id_count, bins):
 
 	return None
 
-def select_n(h_counts, n):
+def select_n(count_h_list, unique_h_list, n):
 	'''Select H-groups with at least n entries.
 	'''
 
-	over_n = {}
-	for key in h_counts:
-		n_entries = h_counts[key]
-		if n_entries >= n:
-			print(key)
-			over_n[key] = n_entries
+	over_n = [] #Store H_groups with over n entries
+	over_n_count = [] #Store counts for H_groups with over n entries
+	for i in range(0, len(count_h_list)):
+		if count_h_list[i] >= n:
+			over_n.append(unique_h_list[i])
+			over_n_count.append(count_h_list[i])
+			print(unique_h_list[i])
 
 	print('Number of H-groups with at least ' + str(n) + 'entries: ' + str(len(over_n)))
 
-	return over_n
+	return(over_n, over_n_count)
 
 
 #######################MAIN################################
-(h_counts, h_group, id_count) = compute_stats(dir_path)
+uids, H_groups = read_tsv(file_path)
 
-log_id_count = numpy.log10(id_count)
-over_n = select_n(h_counts, 10)
+count_h = Counter(H_groups).values() #Count occurrence of each h group
+unique_h = Counter(H_groups).keys() #Get all unique h groups
+
+#Turn dicts into lists
+count_h_list = []
+unique_h_list = []
+for i in count_h:
+	count_h_list.append(i)
+
+for j in unique_h:
+	unique_h_list.append(j)
+
+
+log_h_count = numpy.log10(count_h_list)
+(over_n, over_n_count) = select_n(count_h_list, unique_h_list, 10)
 
 pdb.set_trace()
 
