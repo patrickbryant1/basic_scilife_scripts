@@ -32,7 +32,7 @@ def get_pairwise_dist(file_path):
 				
 				uid_pairs.append(uid)
 
-			if 'RMSD' in line:
+			if 'RMSD=' in line:
 				line = line.rstrip() #remove \n
 				line = line.split(",") #split on ,
 				RMSD = line[1].split(' ')[-1] #Split on space

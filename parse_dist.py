@@ -28,14 +28,11 @@ def print_pairwise_dist(dir_path):
 	count = 0 #Keep track of number of files used
 	os.chdir(dir_path)
 	for file in glob.glob("*.dist"):
-		#count+=1
-		#print(count)
-		print(file)
 		name = file.split('.') #Split filename on .
 		uids = name[0].split('_') #Separate uids
 		uid_1 = uids[0] #Get uid_1
 		uid_2 = uids[1] #Get uid_2
-
+		
 		with open(file) as file:
 			for line in file:
 				line = line.rstrip()
@@ -55,4 +52,3 @@ def print_pairwise_dist(dir_path):
 args = parser.parse_args()
 dir_path = args.dir_path[0]
 print_pairwise_dist(dir_path) #Get uids and distances
-pdb.set_trace()
