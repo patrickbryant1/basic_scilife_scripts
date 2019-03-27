@@ -40,6 +40,7 @@ def get_pairwise_dist(file_path):
 				print(uid_pairs[0] + '\t' + uid_pairs[1] + '\t' + str(RMSD))
 				uid_pairs = [] #reset list of pairs
 
+	pdb.set_trace()
 
 
 	return None
