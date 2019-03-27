@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+
 # -*- coding: utf-8 -*-
 
 
@@ -6,7 +7,7 @@ import argparse
 import sys
 import os
 import subprocess
-import pexpect
+#import pexpect
 import pdb
 
 
@@ -94,12 +95,12 @@ file_names = get_alignments(align_file)
 print('Number of files to tree-puzzle: '+str(len(file_names)))
 #Run tree-puzzle on the files
 for name in file_names:
-
+	message_1 = "/home/p/pbryant/pfs/tree-puzzle-5.3.rc16-linux/src/puzzle"
 	try:
-		child = pexpect.spawn("puzzle " + name)
-		child.expect("WELCOME TO TREE-PUZZLE 5.3.rc16!")
-		child.sendline('y')
+		p = subprocess.Popen([message_1, name], stdin=subprocess.PIPE)
+		p.communicate(b'y\nn\n')[0]
+		#p.wait()
+	#	p2 = subprocess.Popen(['y'])
+	
 	except:
-		raise IOerror(name)
-
-
+		raise IOError(name)

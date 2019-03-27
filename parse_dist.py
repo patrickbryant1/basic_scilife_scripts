@@ -5,7 +5,6 @@
 import argparse
 import sys
 import os
-import pandas as pd
 import glob
 import pdb
 
@@ -31,7 +30,7 @@ def print_pairwise_dist(dir_path):
 	for file in glob.glob("*.dist"):
 		#count+=1
 		#print(count)
-
+		print(file)
 		name = file.split('.') #Split filename on .
 		uids = name[0].split('_') #Separate uids
 		uid_1 = uids[0] #Get uid_1
@@ -56,3 +55,4 @@ def print_pairwise_dist(dir_path):
 args = parser.parse_args()
 dir_path = args.dir_path[0]
 print_pairwise_dist(dir_path) #Get uids and distances
+pdb.set_trace()
