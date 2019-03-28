@@ -32,7 +32,7 @@ def get_pairwise_dist(file_path):
 				
 				uid_pairs.append(uid)
 
-			if 'RMSD' in line:
+			if 'RMSD=' in line:
 				line = line.rstrip() #remove \n
 				line = line.split(",") #split on ,
 				RMSD = line[1].split(' ')[-1] #Split on space
@@ -40,7 +40,7 @@ def get_pairwise_dist(file_path):
 				print(uid_pairs[0] + '\t' + uid_pairs[1] + '\t' + str(RMSD))
 				uid_pairs = [] #reset list of pairs
 
-	pdb.set_trace()
+
 
 
 	return None
