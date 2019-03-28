@@ -60,7 +60,7 @@ def match_ids(seq_dist_uids, seq_dist_distances, rmsd_uids, rmsd_distances):
 
 	search_space = list(range(0,len(rmsd_uids))) #Determine intital search space
 	
-	#Iterate through all seq_dist_uids
+		#Iterate through all seq_dist_uids
 	for i in range(0, len(seq_dist_uids)):
 		seq_dist_uid_pair = seq_dist_uids[i].split('/') #Split on slash
 		seq_dist_uid_1 = seq_dist_uid_pair[0]
@@ -72,15 +72,13 @@ def match_ids(seq_dist_uids, seq_dist_distances, rmsd_uids, rmsd_distances):
 		#Match seq_dist_uids to rmsd_uids
 		for j in range(0,len(search_space)):
 			
-			print(j, len(search_space))
 			rmsd_uid_pair = rmsd_uids[search_space[j]] #get rmsd_uid_pair for search space index
 			if (seq_dist_uid_1 in rmsd_uid_pair) and (seq_dist_uid_2 in rmsd_uid_pair):
-				print(seq_dist_uid_1,seq_dist_uid_2,rmsd_uid_pair)
 				#Save rmsd distance
 				structural_distances.append(rmsd_distances[search_space[j]])
 
 				#Print in tsv
-				#print(seq_dist_uid_1 + '\t' + seq_dist_uid_2 + '\t' + seq_dist + '\t' + rmsd_distances[j])
+				print(seq_dist_uid_1 + '\t' + seq_dist_uid_2 + '\t' + seq_dist + '\t' + rmsd_distances[search_space[j]])
 				search_space.pop(j) #Remove item to reduce search space
 				break #When item is found, break out of loop
 
@@ -90,8 +88,6 @@ def match_ids(seq_dist_uids, seq_dist_distances, rmsd_uids, rmsd_distances):
 
 		
 
-
-	pdb.set_trace()
 
 	return(sequence_distances, structural_distances)
 
@@ -113,4 +109,3 @@ if len(seq_dist_uids) != len(rmsd_uids):
 
 #Match uids and
 (sequence_distances, structural_distances) = match_ids(seq_dist_uids, seq_dist_distances, rmsd_uids, rmsd_distances)
-pdb.set_trace()
