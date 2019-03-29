@@ -64,7 +64,7 @@ def read_tsv(file_path):
 
 
 def plot_hist(id_count, bins):
-	plt.hist(id_count, normed = True, bins = bins)
+	plt.hist(id_count, bins = bins)
 	plt.show()
 
 	return None
