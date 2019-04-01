@@ -67,11 +67,11 @@ def print_alignment(uid_pairs, aligned_seqs):
 	'''
 	
 	#Define file name
-	file_name = uid_pairs[0] + '_' + uid_pairs[1] + '.phy'
+	file_name = uid_pairs[0] + '_' + uid_pairs[1] + '.aln'
 	#Open file and write text to it
 	with open(file_name, "w") as file:
 		file.write(aligned_seqs[0]+'\n')
-		file.write(aligned_seq[1])
+		file.write(aligned_seqs[2])
 
 	return file_name
 
