@@ -6,8 +6,7 @@
 import argparse
 import sys
 import os
-import subprocess
-#import pexpect
+
 import pdb
 
 
@@ -48,9 +47,8 @@ def get_alignments(file_path):
 					line = line.rstrip() #remove \n
 					aligned_seqs.append(line) #Append to list
 				else:
-					file_name = make_phylip(uid_pairs, aligned_seqs)
+					file_name = print_alignment(uid_pairs, aligned_seqs)
 					file_names.append(file_name)
-					pdb.set_trace()
 					fetch_next_3 = False
 					uid_pairs = [] #reset list of pairs
 					aligned_seqs = [] #reset aligned seqs
@@ -64,22 +62,16 @@ def get_alignments(file_path):
 
 	return file_names
 
-def make_phylip(uid_pairs, aligned_seqs):
-	'''Print phylip format for tree-puzzle calculations
+def print_alignment(uid_pairs, aligned_seqs):
+	'''Print alignment for input to RNN
 	'''
-	#Create text in phylip format
-	text = (' 4  ' + str(len(aligned_seqs[0])) + '\n'
-			+ uid_pairs[0] + '00|' + aligned_seqs[0] + '\n'
-			+ 'copy11111' + '|' + aligned_seqs[0] + '\n'
-			+ uid_pairs[1] + '00|' + aligned_seqs[2] + '\n'
-			+ 'copy22222' + '|' + aligned_seqs[2] + '\n')
 	
-
 	#Define file name
 	file_name = uid_pairs[0] + '_' + uid_pairs[1] + '.phy'
 	#Open file and write text to it
 	with open(file_name, "w") as file:
-		file.write(text)
+		file.write(aligned_seqs[0]+'\n')
+		file.write(aligned_seq[1])
 
 	return file_name
 
@@ -91,17 +83,7 @@ align_file = args.align_file[0]
 
 
 
-#Make .phy files with alignments
+#Make files with alignments
 file_names = get_alignments(align_file)
-print('Number of files to tree-puzzle: '+str(len(file_names)))
-#Run tree-puzzle on the files
-for name in file_names:
-	message_1 = "/home/p/pbryant/pfs/tree-puzzle-5.3.rc16-linux/src/puzzle"
-	try:
-		p = subprocess.Popen([message_1, name], stdin=subprocess.PIPE)
-		p.communicate(b'y\nn\n')[0]
-		#p.wait()
-	#	p2 = subprocess.Popen(['y'])
-	
-	except:
-		raise IOError(name)
+print('Number of extracted per-residue alignments from TMalign: '+str(len(file_names)))
+
