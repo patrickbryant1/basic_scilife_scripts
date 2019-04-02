@@ -39,16 +39,25 @@ def parse_info(dir_path):
 
 	for file in glob.glob("*_dssp"):
 		name = file.split('.')[0] #Split filename on .
-		uids = name[0].split('_') #Separate uids
-		uid_1 = uids[0] #Get uid_1
-		uid_2 = uids[1] #Get uid_2
 		
+		fetch_lines = False #Don't fetch unwanted lines
 		with open(file) as file:
 			for line in file:
-				line = line.rstrip()
+				if fetch_lines == True:
+					line = line.rstrip()
+
+					secondary_str = line[16]
+					surface_acc = line[35:38].strip()
+
+					print(secondary_str + '\t' + surface_acc)
+
+				if '#' in line:
+					fetch_lines = True
+					#now the subsequent lines will be fetched
+				
 
 
-
+	return None
 
 
 
@@ -58,3 +67,5 @@ def parse_info(dir_path):
 #MAIN
 args = parser.parse_args()
 dir_path = args.dir_path[0]
+
+parse_info(dir_path)
