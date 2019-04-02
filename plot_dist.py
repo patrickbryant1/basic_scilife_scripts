@@ -25,7 +25,7 @@ parser.add_argument('dist_file', nargs=1, type= str,
 
 #FUNCTIONS
 
-def read_tsv(tsv_file):
+def read_tsv(tsv_file, threshold):
 	'''Read tsv file format containing: uid1 \t uid2 \t ML distance \t RMSD distance
 	'''
 
@@ -39,9 +39,12 @@ def read_tsv(tsv_file):
 			line = line.rstrip() #Remove newlines
 			line = line.split("\t")
 			ML_dist = round(float(line[2]), 2)
-			ML_dists.append(ML_dist)
-			rmsd_dists.append(float(line[3]))
-			Z.append((ML_dist,float(line[3])))
+			if ML_dist <= threshold:
+				ML_dists.append(ML_dist)
+				rmsd_dists.append(float(line[3]))
+				Z.append((ML_dist,float(line[3])))
+			else:
+				continue
 
 	
 	return(ML_dists, rmsd_dists, Z)
@@ -69,9 +72,9 @@ args = parser.parse_args()
 dist_file = args.dist_file[0]
 
 #Read tsv
-(ML_dists, rmsd_dists, Z) = read_tsv(dist_file)
+(ML_dists, rmsd_dists, Z) = read_tsv(dist_file, 6)
 
-
+print(len(ML_dists))
 #100 since 2 decimals?
 #E.g. 10*9 in z, means 90 bins --> can differ max 0.1 to be in the same bin (accuracy = 0.01)
 xedges, yedges = np.linspace(0, 9, 10*9), np.linspace(0, 8, 10*8)
