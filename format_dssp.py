@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description = '''A program that parses output f
     								S = bend (the only non-hydrogen-bond based assignment).
     								C = coil (residues which are not in any of the above conformations). 
     							As well as surface accessibility for
-								each residue.''')
+								each residue. The output is in .csv format''')
  
 parser.add_argument('dir_path', nargs=1, type= str,
                   default=sys.stdin, help = '''path to directory with dssp output files. The files should have names
@@ -40,6 +40,9 @@ def parse_info(dir_path):
 	for file in glob.glob("*_dssp"):
 		name = file.split('.')[0] #Split filename on .
 		
+		c1 = [] #column 1 in output
+		c2 = [] #column 2 in output
+
 		fetch_lines = False #Don't fetch unwanted lines
 		with open(file) as file:
 			for line in file:
@@ -49,19 +52,29 @@ def parse_info(dir_path):
 					secondary_str = line[16]
 					surface_acc = line[35:38].strip()
 
-					print(secondary_str + '\t' + surface_acc)
+					c1.append(secondary_str)
+					c2.append(surface_acc)
+					
 
 				if '#' in line:
 					fetch_lines = True
 					#now the subsequent lines will be fetched
-				
+		write_to_file(c1,c2,name)
 
 
 	return None
 
+def write_to_file(c1, c2, name):
+	'''Write .csv file with secondary structure and surface accessibility 
+	'''
+
+	with open(name+'_dssp.csv', 'w') as file:
+		for i in range(0,len(c1)):
+			file.write(c1[i] + ',' + c2[i] + '\n')
 
 
 
+	return None
 
 
 #MAIN
