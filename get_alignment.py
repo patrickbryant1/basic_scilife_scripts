@@ -17,8 +17,11 @@ parser = argparse.ArgumentParser(description = '''A program that takes aligned r
 parser.add_argument('align_file', nargs=1, type= str,
                   default=sys.stdin, help = 'path to file with TMalign output.')
 
+parser.add_argument('out_dir', nargs=1, type= str,
+                  default=sys.stdin, help = 'path to output directory (include / in end).')
+
 #Functions
-def get_alignments(file_path):
+def get_alignments(file_path, out_dir):
 	'''A function that gets the aligned residue pairs from the structural
 	   alignment from TMalign and writes them to files in phylip format
 	   including copies of each sequence due to the quartet requirement of tree-puzzle.
@@ -47,7 +50,7 @@ def get_alignments(file_path):
 					line = line.rstrip() #remove \n
 					aligned_seqs.append(line) #Append to list
 				else:
-					file_name = print_alignment(uid_pairs, aligned_seqs)
+					file_name = print_alignment(uid_pairs, aligned_seqs, out_dir)
 					file_names.append(file_name)
 					fetch_next_3 = False
 					uid_pairs = [] #reset list of pairs
@@ -62,14 +65,14 @@ def get_alignments(file_path):
 
 	return file_names
 
-def print_alignment(uid_pairs, aligned_seqs):
+def print_alignment(uid_pairs, aligned_seqs, out_dir):
 	'''Print alignment for input to RNN
 	'''
 	
 	#Define file name
 	file_name = uid_pairs[0] + '_' + uid_pairs[1] + '.aln'
 	#Open file and write text to it
-	with open(file_name, "w") as file:
+	with open(out_dir+file_name, "w") as file:
 		file.write(aligned_seqs[0]+'\n')
 		file.write(aligned_seqs[2])
 
@@ -80,10 +83,10 @@ def print_alignment(uid_pairs, aligned_seqs):
 args = parser.parse_args()
 
 align_file = args.align_file[0]
-
+out_dir = args.out_dir[0]
 
 
 #Make files with alignments
-file_names = get_alignments(align_file)
+file_names = get_alignments(align_file, out_dir)
 print('Number of extracted per-residue alignments from TMalign: '+str(len(file_names)))
 

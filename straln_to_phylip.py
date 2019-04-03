@@ -50,7 +50,6 @@ def get_alignments(file_path):
 				else:
 					file_name = make_phylip(uid_pairs, aligned_seqs)
 					file_names.append(file_name)
-					pdb.set_trace()
 					fetch_next_3 = False
 					uid_pairs = [] #reset list of pairs
 					aligned_seqs = [] #reset aligned seqs
@@ -100,8 +99,6 @@ for name in file_names:
 	try:
 		p = subprocess.Popen([message_1, name], stdin=subprocess.PIPE)
 		p.communicate(b'y\nn\n')[0]
-		#p.wait()
-	#	p2 = subprocess.Popen(['y'])
-	
+		
 	except:
 		raise IOError(name)
