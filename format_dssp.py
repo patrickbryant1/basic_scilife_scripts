@@ -34,8 +34,9 @@ parser = argparse.ArgumentParser(description = '''A program that parses output f
 								''')
  
 parser.add_argument('dir_path', nargs=1, type= str,
-                  default=sys.stdin, help = '''path to directory with dssp output files. The files should have names
-                  on the form: uid1.phy_dssp''')
+                  default=sys.stdin, help = '''path to directory with dssp output and TMalign per residue alignment files. 
+                  The dssp files should have names on the form: uid1.phy_dssp
+                  The alignment files should have names on the form: uid1_uid2.aln ''')
 
 parser.add_argument('out_path', nargs=1, type= str,
                   default=sys.stdin, help = '''path to output directory. include / in end''')
@@ -83,9 +84,32 @@ max_acc = { 'A':121,
 			'X':192 #Average of all other maximum surface accessibilites
 		  }
 
-
+#Encoding for amino acid sequence from extracted per residue alignment from TMalign structural alignment
+seq_encoding = {'A':[1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'R':[0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'N':[0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'D':[0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'C':[0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'E':[0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'Q':[0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'G':[0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'H':[0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'I':[0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'L':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'K':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'M':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'F':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+				'P':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0.],
+				'S':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0.],
+				'T':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
+				'W':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],
+				'Y':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
+				'V':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0.],
+				'X':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0.],
+				'-':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.] 
+				}
 #Functions
-def parse_info(dir_path, out_path):
+def encode_dssp(dir_path):
 	'''Parse secondary structure descriptions
 	and surface accessibility for dssp output.
 	'''
@@ -93,8 +117,10 @@ def parse_info(dir_path, out_path):
 	#chdir to directory with files
 	os.chdir(dir_path)
 
+	dssp_hot = {} #save dssp output in one-hot encodings
+
 	for file in glob.glob("*_dssp"):
-		name = file.split('.')[0] #Split filename on .
+		uid = file.split('.')[0] #Split filename on .
 		
 		secondary_str = [] #save str
 		surface_acc = [] #save acc
@@ -141,16 +167,85 @@ def parse_info(dir_path, out_path):
 		#Convert secondary_str_hot to numpy array as well
 		secondary_str_hot = np.array(secondary_str_hot)
 
-		#Write to file
-		np.savetxt(out_path+name+'_acc', surface_acc_hot)
-		np.savetxt(out_path+name+'_str', secondary_str_hot)
 
+		#Save to dict
+		dssp_hot[uid] = [surface_acc_hot, secondary_str_hot]
 		
+		
+	return dssp_hot
+
+
+def encode_aln(dir_path, dssp_hot, out_path):
+
+	for file in glob.glob("*.aln"):
+		names = file.split('.')[0] #Split filename on .
+		names = names.split('_')
+		uid1 = names[0]
+		uid2 = names[1]
+
+		with open(file) as file:
+			n = 0 #keep track of line number
+			for line in file:
+				if n == 0:
+					seq1 = line.rstrip()
+					n+=1
+				if n == 1:
+					seq2 = line.rstrip()
+
+		#Get one-hot dssp encodings for uids
+		dssp1 = dssp_hot[uid1]
+		dssp2 = dssp_hot[uid2]
+
+		print(uid1, uid2)
+		enc1 = encode_out(seq1, dssp1)
+		enc2 = encode_out(seq2, dssp2)
+
+		pdb.set_trace()
 	return None
 
+def encode_out(sequence, dssp):
+	'''Make one-hot encoding of amino acids in sequence
+	and add corresponding encoding for dssp metrics and
+	write to file
+	'''
+
+	#assign acc and structrural encodings
+	surface_acc_hot, secondary_str_hot = dssp[0], dssp[1]
+	dssp_a = 0 #keep track of dssp pos, will not match to sequence due to gaps
+
+	gap_acc = np.eye(101)[0] #The gap surface accessibility should be 0
+	all_hot = [] #save all one-hot encodings for each residue
+
+
+	for a in sequence:
+		a_hot = seq_encoding[a] #Encode residue
+
+		if a == '-': #if a gap
+			a_str = str_encoding[a] #get str encoding for gap
+			a_acc = gap_acc #get gap acc
+			cat_enc = np.concatenate((a_hot, a_str, a_acc)) #cat
+			all_hot.append(cat_enc) #append to representation
+
+		else: #if something else than a gap
+			a_str = secondary_str_hot[dssp_a] #get str encoding 
+			a_acc = surface_acc_hot[dssp_a] #get acc encoding
+			cat_enc = np.concatenate((a_hot, a_str, a_acc)) #cat
+			all_hot.append(cat_enc) #append to representation
+			
+
+			dssp_a +=1
+		
+
+	return all_hot
 
 #MAIN
 args = parser.parse_args()
 dir_path = args.dir_path[0]
 out_path = args.out_path[0]
-parse_info(dir_path, out_path)
+
+#Encode dssp output
+dssp_hot = encode_dssp(dir_path)
+
+#Encode alignment and add dssp encoding and write to file
+encode_aln(dir_path, dssp_hot, out_path)
+
