@@ -37,6 +37,11 @@ parser.add_argument('dir_path', nargs=1, type= str,
                   default=sys.stdin, help = '''path to directory with dssp output files. The files should have names
                   on the form: uid1.phy_dssp''')
 
+parser.add_argument('out_path', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to output directory. include / in end''')
+
+
+
 ####Normalization and Encoding####
 #one-hot encoding
 str_encoding = {'G':[1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
@@ -48,7 +53,7 @@ str_encoding = {'G':[1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
 				'S':[0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
 				'C':[0., 0., 0., 0., 0., 0., 0., 1., 0., 0.],
 				' ':[0., 0., 0., 0., 0., 0., 0., 0., 1., 0.],
-				'-':[0., 0., 0., 0., 0., 0., 0., 0., 0., 1.] #gap
+				'-':[0., 0., 0., 0., 0., 0., 0., 0., 0., 1.] #gap, used in later stage
 				}
 
 #Max acc surface areas for each amino acid according to empirical measurements in:
@@ -74,12 +79,13 @@ max_acc = { 'A':121,
 			'T':163,
 			'W':264,
 			'Y':255,
-			'V':165
+			'V':165,
+			'X':192 #Average of all other maximum surface accessibilites
 		  }
 
 
 #Functions
-def parse_info(dir_path):
+def parse_info(dir_path, out_path):
 	'''Parse secondary structure descriptions
 	and surface accessibility for dssp output.
 	'''
@@ -105,20 +111,20 @@ def parse_info(dir_path):
 					line = line.rstrip()
 
 					residue = line[13]
-					str_i = line[16]
-					acc_i = line[35:38].strip()
+					if residue != '!' and residue != '!*':
+						str_i = line[16]
+						acc_i = line[35:38].strip()
 
-					#Normalize acc_i by the max acc surface area for the specific amino acid
-					#Round to whole percent
-					
-					acc_i_norm = round((float(acc_i)/max_acc[residue])*100, )
-					acc_i_norm = min(acc_i_norm, 100) #Should not be over 100 percent
-					#Add original values
-					secondary_str.append(str_i)
-					surface_acc.append(acc_i_norm)
+						#Normalize acc_i by the max acc surface area for the specific amino acid
+						#Round to whole percent
+						acc_i_norm = round((float(acc_i)/max_acc[residue])*100, )
+						acc_i_norm = min(acc_i_norm, 100) #Should not be over 100 percent
+						#Add original values
+						secondary_str.append(str_i)
+						surface_acc.append(acc_i_norm)
 
-					#Add one-hot encodings
-					secondary_str_hot.append(str_encoding[str_i])
+						#Add one-hot encodings
+						secondary_str_hot.append(str_encoding[str_i])
 				
 					
 
@@ -127,7 +133,8 @@ def parse_info(dir_path):
 					#now the subsequent lines will be fetched
 		
 
-		#Format surface_acc to one_hot encodings (0-100 --> 101 possible values)
+		#Format surface_acc to one_hot encodings (0-100, gap, unknown residues. The
+		#gap and unknown residues will be assigned 0 --> 101 possible values)
 		surface_acc = np.array(surface_acc) #Convert to numpy array
 		surface_acc_hot = np.eye(101)[surface_acc] #convert to one-hot encoding
 
@@ -135,32 +142,15 @@ def parse_info(dir_path):
 		secondary_str_hot = np.array(secondary_str_hot)
 
 		#Write to file
-		np.savetxt(name+'_acc', surface_acc_hot)
-		np.savetxt(name+'_str', secondary_str_hot)
+		np.savetxt(out_path+name+'_acc', surface_acc_hot)
+		np.savetxt(out_path+name+'_str', secondary_str_hot)
 
-		#write_to_file(secondary_str_hot,surface_acc_hot,name)
 		
-	return None
-
-
-
-def write_to_file(c1, c2, name):
-	'''Write .csv file with secondary structure and surface accessibility 
-	'''
-
-	with open(name+'_dssp.csv', 'w') as file:
-		for i in range(0,len(c1)):
-			print(c1[i])
-			pdb.set_trace()
-			file.write(c1[i] + '\t' + c2[i] + '\n')
-
-
-
 	return None
 
 
 #MAIN
 args = parser.parse_args()
 dir_path = args.dir_path[0]
-
-parse_info(dir_path)
+out_path = args.out_path[0]
+parse_info(dir_path, out_path)
