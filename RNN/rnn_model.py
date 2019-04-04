@@ -7,6 +7,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import glob
+import pandas as pd
 
 #import custom functions
 from rnn_input import read_tsv, rmsd_hot
@@ -28,7 +29,6 @@ parser.add_argument('one_hot_dir', nargs=1, type= str,
 
 #Functions
 
-
 #MAIN
 args = parser.parse_args()
 dist_file = args.dist_file[0]
@@ -41,10 +41,13 @@ rmsd_dists_hot = rmsd_hot(rmsd_dists)
 
 #Get macthing alignments, sendary structure and surface acc
 for i in range(0,len(uids)):
-	file = glob.glob(one_hot_dir + '*/'+uids[i]+'.hot')
+	file_name = glob.glob(one_hot_dir + '*/'+uids[i]+'.hot')
 
-	if file:
-		pdb.set_trace()
+	if file_name:
+		 np.loadtxt(file_name, dtype=int)
+
+
+		
 
 	#raise IOerror if file is not found
 

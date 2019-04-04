@@ -211,10 +211,11 @@ def encode_aln(dir_path, dssp_hot, out_path):
 			raise ValueError('Encodings are of different lengths for: ' + uid1, uid2)
 
 
-		aln_matrix = np.array(aln_matrix)
+		aln_array = np.array(aln_matrix)
 
 		#Save matrix to disk
-		np.savetxt(out_path+uid1+'_'+uid2+'.hot', aln_matrix, fmt='%d')
+		np.savetxt(out_path+uid1+'_'+uid2+'.hot', aln_array, fmt='%d')
+
 	return None
 
 def encode_out(sequence, dssp):
@@ -250,6 +251,14 @@ def encode_out(sequence, dssp):
 			dssp_a +=1
 
 	return all_hot
+
+def write_encoding(aln_matrix, name):
+	'''Write the one-hot encoding to a file
+	'''
+
+	with open(name, 'w') as file:
+		for i in aln_matrix:
+			file.write(i)
 
 #MAIN
 args = parser.parse_args()
