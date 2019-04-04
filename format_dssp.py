@@ -200,7 +200,21 @@ def encode_aln(dir_path, dssp_hot, out_path):
 		enc1 = encode_out(seq1, dssp1)
 		enc2 = encode_out(seq2, dssp2)
 
-		pdb.set_trace()
+		if len(enc1) == len(enc2): #If the encodings are of equal lengths
+			aln_matrix = []
+
+			for i in range(0, len(enc1)):
+				aln_matrix.append(np.concatenate((enc1[i], enc2[i])))
+
+
+		else:
+			raise ValueError('Encodings are of different lengths for: ' + uid1, uid2)
+
+
+		aln_matrix = np.array(aln_matrix)
+
+		#Save matrix to disk
+		np.savetxt(out_path+uid1+'_'+uid2+'.hot', aln_matrix, fmt='%d')
 	return None
 
 def encode_out(sequence, dssp):
