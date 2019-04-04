@@ -214,7 +214,7 @@ def encode_aln(dir_path, dssp_hot, out_path):
 		aln_matrix = np.array(aln_matrix)
 
 		#Save matrix to disk
-		np.savetxt(out_path+uid1+'_'+uid2+'.hot', aln_matrix)
+		np.savetxt(out_path+uid1+'_'+uid2+'.hot', aln_matrix, fmt='%d')
 	return None
 
 def encode_out(sequence, dssp):
