@@ -248,7 +248,6 @@ def encode_out(sequence, dssp):
 			
 
 			dssp_a +=1
-		
 
 	return all_hot
 
