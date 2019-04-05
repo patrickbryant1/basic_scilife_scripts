@@ -65,9 +65,9 @@ dist_file = args.dist_file[0]
 one_hot_dir = args.one_hot_dir[0]
 out_dir = args.out_dir[0]
 #Read tsv
-(uids, rmsd_dists) = read_tsv(dist_file, 6)
+(uids, rmsd_dists_t, rmsd_dists) = read_tsv(dist_file, 6)
 #Format rmsd_dists into one-hot encoding
-rmsd_dists_hot = rmsd_hot(rmsd_dists)
+rmsd_dists_hot = rmsd_hot(rmsd_dists_t)
 
 
 #Get macthing alignments, sendary structure and surface acc

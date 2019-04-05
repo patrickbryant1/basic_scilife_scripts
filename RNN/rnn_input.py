@@ -7,6 +7,7 @@ def read_tsv(tsv_file, threshold):
 	'''
 
 	uids = [] #Store uids
+	rmsd_dists_t = [] #Store rmsd distances with ML_dists under threshold
 	rmsd_dists = [] #Store rmsd distances
 	
 	with open(tsv_file) as file:
@@ -14,15 +15,16 @@ def read_tsv(tsv_file, threshold):
 			line = line.rstrip() #Remove newlines
 			line = line.split("\t")
 			ML_dist = round(float(line[2]), 2)
+			rmsd_dists.append(float(line[3]))
 			if ML_dist <= threshold:
-				rmsd_dists.append(float(line[3]))
+				rmsd_dists_t.append(float(line[3]))
 				
 				uids.append(line[0]+'_'+line[1])				
 			else:
 				continue
 
 	
-	return(uids, rmsd_dists)
+	return(uids, rmsd_dists_t, rmsd_dists)
 
 
 def rmsd_hot(rmsd_dists):
