@@ -214,8 +214,9 @@ def encode_aln(dir_path, dssp_hot, out_path):
 		aln_array = np.array(aln_matrix)
 
 		#Save matrix to disk
-		np.savetxt(out_path+uid1+'_'+uid2+'.hot', aln_array, fmt='%d')
-
+		
+		np.savetxt(out_path+uid1+'_'+uid2+'.hot', aln_array)#, fmt='%d')
+		#pdb.set_trace()
 	return None
 
 def encode_out(sequence, dssp):

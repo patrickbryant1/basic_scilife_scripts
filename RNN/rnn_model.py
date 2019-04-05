@@ -44,7 +44,10 @@ for i in range(0,len(uids)):
 	file_name = glob.glob(one_hot_dir + '*/'+uids[i]+'.hot')
 
 	if file_name:
-		 np.loadtxt(file_name, dtype=int)
+
+		#pdb.set_trace()
+		matrix = np.loadtxt(file_name[0])
+		pdb.set_trace()
 
 
 		
