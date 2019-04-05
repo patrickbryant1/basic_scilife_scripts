@@ -159,17 +159,16 @@ def encode_dssp(dir_path):
 					#now the subsequent lines will be fetched
 		
 
-		#Format surface_acc to one_hot encodings (0-100, gap, unknown residues. The
-		#gap and unknown residues will be assigned 0 --> 101 possible values)
+		#Make one-hot array
 		surface_acc = np.array(surface_acc) #Convert to numpy array
-		surface_acc_hot = np.eye(101)[surface_acc] #convert to one-hot encoding
+		
 
 		#Convert secondary_str_hot to numpy array as well
 		secondary_str_hot = np.array(secondary_str_hot)
 
 
 		#Save to dict
-		dssp_hot[uid] = [surface_acc_hot, secondary_str_hot]
+		dssp_hot[uid] = [surface_acc, secondary_str_hot]
 		
 		
 	return dssp_hot
@@ -215,8 +214,8 @@ def encode_aln(dir_path, dssp_hot, out_path):
 
 		#Save matrix to disk
 		
-		np.savetxt(out_path+uid1+'_'+uid2+'.hot', aln_array)#, fmt='%d')
-		#pdb.set_trace()
+		np.savetxt(out_path+uid1+'_'+uid2+'.enc', aln_array)#, fmt='%d')
+
 	return None
 
 def encode_out(sequence, dssp):
@@ -226,32 +225,32 @@ def encode_out(sequence, dssp):
 	'''
 
 	#assign acc and structrural encodings
-	surface_acc_hot, secondary_str_hot = dssp[0], dssp[1]
+	surface_acc, secondary_str_hot = dssp[0], dssp[1]
 	dssp_a = 0 #keep track of dssp pos, will not match to sequence due to gaps
 
-	gap_acc = np.eye(101)[0] #The gap surface accessibility should be 0
-	all_hot = [] #save all one-hot encodings for each residue
+	gap_acc = 0 #The gap surface accessibility should be 0
+	enc = [] #save all encodings for each residue
 
-
+	
 	for a in sequence:
 		a_hot = seq_encoding[a] #Encode residue
 
 		if a == '-': #if a gap
 			a_str = str_encoding[a] #get str encoding for gap
 			a_acc = gap_acc #get gap acc
-			cat_enc = np.concatenate((a_hot, a_str, a_acc)) #cat
-			all_hot.append(cat_enc) #append to representation
+			cat_enc = np.concatenate((a_hot, a_str, [a_acc])) #cat
+			enc.append(cat_enc) #append to representation
 
 		else: #if something else than a gap
 			a_str = secondary_str_hot[dssp_a] #get str encoding 
-			a_acc = surface_acc_hot[dssp_a] #get acc encoding
-			cat_enc = np.concatenate((a_hot, a_str, a_acc)) #cat
-			all_hot.append(cat_enc) #append to representation
+			a_acc = surface_acc[dssp_a] #get acc encoding
+			cat_enc = np.concatenate((a_hot, a_str, [a_acc])) #cat
+			enc.append(cat_enc) #append to representation
 			
 
 			dssp_a +=1
 
-	return all_hot
+	return enc
 
 def write_encoding(aln_matrix, name):
 	'''Write the one-hot encoding to a file
