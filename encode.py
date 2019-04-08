@@ -96,6 +96,7 @@ def encode_dssp(dir_path):
 		with open(file) as file:
 			for line in file:
 				if fetch_lines == True:
+					
 					line = line.rstrip()
 					str_i = line[16]
                                         residue = line[13]
@@ -109,7 +110,9 @@ def encode_dssp(dir_path):
 						acc_i_norm = min(acc_i_norm, 100) #Should not be over 100 percent
 					
 					else: #If a chain break
-						acc_i = 0
+						acc_i_norm = 0
+					
+
 					#Add values
 					secondary_str.append(str_i)
 					surface_acc.append(acc_i_norm)
