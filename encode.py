@@ -8,7 +8,6 @@ import os
 import glob
 import numpy as np
 
-
 import pdb
 
 
@@ -88,7 +87,7 @@ def encode_dssp(dir_path):
 		
 		secondary_str = [] #save str
 		surface_acc = [] #save acc
-
+		residues = '' #save residues
 
 
 
@@ -100,6 +99,7 @@ def encode_dssp(dir_path):
 					line = line.rstrip()
 					str_i = line[16]
 					residue = line[13]
+					residues = residues + residue
 					acc_i = line[35:38].strip()
 					
 					if residue != '!' and residue != '!*':
@@ -123,7 +123,7 @@ def encode_dssp(dir_path):
 		
 
 		#Save to dict
-		dssp_info[uid] = [secondary_str, surface_acc]
+		dssp_info[uid] = [secondary_str, surface_acc, residues]
 		
 		
 	return dssp_info
@@ -136,8 +136,9 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 
 	encoded_aln = [] #Save the complete encoding
 	#assign structrural encodings and normalized acc
-	str1, acc1 = dssp1[0], dssp1[1]
-	str2, acc2 = dssp2[0], dssp2[1]
+	str1, acc1, res1 = dssp1[0], dssp1[1], dssp1[2]
+	str2, acc2, res2 = dssp2[0], dssp2[1], dssp2[2]
+
 
 	pos1 = 0 #keep track of dssp pos, will not match to sequence due to gaps
 	pos2 = 0
@@ -145,10 +146,15 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 	gap_acc = 0 #The gap surface accessibility should be 0
 	enc = [] #save all encodings for each residue
 
+
+
+
 	for i in range(0,len(seq1)):
+		
 		aa1 = seq1[i] #Get residues
 		aa2 = seq2[i]
 
+		
 		if aa1 == '-': #if a gap in 1
 			aa1_str = '-' #set encoding to gap
 			aa1_acc = gap_acc #get gap acc
@@ -163,18 +169,17 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 
 			enc = [aa1, str1[pos1], acc1[pos1], aa2, aa2_str, aa2_acc] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
 			encoded_aln.append(enc) #Append encoding to full alignment encoding
-			pos1 +=1 #Increase pos 2 (pos1 is gap)
+			pos1 +=1 #Increase pos 1 (pos2 is gap)
 		
 		if aa1 != '-' and aa2 != '-': #if something else than a gap in both
+			
 			enc = [aa1, str1[pos1], acc1[pos1], aa2, str2[pos2], acc2[pos2]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
 			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos1 +=1
 			pos2 +=1
 
-	print(len(seq1), len(seq2), len(encoded_aln))
-	print(seq1 + '\n' + seq2 + '\n')
 	
-	#pdb.set_trace()
+
 	return encoded_aln
 
 def encode_aln(dir_path, dssp_info, out_path):
@@ -203,17 +208,37 @@ def encode_aln(dir_path, dssp_info, out_path):
 			raise ValueError('Alignments are of different lengths for: ' + uid1, uid2)
 
 
-		
+		#Calculate number of non-gaps in sequence
+		(count1, gapless_seq1) = count_non_gaps(seq1, dssp1[2])
+		(count2, gapless_seq2) = count_non_gaps(seq2, dssp2[2])
 
-		print(uid1, uid2) #Print uid pairs
-		encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
 		#pdb.set_trace()
-		name = out_path+uid1+'_'+uid2+'.enc'
-		write_encoding(encoded_aln, name)
+		if len(dssp1[2]) < count1:
+			print(uid1, len(dssp1[2]), count1)
+		elif len(dssp2[2]) < count2: 
+			print(uid2, len(dssp2[2]), count2)
+		else:
+			encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
+			#pdb.set_trace()
+			name = out_path+uid1+'_'+uid2+'.enc'
+			write_encoding(encoded_aln, name)
 
 	return None
 
+def count_non_gaps(sequence, residues):
+	'''Calculate the non-gaps in sequence to get the true aa count
+	'''
 
+	count = 0
+	gapless_seq = ''
+	for aa in sequence:
+		if aa != '-':
+			count +=1
+			gapless_seq = gapless_seq + aa
+
+	
+
+	return (count, gapless_seq)
 
 def write_encoding(encoded_aln, name):
 	'''Write the encoding to a file
