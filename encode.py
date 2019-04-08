@@ -96,10 +96,10 @@ def encode_dssp(dir_path):
 		with open(file) as file:
 			for line in file:
 				if fetch_lines == True:
-					
+				
 					line = line.rstrip()
 					str_i = line[16]
-                    residue = line[13]
+					residue = line[13]
 					acc_i = line[35:38].strip()
 					
 					if residue != '!' and residue != '!*':
