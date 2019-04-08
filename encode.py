@@ -123,49 +123,6 @@ def encode_dssp(dir_path):
 	return dssp_info
 
 
-def encode_aln(dir_path, dssp_info, out_path):
-
-	for file in glob.glob("*.aln"):
-		names = file.split('.')[0] #Split filename on .
-		names = names.split('_')
-		uid1 = names[0]
-		uid2 = names[1]
-
-		with open(file) as file:
-			n = 0 #keep track of line number
-			for line in file:
-				if n == 0:
-					seq1 = line.rstrip()
-					n+=1
-				if n == 1:
-					seq2 = line.rstrip()
-
-		#Get dssp encodings for uids
-		dssp1 = dssp_info[uid1]
-		dssp2 = dssp_info[uid2]
-
-		print(uid1, uid2) #don't forget to remove this
-		encoding = match_encoding(seq1, dssp1, seq2, dssp2)
-
-		if len(enc1) == len(enc2): #If the encodings are of equal lengths
-			aln_matrix = []
-
-			for i in range(0, len(enc1)):
-				aln_matrix.append(np.concatenate((enc1[i], enc2[i])))
-
-
-		else:
-			raise ValueError('Encodings are of different lengths for: ' + uid1, uid2)
-
-
-		aln_array = np.array(aln_matrix)
-
-		#Save matrix to disk
-		
-		np.savetxt(out_path+uid1+'_'+uid2+'.enc', aln_array)#, fmt='%d')
-
-	return None
-
 def match_encoding(seq1, dssp1, seq2, dssp2):
 	'''Make encoding of amino acids in sequence and add corresponding encoding for 
 	dssp metrics and write to file.
@@ -191,37 +148,77 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 			aa1_str = '-' #set encoding to gap
 			aa1_acc = gap_acc #get gap acc
 
-			enc = [[aa1, aa1_str, gap_acc], [aa2, str2[pos2], acc2[pos2]]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
-			encoded_aln.append(end) #Append encoding to full alignment encoding
+			enc = [aa1, aa1_str, gap_acc, aa2, str2[pos2], acc2[pos2]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
+			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos2 +=1 #Increase pos 2 (pos1 is gap)
 
 		elif aa2 == '-': #if a gap in 2
 			aa2_str = '-' #set encoding to gap
 			aa2_acc = gap_acc #get gap acc
 
-			enc = [[aa1, str1[pos1], acc1[pos1]], [aa2, aa2_str, aa2_acc]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
-			encoded_aln.append(end) #Append encoding to full alignment encoding
+			enc = [aa1, str1[pos1], acc1[pos1], aa2, aa2_str, aa2_acc] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
+			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos1 +=1 #Increase pos 2 (pos1 is gap)
 		
 		else: #if something else than a gap in both
-			enc = [[aa1, str1[pos1], acc1[pos1]], [aa2, str2[pos2], acc2[pos2]]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
-			encoded_aln.append(end) #Append encoding to full alignment encoding
+			enc = [aa1, str1[pos1], acc1[pos1], aa2, str2[pos2], acc2[pos2]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
+			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos1 +=1
 			pos2 +=1
 
-	pdb.set_trace()
 
-	return enc
+	return encoded_aln
+
+def encode_aln(dir_path, dssp_info, out_path):
+
+	for file in glob.glob("*.aln"):
+		names = file.split('.')[0] #Split filename on .
+		names = names.split('_')
+		uid1 = names[0]
+		uid2 = names[1]
+
+		with open(file) as file:
+			n = 0 #keep track of line number
+			for line in file:
+				if n == 0:
+					seq1 = line.rstrip()
+					n+=1
+				if n == 1:
+					seq2 = line.rstrip()
 
 
-def write_encoding(aln_matrix, name):
-	'''Write the one-hot encoding to a file
+		if len(seq1) == len(seq2): #If the seqs are of equal lengths
+			#Get dssp encodings for uids
+			dssp1 = dssp_info[uid1]
+			dssp2 = dssp_info[uid2]
+		else:
+			raise ValueError('Alignments are of different lengths for: ' + uid1, uid2)
+
+
+		
+
+		print(uid1, uid2) #Print uid pairs
+		encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
+
+		name = out_path+uid1+'_'+uid2+'.enc'
+		write_encoding(encoded_aln, name)
+
+	return None
+
+
+
+def write_encoding(encoded_aln, name):
+	'''Write the encoding to a file
 	'''
 
 	with open(name, 'w') as file:
-		for i in aln_matrix:
-			file.write(i)
+		for enc_pair in encoded_aln:
+			for i in enc_pair:
+				file.write(str(i)+',')
+			file.write('\n')
 
+
+	return None
 #MAIN
 args = parser.parse_args()
 dir_path = args.dir_path[0]
