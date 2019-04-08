@@ -145,14 +145,10 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 	gap_acc = 0 #The gap surface accessibility should be 0
 	enc = [] #save all encodings for each residue
 
-	print(len(seq1))
-
 	for i in range(0,len(seq1)):
 		aa1 = seq1[i] #Get residues
 		aa2 = seq2[i]
-		print(pos1,len(str1), pos2, len(str2))
-		if pos2 >= len(str2):
-			pdb.set_trace()
+
 		if aa1 == '-': #if a gap in 1
 			aa1_str = '-' #set encoding to gap
 			aa1_acc = gap_acc #get gap acc
@@ -161,7 +157,7 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos2 +=1 #Increase pos 2 (pos1 is gap)
 
-		elif aa2 == '-': #if a gap in 2
+		if aa2 == '-': #if a gap in 2
 			aa2_str = '-' #set encoding to gap
 			aa2_acc = gap_acc #get gap acc
 
@@ -169,13 +165,16 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos1 +=1 #Increase pos 2 (pos1 is gap)
 		
-		else: #if something else than a gap in both
+		if aa1 != '-' and aa2 != '-': #if something else than a gap in both
 			enc = [aa1, str1[pos1], acc1[pos1], aa2, str2[pos2], acc2[pos2]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
 			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos1 +=1
 			pos2 +=1
 
-
+	print(len(seq1), len(seq2), len(encoded_aln))
+	print(seq1 + '\n' + seq2 + '\n')
+	
+	#pdb.set_trace()
 	return encoded_aln
 
 def encode_aln(dir_path, dssp_info, out_path):
@@ -208,7 +207,7 @@ def encode_aln(dir_path, dssp_info, out_path):
 
 		print(uid1, uid2) #Print uid pairs
 		encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
-
+		#pdb.set_trace()
 		name = out_path+uid1+'_'+uid2+'.enc'
 		write_encoding(encoded_aln, name)
 
