@@ -97,19 +97,22 @@ def encode_dssp(dir_path):
 			for line in file:
 				if fetch_lines == True:
 					line = line.rstrip()
-
-					residue = line[13]
+					str_i = line[16]
+                                        residue = line[13]
+					acc_i = line[35:38].strip()
+					
 					if residue != '!' and residue != '!*':
-						str_i = line[16]
-						acc_i = line[35:38].strip()
-
+					                                           
 						#Normalize acc_i by the max acc surface area for the specific amino acid
 						#Round to whole percent
 						acc_i_norm = round((float(acc_i)/max_acc[residue])*100, )
 						acc_i_norm = min(acc_i_norm, 100) #Should not be over 100 percent
-						#Add values
-						secondary_str.append(str_i)
-						surface_acc.append(acc_i_norm)
+					
+					else: #If a chain break
+						acc_i = 0
+					#Add values
+					secondary_str.append(str_i)
+					surface_acc.append(acc_i_norm)
 
 				if '#' in line:
 					fetch_lines = True
@@ -139,11 +142,14 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 	gap_acc = 0 #The gap surface accessibility should be 0
 	enc = [] #save all encodings for each residue
 
-	
+	print(len(seq1))
+
 	for i in range(0,len(seq1)):
 		aa1 = seq1[i] #Get residues
 		aa2 = seq2[i]
-
+		print(pos1,len(str1), pos2, len(str2))
+		if pos2 >= len(str2):
+			pdb.set_trace()
 		if aa1 == '-': #if a gap in 1
 			aa1_str = '-' #set encoding to gap
 			aa1_acc = gap_acc #get gap acc
