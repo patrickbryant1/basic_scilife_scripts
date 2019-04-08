@@ -26,8 +26,9 @@ parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for
 parser.add_argument('dist_file', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to distance file. Format: uid1	uid2	MLdist	RMSD')
 
-parser.add_argument('one_hot_dir', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to files with one-hot encodings of alignments, sendary structure and surface acc.')
+parser.add_argument('encoding_dir', nargs=1, type= str,
+                  default=sys.stdin, help = '''Path to files with encodings of alignments, secondary structure and surface acc.
+                  Include /in end''')
 
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
@@ -50,21 +51,10 @@ def plot_distr(y, name, out_dir):
 	return None
 
 
-
-
-
-
-
-
-
-
-
-
-
 #MAIN
 args = parser.parse_args()
 dist_file = args.dist_file[0]
-one_hot_dir = args.one_hot_dir[0]
+encode_dir = args.one_hot_dir[0]
 out_dir = args.out_dir[0]
 #Read tsv
 (uids, rmsd_dists_t, rmsd_dists) = read_tsv(dist_file, 6)

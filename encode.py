@@ -99,7 +99,7 @@ def encode_dssp(dir_path):
 					
 					line = line.rstrip()
 					str_i = line[16]
-                                        residue = line[13]
+                    residue = line[13]
 					acc_i = line[35:38].strip()
 					
 					if residue != '!' and residue != '!*':
