@@ -44,18 +44,6 @@ parser.add_argument('out_path', nargs=1, type= str,
 
 
 ####Normalization and Encoding####
-#one-hot encoding
-str_encoding = {'G':[1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'H':[0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'I':[0., 0., 1., 0., 0., 0., 0., 0., 0., 0.],
-				'T':[0., 0., 0., 1., 0., 0., 0., 0., 0., 0.],
-				'E':[0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
-				'B':[0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],
-				'S':[0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
-				'C':[0., 0., 0., 0., 0., 0., 0., 1., 0., 0.],
-				' ':[0., 0., 0., 0., 0., 0., 0., 0., 1., 0.],
-				'-':[0., 0., 0., 0., 0., 0., 0., 0., 0., 1.] #gap, used in later stage
-				}
 
 #Max acc surface areas for each amino acid according to empirical measurements in:
 #Tien, Matthew Z et al. “Maximum allowed solvent accessibilites of residues in proteins.” 
@@ -84,30 +72,6 @@ max_acc = { 'A':121,
 			'X':192 #Average of all other maximum surface accessibilites
 		  }
 
-#Encoding for amino acid sequence from extracted per residue alignment from TMalign structural alignment
-seq_encoding = {'A':[1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'R':[0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'N':[0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'D':[0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'C':[0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'E':[0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'Q':[0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'G':[0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'H':[0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'I':[0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'L':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'K':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'M':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'F':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
-				'P':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0.],
-				'S':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0.],
-				'T':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
-				'W':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],
-				'Y':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
-				'V':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0.],
-				'X':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0.],
-				'-':[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.] 
-				}
 #Functions
 def encode_dssp(dir_path):
 	'''Parse secondary structure descriptions
@@ -117,15 +81,13 @@ def encode_dssp(dir_path):
 	#chdir to directory with files
 	os.chdir(dir_path)
 
-	dssp_hot = {} #save dssp output in one-hot encodings
+	dssp_info = {} #save dssp output for encodings
 
 	for file in glob.glob("*_dssp"):
 		uid = file.split('.')[0] #Split filename on .
 		
 		secondary_str = [] #save str
 		surface_acc = [] #save acc
-
-		secondary_str_hot = [] #save str in one-hot encoding
 
 
 
@@ -145,36 +107,23 @@ def encode_dssp(dir_path):
 						#Round to whole percent
 						acc_i_norm = round((float(acc_i)/max_acc[residue])*100, )
 						acc_i_norm = min(acc_i_norm, 100) #Should not be over 100 percent
-						#Add original values
+						#Add values
 						secondary_str.append(str_i)
 						surface_acc.append(acc_i_norm)
-
-						#Add one-hot encodings
-						secondary_str_hot.append(str_encoding[str_i])
-				
-					
 
 				if '#' in line:
 					fetch_lines = True
 					#now the subsequent lines will be fetched
 		
 
-		#Make one-hot array
-		surface_acc = np.array(surface_acc) #Convert to numpy array
-		
-
-		#Convert secondary_str_hot to numpy array as well
-		secondary_str_hot = np.array(secondary_str_hot)
-
-
 		#Save to dict
-		dssp_hot[uid] = [surface_acc, secondary_str_hot]
+		dssp_info[uid] = [secondary_str, surface_acc]
 		
 		
-	return dssp_hot
+	return dssp_info
 
 
-def encode_aln(dir_path, dssp_hot, out_path):
+def encode_aln(dir_path, dssp_info, out_path):
 
 	for file in glob.glob("*.aln"):
 		names = file.split('.')[0] #Split filename on .
@@ -191,13 +140,12 @@ def encode_aln(dir_path, dssp_hot, out_path):
 				if n == 1:
 					seq2 = line.rstrip()
 
-		#Get one-hot dssp encodings for uids
-		dssp1 = dssp_hot[uid1]
-		dssp2 = dssp_hot[uid2]
+		#Get dssp encodings for uids
+		dssp1 = dssp_info[uid1]
+		dssp2 = dssp_info[uid2]
 
-		print(uid1, uid2)
-		enc1 = encode_out(seq1, dssp1)
-		enc2 = encode_out(seq2, dssp2)
+		print(uid1, uid2) #don't forget to remove this
+		encoding = match_encoding(seq1, dssp1, seq2, dssp2)
 
 		if len(enc1) == len(enc2): #If the encodings are of equal lengths
 			aln_matrix = []
@@ -218,39 +166,53 @@ def encode_aln(dir_path, dssp_hot, out_path):
 
 	return None
 
-def encode_out(sequence, dssp):
-	'''Make one-hot encoding of amino acids in sequence
-	and add corresponding encoding for dssp metrics and
-	write to file
+def match_encoding(seq1, dssp1, seq2, dssp2):
+	'''Make encoding of amino acids in sequence and add corresponding encoding for 
+	dssp metrics and write to file.
 	'''
 
-	#assign acc and structrural encodings
-	surface_acc, secondary_str_hot = dssp[0], dssp[1]
-	dssp_a = 0 #keep track of dssp pos, will not match to sequence due to gaps
+	encoded_aln = [] #Save the complete encoding
+	#assign structrural encodings and normalized acc
+	str1, acc1 = dssp1[0], dssp1[1]
+	str2, acc2 = dssp2[0], dssp2[1]
+
+	pos1 = 0 #keep track of dssp pos, will not match to sequence due to gaps
+	pos2 = 0
 
 	gap_acc = 0 #The gap surface accessibility should be 0
 	enc = [] #save all encodings for each residue
 
 	
-	for a in sequence:
-		a_hot = seq_encoding[a] #Encode residue
+	for i in range(0,len(seq1)):
+		aa1 = seq1[i] #Get residues
+		aa2 = seq2[i]
 
-		if a == '-': #if a gap
-			a_str = str_encoding[a] #get str encoding for gap
-			a_acc = gap_acc #get gap acc
-			cat_enc = np.concatenate((a_hot, a_str, [a_acc])) #cat
-			enc.append(cat_enc) #append to representation
+		if aa1 == '-': #if a gap in 1
+			aa1_str = '-' #set encoding to gap
+			aa1_acc = gap_acc #get gap acc
 
-		else: #if something else than a gap
-			a_str = secondary_str_hot[dssp_a] #get str encoding 
-			a_acc = surface_acc[dssp_a] #get acc encoding
-			cat_enc = np.concatenate((a_hot, a_str, [a_acc])) #cat
-			enc.append(cat_enc) #append to representation
-			
+			enc = [[aa1, aa1_str, gap_acc], [aa2, str2[pos2], acc2[pos2]]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
+			encoded_aln.append(end) #Append encoding to full alignment encoding
+			pos2 +=1 #Increase pos 2 (pos1 is gap)
 
-			dssp_a +=1
+		elif aa2 == '-': #if a gap in 2
+			aa2_str = '-' #set encoding to gap
+			aa2_acc = gap_acc #get gap acc
+
+			enc = [[aa1, str1[pos1], acc1[pos1]], [aa2, aa2_str, aa2_acc]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
+			encoded_aln.append(end) #Append encoding to full alignment encoding
+			pos1 +=1 #Increase pos 2 (pos1 is gap)
+		
+		else: #if something else than a gap in both
+			enc = [[aa1, str1[pos1], acc1[pos1]], [aa2, str2[pos2], acc2[pos2]]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
+			encoded_aln.append(end) #Append encoding to full alignment encoding
+			pos1 +=1
+			pos2 +=1
+
+	pdb.set_trace()
 
 	return enc
+
 
 def write_encoding(aln_matrix, name):
 	'''Write the one-hot encoding to a file
@@ -266,8 +228,8 @@ dir_path = args.dir_path[0]
 out_path = args.out_path[0]
 
 #Encode dssp output
-dssp_hot = encode_dssp(dir_path)
+dssp_info = encode_dssp(dir_path)
 
 #Encode alignment and add dssp encoding and write to file
-encode_aln(dir_path, dssp_hot, out_path)
+encode_aln(dir_path, dssp_info, out_path)
 

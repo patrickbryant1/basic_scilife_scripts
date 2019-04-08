@@ -141,8 +141,8 @@ with graph.as_default():
   softmax_w = tf.Variable(tf.random_uniform(shape = [num_nodes, input_size], minval = -init_scale, maxval = init_scale, name = 'softmax_w'))
   softmax_b = tf.Variable(tf.zeros([input_size]), name = 'softmax_b')
   
-    #Embedding vector
-  embeddings = tf.Variable(tf.random_uniform(shape = [input_size, embedding_size], minval = -init_scale, maxval = init_scale), name = 'embeddings')
+    #Embedding vector, input_size should be vocab_siz = 101
+  embeddings = tf.Variable(tf.random_uniform(shape = [66, embedding_size], minval = -init_scale, maxval = init_scale), name = 'embeddings')
     
 
 
