@@ -79,7 +79,7 @@ def encode_dssp(dir_path):
 
 	#chdir to directory with files
 	os.chdir(dir_path)
-
+	print(dir_path)
 	dssp_info = {} #save dssp output for encodings
 
 	for file in glob.glob("*_dssp"):
@@ -99,24 +99,22 @@ def encode_dssp(dir_path):
 					line = line.rstrip()
 					str_i = line[16]
 					residue = line[13]
-					residues = residues + residue
 					acc_i = line[35:38].strip()
 					
-					if residue != '!' and residue != '!*':
+					if residue == '!' or residue == '!*':
+						continue
+					else:
 					                                           
 						#Normalize acc_i by the max acc surface area for the specific amino acid
 						#Round to whole percent
 						acc_i_norm = round((float(acc_i)/max_acc[residue])*100, )
 						acc_i_norm = min(acc_i_norm, 100) #Should not be over 100 percent
 					
-					else: #If a chain break
-						acc_i_norm = 0
-					
-
-					#Add values
-					secondary_str.append(str_i)
-					surface_acc.append(acc_i_norm)
-
+								
+						#Save
+						secondary_str.append(str_i)
+						surface_acc.append(acc_i_norm)
+						residues = residues + residue
 				if '#' in line:
 					fetch_lines = True
 					#now the subsequent lines will be fetched
@@ -210,8 +208,8 @@ def encode_aln(dir_path, dssp_info, out_path):
 
 
 		#Calculate number of non-gaps in sequence
-		(dssp1) = count_non_gaps(seq1, dssp1)
-		(dssp2) = count_non_gaps(seq2, dssp2)
+		(dssp1) = count_non_gaps(seq1, dssp1, uid1)
+		(dssp2) = count_non_gaps(seq2, dssp2, uid2)
 
 
 		encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
@@ -220,14 +218,14 @@ def encode_aln(dir_path, dssp_info, out_path):
 
 	return None
 
-def count_non_gaps(sequence, dssp):
+def count_non_gaps(sequence, dssp, uid):
 	'''Calculate the non-gaps in sequence to get the true aa count
 	'''
 
 	count = 0
 	gapless_seq = ''
 
-	residues = dssp[2]
+	residues = dssp[2] #Original residues
 
 	#Count non-gaps
 	for aa in sequence:
@@ -245,19 +243,28 @@ def count_non_gaps(sequence, dssp):
 			if i == (len(residues)-1): #If the whole sequence has been stepped through,
 				if len(missing_pos) < diff: #the missing are in the end
 					
-					for j in range(len(residues), len(gapless_seq)):
+					current_len = len(dssp[2])
+					for j in range(current_len, len(gapless_seq)):
 						dssp[0].insert(j, ' ')
 						dssp[1].insert(j, 0)
 						dssp[2] = dssp[2][:j]+gapless_seq[j]+dssp[2][j:] #str insert work around
 						missing_pos.append(j)
 
-			if residues[i] == gapless_seq[i]:
+			if dssp[2][i] == gapless_seq[i]:
 				continue 
 			
 			else:
-				surrounding = gapless_seq[i-1, i+1]
-				if residues[i] in surrounding:
-					raise ValueError('Residue in surrounding!', gapless_seq[i-1:i+1])
+
+				
+
+				if i>0:
+					surrounding = [gapless_seq[i-1], gapless_seq[i+1]]
+				else:
+					surrounding = [gapless_seq[i], gapless_seq[i+1]]
+
+				if gapless_seq[i] in surrounding:
+					
+					raise ValueError('Residue in surrounding!', uid, gapless_seq[i-1:i+2])
 				else:
 					dssp[0].insert(i, ' ')
 					dssp[1].insert(i, 0)
@@ -269,11 +276,13 @@ def count_non_gaps(sequence, dssp):
 
 
 
-	if len(missing_pos) != diff: #If the difference is not accounted for
-			raise ValueError('Did not find all missing residues!') 
+	if gapless_seq != dssp[2]: #If the difference is not accounted for
+		#pdb.set_trace()
+		raise ValueError('Did not find all missing residues! (or too many)', uid) 
 	else:
 		missing_pos = missing_pos	
-
+	
+	print(uid + '\n' + gapless_seq + '\n' + dssp[2] + '\n')
 	return (dssp)
 
 def write_encoding(encoded_aln, name):
