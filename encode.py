@@ -12,8 +12,8 @@ import pdb
 
 
 #Arguments for argparse module:
-parser = argparse.ArgumentParser(description = '''A program that parses output from dssp and returns 
-								secondary structure descriptions accordingly:
+parser = argparse.ArgumentParser(description = '''A program that parses output from dssp and combines it with pair-wise alignments to return an
+								encoding. The secondary structure descriptions from dssp are:
 								    G = 3-turn helix (310 helix). Min length 3 residues.
     								H = 4-turn helix (α helix). Minimum length 4 residues.
     								I = 5-turn helix (π helix). Minimum length 5 residues.
@@ -136,8 +136,8 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 
 	encoded_aln = [] #Save the complete encoding
 	#assign structrural encodings and normalized acc
-	str1, acc1, res1 = dssp1[0], dssp1[1], dssp1[2]
-	str2, acc2, res2 = dssp2[0], dssp2[1], dssp2[2]
+	str1, acc1 = dssp1[0], dssp1[1]
+	str2, acc2 = dssp2[0], dssp2[1]
 
 
 	pos1 = 0 #keep track of dssp pos, will not match to sequence due to gaps
@@ -158,7 +158,7 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 		if aa1 == '-': #if a gap in 1
 			aa1_str = '-' #set encoding to gap
 			aa1_acc = gap_acc #get gap acc
-
+			
 			enc = [aa1, aa1_str, gap_acc, aa2, str2[pos2], acc2[pos2]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
 			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos2 +=1 #Increase pos 2 (pos1 is gap)
@@ -173,6 +173,7 @@ def match_encoding(seq1, dssp1, seq2, dssp2):
 		
 		if aa1 != '-' and aa2 != '-': #if something else than a gap in both
 			
+
 			enc = [aa1, str1[pos1], acc1[pos1], aa2, str2[pos2], acc2[pos2]] #Encode as pair (order is important! Otherwise the order of the subsequent residues will not be preserved)
 			encoded_aln.append(enc) #Append encoding to full alignment encoding
 			pos1 +=1
@@ -209,36 +210,71 @@ def encode_aln(dir_path, dssp_info, out_path):
 
 
 		#Calculate number of non-gaps in sequence
-		(count1, gapless_seq1) = count_non_gaps(seq1, dssp1[2])
-		(count2, gapless_seq2) = count_non_gaps(seq2, dssp2[2])
+		(dssp1) = count_non_gaps(seq1, dssp1)
+		(dssp2) = count_non_gaps(seq2, dssp2)
 
-		#pdb.set_trace()
-		if len(dssp1[2]) < count1:
-			print(uid1, len(dssp1[2]), count1)
-		elif len(dssp2[2]) < count2: 
-			print(uid2, len(dssp2[2]), count2)
-		else:
-			encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
-			#pdb.set_trace()
-			name = out_path+uid1+'_'+uid2+'.enc'
-			write_encoding(encoded_aln, name)
+
+		encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
+		name = out_path+uid1+'_'+uid2+'.enc'
+		write_encoding(encoded_aln, name)
 
 	return None
 
-def count_non_gaps(sequence, residues):
+def count_non_gaps(sequence, dssp):
 	'''Calculate the non-gaps in sequence to get the true aa count
 	'''
 
 	count = 0
 	gapless_seq = ''
+
+	residues = dssp[2]
+
+	#Count non-gaps
 	for aa in sequence:
 		if aa != '-':
 			count +=1
 			gapless_seq = gapless_seq + aa
 
-	
+	missing_pos = [] #Save positions for missing residues
+	diff = count - len(residues) #Number of residues that have not been read by dssp
+	if diff>=1: #If there are residues missing in the dssp output
+		
 
-	return (count, gapless_seq)
+		for i in range(0, len(residues)):
+			
+			if i == (len(residues)-1): #If the whole sequence has been stepped through,
+				if len(missing_pos) < diff: #the missing are in the end
+					
+					for j in range(len(residues), len(gapless_seq)):
+						dssp[0].insert(j, ' ')
+						dssp[1].insert(j, 0)
+						dssp[2] = dssp[2][:j]+gapless_seq[j]+dssp[2][j:] #str insert work around
+						missing_pos.append(j)
+
+			if residues[i] == gapless_seq[i]:
+				continue 
+			
+			else:
+				surrounding = gapless_seq[i-1, i+1]
+				if residues[i] in surrounding:
+					raise ValueError('Residue in surrounding!', gapless_seq[i-1:i+1])
+				else:
+					dssp[0].insert(i, ' ')
+					dssp[1].insert(i, 0)
+					dssp[2] = dssp[2][:i]+gapless_seq[i]+dssp[2][i:] #str insert work around
+					missing_pos.append(i)
+
+
+
+
+
+
+	if len(missing_pos) != diff: #If the difference is not accounted for
+			raise ValueError('Did not find all missing residues!') 
+	else:
+		missing_pos = missing_pos	
+
+	return (dssp)
 
 def write_encoding(encoded_aln, name):
 	'''Write the encoding to a file
