@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for
 parser.add_argument('dist_file', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to distance file. Format: uid1	uid2	MLdist	RMSD')
 
-parser.add_argument('encoding_dir', nargs=1, type= str,
+parser.add_argument('encode_dir', nargs=1, type= str,
                   default=sys.stdin, help = '''Path to files with encodings of alignments, secondary structure and surface acc.
                   Include /in end''')
 
@@ -54,7 +54,7 @@ def plot_distr(y, name, out_dir):
 #MAIN
 args = parser.parse_args()
 dist_file = args.dist_file[0]
-encode_dir = args.one_hot_dir[0]
+encode_dir = args.encode_dir[0]
 out_dir = args.out_dir[0]
 #Read tsv
 (uids, rmsd_dists_t, rmsd_dists) = read_tsv(dist_file, 6)
@@ -72,14 +72,9 @@ y = [] #Save labels
 
 #Test, load only little data
 max_aln_len = 0 #maximum aln length
-for i in range(0,len(uids)):
-	file_name = glob.glob(one_hot_dir + '*/'+uids[i]+'.enc')
-
-	if file_name:
-
-		matrix = np.loadtxt(file_name[0])
-		if len(matrix) > max_aln_len:
-			max_aln_len = len(matrix)
+for file_name in glob.glob(encode_dir + '*.enc'):
+		
+    
 		X.append(matrix)
 		y.append(rmsd_dists_hot[i])
 
