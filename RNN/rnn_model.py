@@ -12,7 +12,7 @@ import tensorflow as tf
 
 
 #import custom functions
-from rnn_input import read_tsv, rmsd_hot
+from rnn_input import read_tsv, rmsd_hot, make_dict, get_locations
 import pdb
 
 
@@ -26,8 +26,8 @@ parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for
 parser.add_argument('dist_file', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to distance file. Format: uid1	uid2	MLdist	RMSD')
 
-parser.add_argument('encode_dir', nargs=1, type= str,
-                  default=sys.stdin, help = '''Path to files with encodings of alignments, secondary structure and surface acc.
+parser.add_argument('encode_locations', nargs=1, type= str,
+                  default=sys.stdin, help = '''Paths to files with encodings of alignments, secondary structure and surface acc.
                   Include /in end''')
 
 parser.add_argument('out_dir', nargs=1, type= str,
@@ -54,7 +54,7 @@ def plot_distr(y, name, out_dir):
 #MAIN
 args = parser.parse_args()
 dist_file = args.dist_file[0]
-encode_dir = args.encode_dir[0]
+encode_locations = args.encode_locations[0]
 out_dir = args.out_dir[0]
 #Read tsv
 (uids, rmsd_dists_t, rmsd_dists) = read_tsv(dist_file, 6)
@@ -70,14 +70,30 @@ X = [] #Save data
 y = [] #Save labels
 
 
+dictionary = {} #dict to save all possible combinations
+accessibilities = [] #list to save all accessibilities
+encodings = {} #Save all encodings
 #Test, load only little data
 max_aln_len = 0 #maximum aln length
-for file_name in glob.glob(encode_dir + '*.enc'):
-		
-    
-		X.append(matrix)
-		y.append(rmsd_dists_hot[i])
+#just add encode_dir/*/ later
 
+locations = get_locations(encode_locations)
+
+for file_name in locations:
+  (encoding, dictionary, accessibilities) = make_dict(file_name, dictionary, accessibilities)
+
+  file_name = file_name.split('/')
+  h_group = file_name[-2]
+  uid_pair = file_name[-1].split('.')[0]
+  encodings[uid_pair] = encoding
+
+
+
+  print(len(dictionary))
+
+
+  
+pdb.set_trace()
 
 #Split train data to use 80% for training and 10% for validation and 10 % for testing. 
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -205,9 +221,6 @@ with graph.as_default():
 
 
 
-
-
-pdb.set_trace()
 
 ##########RUN#########
 with tf.Session(graph=graph) as session:

@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import pandas as pd
+import pdb
 def read_tsv(tsv_file, threshold):
 	'''Read tsv file format containing: uid1 \t uid2 \t ML distance \t RMSD distance
 	'''
@@ -46,3 +48,60 @@ def rmsd_hot(rmsd_dists):
 
 
 	return rmsd_dists_hot
+
+def get_locations(encode_locations):
+	'''Get all file locations for encodings
+	'''
+
+	locations = []
+	with open(encode_locations) as file:
+  		for line in file:
+  			if '/home/pbryant' in line:
+  				directory = line.rstrip()[:-1]
+  			else:
+  				locations.append(directory+'/'+line.rstrip())
+
+
+
+	return locations
+
+
+def make_dict(file_name, dictionary, accessibilities):
+	'''Make a dictionary of all encodings
+	'''
+
+	encoding = [] #Save int encoding of sequence
+	
+	with open(file_name) as file:
+		for line in file:
+			line = line.split(',')
+			acc1 = int(line[2])
+			acc2 = int(line[5])
+			accessibilities.append(acc1)
+			accessibilities.append(acc2)
+
+			#Sort acc to categorial (1 if above 10)
+			if acc1 > 10:
+				line[2] = '1'
+			else:
+				line[2] = '0'
+
+			if acc2 > 10:
+				line[5] = '1'
+			else:
+				line[5] = '0'
+
+
+			word = ''.join(line[0:6])
+			
+
+			if word in dictionary:
+				encoding.append(dictionary[word])
+			else:
+				dictionary[word] = int(len(dictionary))
+				encoding.append(dictionary[word])
+
+	
+	encoding.append(len(encoding))
+
+	return(encoding, dictionary, accessibilities)
