@@ -116,7 +116,7 @@ num_unrollings = 0#length of longest alignment in batch
 vocab_size = len(dictionary)
 batch_size = 10 #Number of alignments
 
-epoch_length = len(X_train)/batch_size
+epoch_length = int(len(X_train)/batch_size)
 num_epochs = 1
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
 num_nodes = 300
@@ -130,6 +130,18 @@ keep_prob = 0.9
 epsilon = 0.0000001
 penalty = 1.3
 
+
+for i in range(num_epochs):
+
+	for j in range(epoch_length):
+
+  		train_feed_inputs = X_train[j:j+batch_size]
+
+  		maxlen = max(trainlen[j:j+batch_size])
+  			#Pad
+  		train_feed_inputs = [np.pad(inp, (0,maxlen-len(inp)), 'constant') for inp in train_feed_inputs]
+
+  		pdb.set_trace()
 #Define Graph
 graph = tf.Graph()
 
@@ -144,7 +156,8 @@ with graph.as_default():
   embeddings = tf.Variable(tf.random_uniform(shape = [vocab_size, embedding_size], minval = -init_scale, maxval = init_scale), name = 'embeddings')
     
 
-
+  #Number of unrollings - longest sequence length in batch
+  num_unrollings = tf.placeholder(tf.uint32)
   # Input data. Create sturcutre for input data
   #Train data
   train_inputs = tf.placeholder(tf.int32, shape=[num_unrollings, batch_size])
@@ -157,6 +170,8 @@ with graph.as_default():
 
   #Keep prob
   keep_probability = tf.placeholder(tf.float32)
+
+
 
   #Embed scaling
   #embed_scaling = tf.constant(1/(1-keep_prob))
@@ -192,7 +207,7 @@ with graph.as_default():
   #Save final state for validation and testing
   final_state = state
 
-  logits = tf.nn.xw_plus_b(tf.concat(outputs, 0), softmax_w, softmax_b) #Computes matmul, need to have this tf concat, any other and it complains
+  logits = tf.nn.xw_plus_b(outputs, softmax_w, softmax_b) #Computes matmul, need to have this tf concat, any other and it complains
   logits = tf.layers.batch_normalization(logits, training=True) #Batch normalize to avoid vanishing gradients
   logits = tf.reshape(logits, [num_unrollings , batch_size, input_size])   
 
@@ -223,23 +238,25 @@ with graph.as_default():
 ##########RUN#########
 
 with tf.Session(graph=graph) as session:
-  tf.global_variables_initializer().run()
-  print('Initialized')
+	tf.global_variables_initializer().run()
+	print('Initialized')
 	for i in range(num_epochs):
-  		j = 0 #
+
   		for j in range(epoch_length):
 
-  			train_feed_inputs = X_train[j:j+batch_size]
+  			train_feed_inputs = np.array(X_train[j:j+batch_size])
+
 
   			maxlen = max(trainlen[j:j+batch_size])
   			#Pad
   			train_feed_inputs = [np.pad(inp, (0,maxlen-len(inp)), 'constant') for inp in train_feed_inputs]
 
-  			pdb.set_trace()
+  			
 
   			train_feed_labels = y_train[j:j+batch_size]
+  			pdb.set_trace()
    			#Feed dict
-  			feed_dict= {train_inputs: train_feed_inputs, train_labels: train_feed_labels, keep_probability: keep_prob}
+  			feed_dict= {train_inputs: train_feed_inputs, train_labels: train_feed_labels, keep_probability: keep_prob, num_unrollings: maxlen}
 
   			_, t_perplexity, train_pred, summary = session.run([optimize, train_perplexity, train_predictions, merged], feed_dict= feed_dict)
 
