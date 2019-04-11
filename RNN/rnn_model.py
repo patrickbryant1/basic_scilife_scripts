@@ -12,7 +12,7 @@ import tensorflow as tf
 
 
 #import custom functions
-from rnn_input import read_tsv, rmsd_hot, make_dict, get_locations
+from rnn_input import read_labels, rmsd_hot, make_dict, get_locations, get_labels, word_distributions, label_distr
 import pdb
 
 
@@ -34,21 +34,6 @@ parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
 
 #Functions
-#def load_data():
-
-def plot_distr(y, name, out_dir):
-	'''plot distribution of labels (normalized rmsd values)
-	'''
-
-	#Convert back to ints
-	y_ints = np.argmax(y, axis = 1)
-
-	plt.hist(y_ints, bins = 101)
-	plt.savefig(out_dir+name+'.png')
-	plt.close()
-	
-	#plt.show()
-	return None
 
 
 #MAIN
@@ -57,30 +42,28 @@ dist_file = args.dist_file[0]
 encode_locations = args.encode_locations[0]
 out_dir = args.out_dir[0]
 #Read tsv
-(uids, rmsd_dists_t, rmsd_dists) = read_tsv(dist_file, 6)
+(distance_dict) = read_labels(dist_file)
 #Format rmsd_dists into one-hot encoding
-rmsd_dists_hot = rmsd_hot(rmsd_dists_t)
+#rmsd_dists_hot = rmsd_hot(rmsd_dists_t)
 
 
 #Get macthing alignments, sendary structure and surface acc
-#Should have absolute paths, will be much faster than globbing everything. Should change all_dist_rmsd.tsv to include H-family name
-#raise IOerror if file is not found
-
 X = [] #Save data
 y = [] #Save labels
 
 
 dictionary = {} #dict to save all possible combinations
 accessibilities = [] #list to save all accessibilities
+seqlens = [] #list to save all sequence lengths
 encodings = {} #Save all encodings
 #Test, load only little data
 max_aln_len = 0 #maximum aln length
-#just add encode_dir/*/ later
 
+#Get file locations
 locations = get_locations(encode_locations)
 
 for file_name in locations:
-  (encoding, dictionary, accessibilities) = make_dict(file_name, dictionary, accessibilities)
+  (encoding, dictionary, accessibilities, seqlens) = make_dict(file_name, dictionary, accessibilities, seqlens)
 
   file_name = file_name.split('/')
   h_group = file_name[-2]
@@ -89,11 +72,17 @@ for file_name in locations:
 
 
 
-  print(len(dictionary))
+print(len(dictionary))
+
+ 
 
 
-  
-pdb.set_trace()
+
+#Get corresponding labels (rmsds) for the encoded sequences
+(uids, encoding_list, rmsd_dists, ML_dists) = get_labels(encodings, distance_dict)
+
+#Look at word distributions
+word_distributions(encoding_list, bins = 500, out_dir, name = 'All')
 
 #Split train data to use 80% for training and 10% for validation and 10 % for testing. 
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -109,10 +98,10 @@ print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
 labels = [y_train, y_valid, y_test]
 names = ['y_train', 'y_valid', 'y_test']
 for i in range(0,3):
-	plot_distr(labels[i], names[i], out_dir)
+	label_distr(labels[i], names[i], out_dir)
 
 
-
+pdb.set_trace()
 ######MODEL######
 #Parameters
 number_of_layers = 3

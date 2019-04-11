@@ -4,29 +4,28 @@
 import numpy as np
 import pandas as pd
 import pdb
-def read_tsv(tsv_file, threshold):
+from collections import Counter
+
+def read_labels(tsv_file):
 	'''Read tsv file format containing: uid1 \t uid2 \t ML distance \t RMSD distance
 	'''
 
-	uids = [] #Store uids
-	rmsd_dists_t = [] #Store rmsd distances with ML_dists under threshold
-	rmsd_dists = [] #Store rmsd distances
+	distance_dict = {} #Save information for each uid pair
 	
 	with open(tsv_file) as file:
 		for line in file:
 			line = line.rstrip() #Remove newlines
-			line = line.split("\t")
-			ML_dist = round(float(line[2]), 2)
-			rmsd_dists.append(float(line[3]))
-			if ML_dist <= threshold:
-				rmsd_dists_t.append(float(line[3]))
-				
-				uids.append(line[0]+'_'+line[1])				
-			else:
-				continue
+			line = line.split("\t") #Split on tab
+			uid_pair = (line[0]+'_'+line[1]) #Get uid pair
+			
+			ML_dist = float(line[2]) #aa evolutionary distance from tree-puzzle
+			rmsd_dist = float(line[3]) #rmsd from TMalign
 
-	
-	return(uids, rmsd_dists_t, rmsd_dists)
+			distance_dict[uid_pair] = [ML_dist, rmsd_dist]
+			
+				
+
+	return(distance_dict)
 
 
 def rmsd_hot(rmsd_dists):
@@ -66,7 +65,7 @@ def get_locations(encode_locations):
 	return locations
 
 
-def make_dict(file_name, dictionary, accessibilities):
+def make_dict(file_name, dictionary, accessibilities, seqlens):
 	'''Make a dictionary of all encodings
 	'''
 
@@ -101,7 +100,59 @@ def make_dict(file_name, dictionary, accessibilities):
 				dictionary[word] = int(len(dictionary))
 				encoding.append(dictionary[word])
 
-	
-	encoding.append(len(encoding))
+	seqlens.append(len(encoding))
+	#encoding.append(len(encoding))
 
-	return(encoding, dictionary, accessibilities)
+	return(encoding, dictionary, accessibilities, seqlens)
+
+
+def get_labels(encodings, distance_dict):
+	'''Get corresponding labels for encodings
+	'''
+
+	uids = [] #save uids
+	encoding_list = [] #save encodings
+	rmsd_dists = []
+	ML_dists = []
+
+
+	for key in encodings:
+		uids.append(key)
+
+		encoding_list.append(encodings[key])
+		[ML_dist, rmsd_dist] = distance_dict[key]
+
+		rmsd_dists.append(rmsd_dist)
+		ML_dists.append(ML_dist)
+
+
+
+	return (uids, encoding_list, rmsd_dists, ML_dists)
+
+
+def word_distributions(encoding_list, bins, out_dir, name):
+	'''Count the occurence of all words in all encodings in encoding_list
+	'''
+
+	cat_encodings = [j for i in encoding_list for j in i]
+		
+	plt.hist(cat_encodings, bins = bins, log = True)
+	plt.savefig(out_dir+name+'.png')
+	plt.close()
+
+	return None
+
+
+def lebel_distr(y, name, out_dir):
+	'''plot distribution of labels (normalized rmsd values)
+	'''
+
+	#Convert back to ints
+	y_ints = np.argmax(y, axis = 1)
+
+	plt.hist(y_ints, bins = 101)
+	plt.savefig(out_dir+name+'.png')
+	plt.close()
+	
+	#plt.show()
+	return None
