@@ -80,6 +80,7 @@ for file_name in locations:
 
 #Assign data and labels
 X = np.array(encoding_list)
+X = [np.array(enc) for enc in X]
 y = rmsd_hot(rmsd_dists) #One-hot encode labels
 
 #Split train data to use 80% for training and 10% for validation and 10 % for testing. 
@@ -107,23 +108,25 @@ print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
 #	word_distributions(data[i], 500, out_dir, names[i])
 
 
-pdb.set_trace()
+
 ######MODEL######
 #Parameters
 number_of_layers = 3
-num_unrollings = max_aln_len#length of longest alignment? This should not be variable
+num_unrollings = 0#length of longest alignment in batch
+vocab_size = len(dictionary)
 batch_size = 10 #Number of alignments
-input_size = 101
+
 epoch_length = len(X_train)/batch_size
 num_epochs = 1
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
 num_nodes = 300
-embedding_size = num_nodes # Dimension of the embedding vector. 1:1 ratio with hidden nodes
+embedding_size = num_nodes # Dimension of the embedding vector. 1:1 ratio with hidden nodes. Should probably have smaller embeddings
+
+
 init_scale = 0.1
 start_learning_rate = 5.0
 max_grad_norm = 0.25
 keep_prob = 0.9
-num_steps = 50000
 epsilon = 0.0000001
 penalty = 1.3
 
@@ -133,12 +136,12 @@ graph = tf.Graph()
 with graph.as_default():
     
     
-    # Classifier weights and biases. Must be the size of the number of parameters = 66 (2*33), otherwise all parameters will not be represented in logits
-  softmax_w = tf.Variable(tf.random_uniform(shape = [num_nodes, input_size], minval = -init_scale, maxval = init_scale, name = 'softmax_w'))
-  softmax_b = tf.Variable(tf.zeros([input_size]), name = 'softmax_b')
+    # Classifier weights and biases. Must be vocab_size, otherwise all words will not be represented in logits
+  softmax_w = tf.Variable(tf.random_uniform(shape = [num_nodes, 101], minval = -init_scale, maxval = init_scale, name = 'softmax_w'))
+  softmax_b = tf.Variable(tf.zeros([101]), name = 'softmax_b')
   
     #Embedding vector, input_size should be vocab_siz = 101
-  embeddings = tf.Variable(tf.random_uniform(shape = [66, embedding_size], minval = -init_scale, maxval = init_scale), name = 'embeddings')
+  embeddings = tf.Variable(tf.random_uniform(shape = [vocab_size, embedding_size], minval = -init_scale, maxval = init_scale), name = 'embeddings')
     
 
 
@@ -218,16 +221,26 @@ with graph.as_default():
 
 
 ##########RUN#########
+
 with tf.Session(graph=graph) as session:
   tf.global_variables_initializer().run()
   print('Initialized')
+	for i in range(num_epochs):
+  		j = 0 #
+  		for j in range(epoch_length):
 
-  for i in range(num_epochs):
-  	j = 0 #
-  	for j in range(epoch_length):
+  			train_feed_inputs = X_train[j:j+batch_size]
 
-  		train_feed_inputs = X_train[j_j+batch_size]
-   		#Feed dict
-  		feed_dict= {train_inputs: train_feed_inputs, train_labels: train_feed_labels, valid_inputs: valid_feed_inputs, valid_labels: valid_feed_labels, global_step: step, keep_probability: keep_prob}
+  			maxlen = max(trainlen[j:j+batch_size])
+  			#Pad
+  			train_feed_inputs = [np.pad(inp, (0,maxlen-len(inp)), 'constant') for inp in train_feed_inputs]
 
-  		_, t_perplexity, train_pred, summary = session.run([optimize, train_perplexity, train_predictions, merged], feed_dict= feed_dict)
+  			pdb.set_trace()
+
+  			train_feed_labels = y_train[j:j+batch_size]
+   			#Feed dict
+  			feed_dict= {train_inputs: train_feed_inputs, train_labels: train_feed_labels, keep_probability: keep_prob}
+
+  			_, t_perplexity, train_pred, summary = session.run([optimize, train_perplexity, train_predictions, merged], feed_dict= feed_dict)
+
+
