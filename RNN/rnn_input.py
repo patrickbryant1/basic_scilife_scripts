@@ -3,8 +3,13 @@
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+
 import pdb
-from collections import Counter
+
+
+
+#Functions for reading, exploring and visualizing input data
 
 def read_labels(tsv_file):
 	'''Read tsv file format containing: uid1 \t uid2 \t ML distance \t RMSD distance
@@ -137,13 +142,13 @@ def word_distributions(encoding_list, bins, out_dir, name):
 	cat_encodings = [j for i in encoding_list for j in i]
 		
 	plt.hist(cat_encodings, bins = bins, log = True)
-	plt.savefig(out_dir+name+'.png')
+	plt.savefig(out_dir+name+'_word_distr.png')
 	plt.close()
 
 	return None
 
 
-def lebel_distr(y, name, out_dir):
+def label_distr(y, name, out_dir):
 	'''plot distribution of labels (normalized rmsd values)
 	'''
 
@@ -151,7 +156,7 @@ def lebel_distr(y, name, out_dir):
 	y_ints = np.argmax(y, axis = 1)
 
 	plt.hist(y_ints, bins = 101)
-	plt.savefig(out_dir+name+'.png')
+	plt.savefig(out_dir+name+'_label_distr.png')
 	plt.close()
 	
 	#plt.show()

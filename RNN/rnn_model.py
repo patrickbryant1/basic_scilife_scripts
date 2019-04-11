@@ -72,17 +72,15 @@ for file_name in locations:
 
 
 
-print(len(dictionary))
-
- 
-
 
 
 #Get corresponding labels (rmsds) for the encoded sequences
 (uids, encoding_list, rmsd_dists, ML_dists) = get_labels(encodings, distance_dict)
 
-#Look at word distributions
-word_distributions(encoding_list, bins = 500, out_dir, name = 'All')
+
+#Assign data and labels
+X = np.array(encoding_list)
+y = rmsd_hot(rmsd_dists) #One-hot encode labels
 
 #Split train data to use 80% for training and 10% for validation and 10 % for testing. 
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -91,14 +89,22 @@ X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, rando
 
 X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
 
+#Get all lengths for all sequences
+trainlen = [len(i) for i in X_train]
+validlen = [len(i) for i in X_valid]
+testlen = [len(i) for i in X_test]
+
+
 print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
 
 
-#Plot distributions of labels - make sure split preserves variation in rmsd
-labels = [y_train, y_valid, y_test]
-names = ['y_train', 'y_valid', 'y_test']
-for i in range(0,3):
-	label_distr(labels[i], names[i], out_dir)
+#Plot distributions of labels and words- make sure split preserves variation in rmsd
+#labels = [y_train, y_valid, y_test]
+#data = (X_train, X_valid, X_test)
+#names = ['Train', 'Valid', 'Test']
+#for i in range(0,3):
+#	label_distr(labels[i], names[i], out_dir)
+#	word_distributions(data[i], 500, out_dir, names[i])
 
 
 pdb.set_trace()
@@ -106,7 +112,7 @@ pdb.set_trace()
 #Parameters
 number_of_layers = 3
 num_unrollings = max_aln_len#length of longest alignment? This should not be variable
-batch_size = 2 #Number of alignments
+batch_size = 10 #Number of alignments
 input_size = 101
 epoch_length = len(X_train)/batch_size
 num_epochs = 1
