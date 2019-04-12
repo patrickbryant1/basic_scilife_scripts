@@ -131,17 +131,7 @@ epsilon = 0.0000001
 penalty = 1.3
 
 
-for i in range(num_epochs):
 
-	for j in range(epoch_length):
-
-  		train_feed_inputs = X_train[j:j+batch_size]
-
-  		maxlen = max(trainlen[j:j+batch_size])
-  			#Pad
-  		train_feed_inputs = [np.pad(inp, (0,maxlen-len(inp)), 'constant') for inp in train_feed_inputs]
-
-  		pdb.set_trace()
 #Define Graph
 graph = tf.Graph()
 
@@ -207,7 +197,7 @@ with graph.as_default():
   #Save final state for validation and testing
   final_state = state
 
-  logits = tf.nn.xw_plus_b(outputs, softmax_w, softmax_b) #Computes matmul, need to have this tf concat, any other and it complains
+  logits = tf.nn.xw_plus_b(tf.concat(outputs,0), softmax_w, softmax_b) #Computes matmul, need to have this tf concat, any other and it complains
   logits = tf.layers.batch_normalization(logits, training=True) #Batch normalize to avoid vanishing gradients
   logits = tf.reshape(logits, [num_unrollings , batch_size, input_size])   
 
@@ -251,7 +241,7 @@ with tf.Session(graph=graph) as session:
   			#Pad
   			train_feed_inputs = [np.pad(inp, (0,maxlen-len(inp)), 'constant') for inp in train_feed_inputs]
 
-  			
+  			train_feed_inputs = np.array(train_feed_inputs).T
 
   			train_feed_labels = y_train[j:j+batch_size]
   			pdb.set_trace()
