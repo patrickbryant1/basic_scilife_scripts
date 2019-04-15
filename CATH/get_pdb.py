@@ -6,7 +6,6 @@ import argparse
 import sys
 import subprocess
 import pdb
-import glob
 import shutil
 import random
 
@@ -19,8 +18,8 @@ parser = argparse.ArgumentParser(description = '''A program that downloads pdb s
 												is dropped and a new domain structure downloaded, if available. Otherwise
 												the whole H-group is dropped''')
  
-parser.add_argument('input_dir', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to CATH ids file directory.')
+parser.add_argument('uid_file', nargs=1, type= str,
+                  default=sys.stdin, help = 'path to CATH ids file.')
 parser.add_argument('address', nargs=1, type= str,
                   default=sys.stdin, help = 'Web adress to download from.')
 parser.add_argument('output_dir', nargs=1, type= str,
@@ -31,59 +30,23 @@ parser.add_argument('output_dir', nargs=1, type= str,
 
 #FUNCTIONS
 
-#Functions
-def read_tsv(file_path):
-	'''Read ids and H-groups into lists 
+def read_ids(input_dir):
+	'''Read newline separated fileS WITH CATH ids into list
 	'''
 
-	uids = [] #Store ids
-	H_groups = [] #Store H-groups
+	
+	uids = [] #Store uids
 
-	with open(file_path) as file:
-		for line in file:
-			line = line.rstrip() #remove \n
-			line = line.split(',')
-			uid = line[0]
-			H_group = line[1:]
+	H_group = file_name.split('/')[-1] #Get H-group (last part of path)
 
-			#Add id into right h_group
-			if H_groups:
-				i = 0 #Reset index
-				found = False #Keep track of matches
-				while i < len(H_groups):
-					#If a match is found
-					if H_groups[i] == H_group:
-						uids[i].append(uid)
-						found = True
-						print(len(H_groups))
-						break #Break out of loop
-					i+=1
+		with open(file_name) as file:
+			
+			for line in file:
+				uid = line.rstrip() #remove \n
+				uids.append(uid) #Add uid
+	
 
-				#If no match is found
-				if found == False:
-					H_groups.append(H_group)
-					uids.append([uid])
-			else:
-				H_groups.append(H_group)
-				uids.append([uid])
-
-
-	return uids, H_groups
-
-def select_n_random(uids, n):
-	'''Select n random uids from each H_group
-	'''
-
-	selected = random.sample(uids, n)
-
-	return selected
-
-for i in range(0, len(uids)):
-	uid_counts.append(len(uids[i]))
-	if len(uids[i])>=n:
-		over_n.append(H_groups[i])
-		selected = select_n_random(uids[i], n)
-		n_random.append(selected)
+	return(uids, H_group)
 
 def get_structures(address, uids, H_groups):
 	'''Download .pdb structure
@@ -108,13 +71,13 @@ def get_structures(address, uids, H_groups):
 #####MAIN#####
 args = parser.parse_args()
 
-input_dir = args.input_dir[0]
+uid_file = args.uid_file[0]
 address = args.address[0]
 output_dir = args.output_dir[0]
 
 
 #Get selected file names:
-(uids, H_groups) = read_ids(input_dir)
+(uids, H_group) = read_ids(uid_file)
 
 #Make check 
 if len(uids) != len(H_groups):

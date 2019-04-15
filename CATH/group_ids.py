@@ -70,17 +70,17 @@ def plot_hist(id_count, bins):
 
 
 
-def write_selected(over_n, n_random, outdir_path):
+def write_selected(over_n_H, over_n_uids, outdir_path):
 	'''Write the selected uids into a file named H_group
 	'''
 
-	for i in range(0, len(over_n)):
+	for i in range(0, len(over_n_H)):
 		#Open a file named "H-group to write to"
-		H_group = over_n[i]
+		H_group = over_n_H[i]
 		name = str(H_group[0])+'.'+str(H_group[1])+'.'+str(H_group[2])+'.'+str(H_group[3])
 		with open(outdir_path+name, 'w') as file:
 			#Write uids to file
-			for uid in n_random[i]:
+			for uid in over_n_uids[i]:
 				file.write(uid+'\n')
 
 	return None
@@ -106,9 +106,8 @@ for i in range(0, len(uids)):
 		selected = uids[i]
 		over_n_uids.append(selected)
 
-pdb.set_trace()
 
-write_selected(over_n, over_n_uids, outdir_path)
+write_selected(over_n_H, over_n_uids, outdir_path)
 
 
 
