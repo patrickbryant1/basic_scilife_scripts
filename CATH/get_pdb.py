@@ -12,7 +12,12 @@ import random
 
 
 #Arguments for argparse module:
-parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids).''')
+parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids)
+												from H-groups that have at least 10 entries.
+												It then runs TMalign on all pairs of 10 randomly selected entries. If a paired
+												alignments should happen to have above 90% sequence identity, the second uid
+												is dropped and a new domain structure downloaded, if available. Otherwise
+												the whole H-group is dropped''')
  
 parser.add_argument('input_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'path to CATH ids file directory.')
@@ -26,25 +31,59 @@ parser.add_argument('output_dir', nargs=1, type= str,
 
 #FUNCTIONS
 
-def read_ids(input_dir):
-	'''Read newline separated fileS WITH CATH ids into list
+#Functions
+def read_tsv(file_path):
+	'''Read ids and H-groups into lists 
 	'''
 
+	uids = [] #Store ids
 	H_groups = [] #Store H-groups
-	uids = [] #Store uids
 
-	for file_name in glob.glob(input_dir + '*'):
-		H_group = file_name.split('/')[-1] #Get H-group (last part of path)
-		H_groups.append(H_group) #Add H-group to H_groups
-		with open(file_name) as file:
-			new_ids = [] #Store uids in list
-			for line in file:
-				uid = line.rstrip() #remove \n
-				new_ids.append(uid) #Add uid
-			uids.append(new_ids)
-	
+	with open(file_path) as file:
+		for line in file:
+			line = line.rstrip() #remove \n
+			line = line.split(',')
+			uid = line[0]
+			H_group = line[1:]
 
-	return(uids, H_groups)
+			#Add id into right h_group
+			if H_groups:
+				i = 0 #Reset index
+				found = False #Keep track of matches
+				while i < len(H_groups):
+					#If a match is found
+					if H_groups[i] == H_group:
+						uids[i].append(uid)
+						found = True
+						print(len(H_groups))
+						break #Break out of loop
+					i+=1
+
+				#If no match is found
+				if found == False:
+					H_groups.append(H_group)
+					uids.append([uid])
+			else:
+				H_groups.append(H_group)
+				uids.append([uid])
+
+
+	return uids, H_groups
+
+def select_n_random(uids, n):
+	'''Select n random uids from each H_group
+	'''
+
+	selected = random.sample(uids, n)
+
+	return selected
+
+for i in range(0, len(uids)):
+	uid_counts.append(len(uids[i]))
+	if len(uids[i])>=n:
+		over_n.append(H_groups[i])
+		selected = select_n_random(uids[i], n)
+		n_random.append(selected)
 
 def get_structures(address, uids, H_groups):
 	'''Download .pdb structure

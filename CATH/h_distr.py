@@ -13,8 +13,8 @@ import pdb
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that investigates the distribution of
-									 each H-group in CATH. And writes n randomly selected entries 
-									 for each H-group into files(newline separated) in the output directory''')
+									 each H-group in CATH. And writes all uids for each H-group with over 10 entries 
+									 into files(newline separated) in the output directory''')
  
 parser.add_argument('file_path', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to file with H-groups.')
@@ -47,7 +47,6 @@ def read_tsv(file_path):
 					if H_groups[i] == H_group:
 						uids[i].append(uid)
 						found = True
-						print(len(H_groups))
 						break #Break out of loop
 					i+=1
 
@@ -69,13 +68,7 @@ def plot_hist(id_count, bins):
 
 	return None
 
-def select_n_random(uids, n):
-	'''Select n random uids from each H_group
-	'''
 
-	selected = random.sample(uids, n)
-
-	return selected
 
 def write_selected(over_n, n_random, outdir_path):
 	'''Write the selected uids into a file named H_group
@@ -100,26 +93,24 @@ outdir_path = args.outdir_path[0]
 
 uids, H_groups = read_tsv(file_path)
 
-pdb.set_trace()
-
 #Count uids in each H_group:
 uid_counts = [] #Store uid_counts
-over_n = [] #Store H_groups with uid counts over n
+over_n_H = [] #Store H_groups with uid counts over n
+over_n_uids = [] #Store uids with over n entries
 n = 10 #Cutoff
-n_random = [] #Store n randomly selected uids from the H_groups with over n entries
+
 for i in range(0, len(uids)):
 	uid_counts.append(len(uids[i]))
 	if len(uids[i])>=n:
-		over_n.append(H_groups[i])
-		selected = select_n_random(uids[i], n)
-		n_random.append(selected)
+		over_n_H.append(H_groups[i])
+		selected = uids[i]
+		over_n_uids.append(selected)
 
 pdb.set_trace()
 
-write_selected(over_n, n_random, outdir_path)
+write_selected(over_n, over_n_uids, outdir_path)
 
-#Convert to log
-#log_h_count = numpy.log10(count_h_list)
+
 
 
 
