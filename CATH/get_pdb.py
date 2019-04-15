@@ -20,50 +20,54 @@ parser = argparse.ArgumentParser(description = '''A program that downloads pdb s
  
 parser.add_argument('uid_file', nargs=1, type= str,
                   default=sys.stdin, help = 'path to CATH ids file.')
+parser.add_argument('filter_file', nargs=1, type= str,
+                  default=sys.stdin, help = 'path to file that contains newline separated pdb ids from a pdb search.')
 parser.add_argument('address', nargs=1, type= str,
-                  default=sys.stdin, help = 'Web adress to download from.')
+                  default=sys.stdin, help = 'Web adress to download from.') #www.cathdb.info/version/v4_2_0/api/rest/id/
 parser.add_argument('output_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'output directory.')
 
-#www.cathdb.info/version/v4_2_0/api/rest/id/
-
 
 #FUNCTIONS
-
-def read_ids(input_dir):
-	'''Read newline separated fileS WITH CATH ids into list
+def read_newline(file_name):
+	'''Read newline separated file contents into list
 	'''
 
 	
-	uids = [] #Store uids
+	contents = [] #Store contents
 
-	H_group = file_name.split('/')[-1] #Get H-group (last part of path)
-
-		with open(file_name) as file:
+	with open(file_name) as file:
 			
-			for line in file:
-				uid = line.rstrip() #remove \n
-				uids.append(uid) #Add uid
+		for line in file:
+			line = line.rstrip() #remove \n
+			contents.append(line) #Add uid
 	
 
-	return(uids, H_group)
+	return(contents)
 
-def get_structures(address, uids, H_groups):
+
+
+def get_structures(address, uids, filter_ids):
 	'''Download .pdb structure
 	'''
 
 	downloaded_ids = [] #Keep track of ids that have been downloaded
 	
-	for i in range(0, len(H_groups)):
-		dir_name = H_groups[i] #Get directory name (C.A.T.H)
-		subprocess.call(['mkdir', dir_name])
+	number_of_uids = len(uids)
 
-		for uid in uids[i]:
+	selected_uids = uids[0:10]
+
+	for i in range(0, len(selected_uids)):
+
+		if selected_uids[i].upper() in filter_ids:
+			found = glob.glob(output_dir + uid + '*')
+
+			if found
 			downloaded_ids.append(uid)
 			subprocess.call(["wget",address+uid+'.pdb'])
 
-		for file in glob.glob(output_dir + '*.pdb'):
-			shutil.move(file, output_dir+dir_name)
+		else:
+			selected_uids. #remove and insert new - continue on the inserted one somehow
 			
 
 	return downloaded_ids
@@ -72,17 +76,19 @@ def get_structures(address, uids, H_groups):
 args = parser.parse_args()
 
 uid_file = args.uid_file[0]
+filter_file = args.filter_file[0]
 address = args.address[0]
 output_dir = args.output_dir[0]
 
 
-#Get selected file names:
-(uids, H_group) = read_ids(uid_file)
+#Get selected uids:
+H_group = uid_file.split('/')[-1] #Get H-group (last part of path)
+uids = read_newline(uid_file)
 
-#Make check 
-if len(uids) != len(H_groups):
-	raise ValueError('There are not uids for every H-group!')
+#Get pdb ids to filter on
+filter_ids = read_newline(filter_file)
 
+pdb.set_trace()
 
 downloaded_ids = get_structures(address, uids, H_groups)
 
