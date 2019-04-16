@@ -47,30 +47,57 @@ def read_newline(file_name):
 
 
 
-def get_structures(address, uids, filter_ids):
-	'''Download .pdb structure
+def get_structures(address, uids, filter_ids, H_group):
+	'''Download .pdb structure, run TMalign and check sequence identity
 	'''
 
-	downloaded_ids = [] #Keep track of ids that have been downloaded
-	
-	number_of_uids = len(uids)
+	downloaded_uids = [] #Keep track of ids that have been downloaded
 
-	selected_uids = uids[0:10]
+        selected_uids = [] #uids to align
+	passed_uids = [] #save uids that have passed all steps
 
-	for i in range(0, len(selected_uids)):
+	for i in range(0, len(uids)):
+            
+            if len(selected_uids) == 10:
+                #Make alignment of all of these
+                status = align(selected_uids)
+                #If one fails, pop this and continue
+                #Save the passed uids to a special list
 
-		if selected_uids[i].upper() in filter_ids:
-			found = glob.glob(output_dir + uid + '*')
-
-			if found
-			downloaded_ids.append(uid)
-			subprocess.call(["wget",address+uid+'.pdb'])
-
+            if uids[i][0:4].upper() in filter_ids: #Make check on pdb search
+		pdb.set_trace()    
+                downloaded_ids.append(uids[i])
+		subprocess.call(["wget",address+selected_uids[i]+'.pdb'])
+            
+	    else:
+                if len(selected_uids) < number_of_uids: #If all uids have not been used
+		    selected_uids.insert(i+1, uids[len(selected_uids))  #remove and insert new - continue on the inserted one somehow
 		else:
-			selected_uids. #remove and insert new - continue on the inserted one somehow
-			
+                    print('Not enough uids matching criteria in: ', H_group, ' Pos: ', i+1) 
 
-	return downloaded_ids
+
+
+        
+	return None
+
+
+def align(selected_uids, TMalign):
+    '''Run TMalign on file pair and extract sequence identity,
+    remove file2 if 90 % or above
+    '''
+    
+    
+    count = 0 #Keep track of number of alignments made
+    end = len(selected_uids)
+
+    for i in range(0, end):
+            structure_i = dir_path+uids[i] #Get structure i
+            for j in range(i+1, end):
+                    structure_j = dir_path+uids[j] #Get structure j
+                    subprocess.call([TMalign, structure_i , structure_j , '-a'])
+                    count+=1
+    
+    return None
 
 #####MAIN#####
 args = parser.parse_args()
@@ -90,7 +117,7 @@ filter_ids = read_newline(filter_file)
 
 pdb.set_trace()
 
-downloaded_ids = get_structures(address, uids, H_groups)
+downloaded_ids = get_structures(address, uids, filter_ids, H_group)
 
 #Print downloaded ids
 print(downloaded_ids)
