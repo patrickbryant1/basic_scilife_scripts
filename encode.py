@@ -79,7 +79,6 @@ def encode_dssp(dir_path):
 
 	#chdir to directory with files
 	os.chdir(dir_path)
-	print(dir_path)
 	dssp_info = {} #save dssp output for encodings
 
 	for file in glob.glob("*_dssp"):
@@ -121,7 +120,7 @@ def encode_dssp(dir_path):
 		
 
 		#Save to dict
-		dssp_info[uid] = [secondary_str, surface_acc, residues]
+		dssp_info[uid] = [secondary_str, surface_acc, residues, dir_path]
 		
 		
 	return dssp_info
@@ -208,13 +207,16 @@ def encode_aln(dir_path, dssp_info, out_path):
 
 
 		#Calculate number of non-gaps in sequence
-		(dssp1) = count_non_gaps(seq1, dssp1, uid1)
-		(dssp2) = count_non_gaps(seq2, dssp2, uid2)
-
-
-		encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
-		name = out_path+uid1+'_'+uid2+'.enc'
-		write_encoding(encoded_aln, name)
+		skip1 = count_non_gaps(seq1, dssp1, uid1)
+		skip2 = count_non_gaps(seq2, dssp2, uid2)
+		
+		#Skip this pair if True
+		if skip1 == True or skip2 == True:
+			continue
+		else:
+			encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
+			name = out_path+uid1+'_'+uid2+'.enc'
+			write_encoding(encoded_aln, name)
 
 	return None
 
@@ -226,7 +228,8 @@ def count_non_gaps(sequence, dssp, uid):
 	gapless_seq = ''
 
 	residues = dssp[2] #Original residues
-
+	
+	skip = False #skip this uid
 	#Count non-gaps
 	for aa in sequence:
 		if aa != '-':
@@ -236,54 +239,55 @@ def count_non_gaps(sequence, dssp, uid):
 	missing_pos = [] #Save positions for missing residues
 	diff = count - len(residues) #Number of residues that have not been read by dssp
 	if diff>=1: #If there are residues missing in the dssp output
-		
-
-		for i in range(0, len(residues)):
+		print(dssp[3]+uid)
+		skip = True
+		#for i in range(0, len(residues)):
 			
-			if i == (len(residues)-1): #If the whole sequence has been stepped through,
-				if len(missing_pos) < diff: #the missing are in the end
+		#	if i == (len(residues)-1): #If the whole sequence has been stepped through,
+		#		if len(missing_pos) < diff: #the missing are in the end
 					
-					current_len = len(dssp[2])
-					for j in range(current_len, len(gapless_seq)):
-						dssp[0].insert(j, ' ')
-						dssp[1].insert(j, 0)
-						dssp[2] = dssp[2][:j]+gapless_seq[j]+dssp[2][j:] #str insert work around
-						missing_pos.append(j)
+		#			current_len = len(dssp[2])
+		#			for j in range(current_len, len(gapless_seq)):
+		#				dssp[0].insert(j, ' ')
+		#				dssp[1].insert(j, 0)
+		
+		#		dssp[2] = dssp[2][:j]+gapless_seq[j]+dssp[2][j:] #str insert work around
+		#				missing_pos.append(j)
 
-			if dssp[2][i] == gapless_seq[i]:
-				continue 
+		#	if dssp[2][i] == gapless_seq[i]:
+		#		continue 
 			
-			else:
+		#	else:
 
 				
 
-				if i>0:
-					surrounding = [gapless_seq[i-1], gapless_seq[i+1]]
-				else:
-					surrounding = [gapless_seq[i], gapless_seq[i+1]]
+		#		if i>0:
+		#			surrounding = [gapless_seq[i-1], gapless_seq[i+1]]
+		#		else:
+		#			surrounding = [gapless_seq[i], gapless_seq[i+1]]
 
-				if gapless_seq[i] in surrounding:
+		#		if gapless_seq[i] in surrounding:
 					
-					raise ValueError('Residue in surrounding!', uid, gapless_seq[i-1:i+2])
-				else:
-					dssp[0].insert(i, ' ')
-					dssp[1].insert(i, 0)
-					dssp[2] = dssp[2][:i]+gapless_seq[i]+dssp[2][i:] #str insert work around
-					missing_pos.append(i)
+		#			raise ValueError('Residue in surrounding!', uid, gapless_seq[i-1:i+2])
+		#		else:
+		#			dssp[0].insert(i, ' ')
+		#			dssp[1].insert(i, 0)
+		#			dssp[2] = dssp[2][:i]+gapless_seq[i]+dssp[2][i:] #str insert work around
+		#			missing_pos.append(i)
 
 
 
 
 
 
-	if gapless_seq != dssp[2]: #If the difference is not accounted for
+	#if gapless_seq != dssp[2]: #If the difference is not accounted for
 		#pdb.set_trace()
-		raise ValueError('Did not find all missing residues! (or too many)', uid) 
-	else:
-		missing_pos = missing_pos	
+	#	raise ValueError('Did not find all missing residues! (or too many)', uid) 
+	#else:
+	#	missing_pos = missing_pos	
 	
-	print(uid + '\n' + gapless_seq + '\n' + dssp[2] + '\n')
-	return (dssp)
+	#print(uid + '\n' + gapless_seq + '\n' + dssp[2] + '\n')
+	return skip #(dssp)
 
 def write_encoding(encoded_aln, name):
 	'''Write the encoding to a file
