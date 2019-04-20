@@ -48,7 +48,7 @@ def read_newline(file_name):
 
 
 
-def get_structures(address, uids, filter_ids, H_group, TMalign):
+def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 	'''Download .pdb structure, run TMalign and check sequence identity
 	'''
 
@@ -58,8 +58,8 @@ def get_structures(address, uids, filter_ids, H_group, TMalign):
 	for i in range(0, len(uids)):
 		if len(selected_uids) == 10:
 			#Make alignment of all of these
-			pdb.set_trace()
-			status = align(selected_uids, TMalign)
+			#pdb.set_trace()
+			status = align(selected_uids, TMalign, output_dir)
 			#If one fails, pop this and continue
 			#Save the passed uids to a special list
 
@@ -77,63 +77,56 @@ def get_structures(address, uids, filter_ids, H_group, TMalign):
 	return None
 
 
-def align(selected_uids, TMalign):
-    '''Run TMalign on file pair and extract sequence identity,
-    remove file2 if 90 % or above
-    '''
+def align(selected_uids, TMalign, output_dir):
+	'''Run TMalign on file pair and extract sequence identity,
+	remove file2 if 90 % or above
+	'''
 
 
     
-    
-    count = 0 #Keep track of number of alignments made
-    end = len(selected_uids)
+	count = 0 #Keep track of number of alignments made
+	end = len(selected_uids)
 
-    for i in range(0, end):
-            structure_i ='/home/p/pbryant/pfs/evolution/CATH/'+selected_uids[i]+'.pdb' #Get structure i
-            for j in range(i+1, end):
-                    structure_j ='/home/p/pbryant/pfs/evolution/CATH/'+selected_uids[j]+'.pdb' #Get structure j
-                    subprocess.call([TMalign, structure_i , structure_j , '-a'])
-                    count+=1
+	for i in range(0, end):
+		structure_i =output_dir+selected_uids[i]+'.pdb' #Get structure i
+		for j in range(i+1, end):
+			structure_j =output_dir+selected_uids[j]+'.pdb' #Get structure j
+			tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
+			(rmsd, identity)= parse_tm(tmalign_out)
+			if float(identity) > 0.90: #seq identity threshold
+				pdb.set_trace()
+			count+=1
     
-
+			
 
 	
 
-    #Parse
-    pdb.set_trace()
+	#Parse
+	pdb.set_trace()
+    
+	return status
 
-    return status
-
-def get_pairwise_dist(file_path):
+def parse_tm(tmalign_out):
 	'''A function that gets the uids and the corresponding scores
 	and prints them in tsv.
 	'''
 
-	uid_pairs = [] #List with unique ids
+	tmalign_out = tmalign_out.split()
+	
+	for i in range(0, len(tmalign_out)): #Step through all items in list
+		
+		if 'RMSD' in str(tmalign_out[i]):
+			rmsd = tmalign_out[i+1] #Get the rmsd
+			
+		if 'Seq_ID' in str(tmalign_out[i]):
+			identity = tmalign_out[i+1]
+			
 
-	#df.loc[df['pdb'] == '1zmq']
-	print('uid1' + '\t' + 'uid2' + '\t' + 'RMSD')
-	with open(file_path) as file:
-		for line in file:
-			if 'Name of Chain' in line:
-				line = line.rstrip() #remove \n
-				line = line.split("/") #split on /
-				uid = line[-1].split(".")[0] #Get uid
-				
-				uid_pairs.append(uid)
+	rmsd = rmsd.decode("utf-8").rstrip(',')
+	identity = identity.decode("utf-8")
+			
+	return(rmsd, identity)
 
-			if 'RMSD=' in line:
-				line = line.rstrip() #remove \n
-				line = line.split(",") #split on ,
-				RMSD = line[1].split(' ')[-1] #Split on space
-
-				print(uid_pairs[0] + '\t' + uid_pairs[1] + '\t' + str(RMSD))
-				uid_pairs = [] #reset list of pairs
-
-
-
-
-	return status
 #####MAIN#####
 args = parser.parse_args()
 
@@ -151,7 +144,7 @@ uids = read_newline(uid_file)
 #Get pdb ids to filter on
 filter_ids = read_newline(filter_file)
 
-downloaded_ids = get_structures(address, uids, filter_ids, H_group, TMalign)
+downloaded_ids = get_structures(address, uids, filter_ids, H_group, TMalign, output_dir)
 
 #Print downloaded ids
 print(downloaded_ids)
