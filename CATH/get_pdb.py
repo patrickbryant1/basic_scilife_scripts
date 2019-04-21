@@ -92,9 +92,10 @@ def align(selected_uids, TMalign, output_dir):
 		for j in range(i+1, end):
 			structure_j =output_dir+selected_uids[j]+'.pdb' #Get structure j
 			tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
-			(rmsd, identity)= parse_tm(tmalign_out)
-			if float(identity) > 0.90: #seq identity threshold
-				pdb.set_trace()
+			(aligned_len, rmsd, identity)= parse_tm(tmalign_out)
+			if int(aligned_len) > float(identity) > 0.90: #seq identity threshold
+				print(selected_uids[i], selected_uids[j])
+				print(identity, rmsd)
 			count+=1
     
 			
@@ -110,22 +111,23 @@ def parse_tm(tmalign_out):
 	'''A function that gets the uids and the corresponding scores
 	and prints them in tsv.
 	'''
-
-	tmalign_out = tmalign_out.split()
+	
+	tmalign_out = tmalign_out.decode("utf-8")
+	tmalign_out = tmalign_out.split('\n')
 	
 	for i in range(0, len(tmalign_out)): #Step through all items in list
 		
-		if 'RMSD' in str(tmalign_out[i]):
-			rmsd = tmalign_out[i+1] #Get the rmsd
-			
-		if 'Seq_ID' in str(tmalign_out[i]):
-			identity = tmalign_out[i+1]
+		if 'Aligned length' and 'RMSD' and 'Seq_ID' in tmalign_out[i]:
+			row = tmalign_out[i].split(',')
+			aligned_len = row[0].split('=')[1].lstrip()
+			rmsd = row[1].split('=')[1].lstrip()
+			identity = row[2].split('=')[2].lstrip() 
 			
 
-	rmsd = rmsd.decode("utf-8").rstrip(',')
-	identity = identity.decode("utf-8")
+		
+	
 			
-	return(rmsd, identity)
+	return(aligned_len, rmsd, identity)
 
 #####MAIN#####
 args = parser.parse_args()
