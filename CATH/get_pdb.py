@@ -6,7 +6,6 @@ import argparse
 import sys
 import subprocess
 import pdb
-import shutil
 import random
 
 
@@ -14,7 +13,8 @@ import random
 parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids)
 												from H-groups that have at least 10 entries.
 												It then runs TMalign on all pairs of 10 randomly selected entries. If a paired
-												alignments should happen to have above 90% sequence identity, the second uid
+												alignment should happen to have above 90% sequence identity and above 90 % of residues
+												in the shortest chain have been aligned, the second uid
 												is dropped and a new domain structure downloaded, if available. Otherwise
 												the whole H-group is dropped''')
  
@@ -54,11 +54,15 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 
 	downloaded_uids = [] #Keep track of ids that have been downloaded	
 	selected_uids = [] #Selected for TMalign
+
+	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
+	print(uids)
+	random.shuffle(uids)
+	print(uids)
 	for i in range(0, len(uids)):
 		if len(selected_uids) == 10:
-			print(selected_uids)
 			#Make alignment of all of these
-			#pdb.set_trace()
+			
 			(status, last_pos) = align(selected_uids, TMalign, output_dir, H_group)
 			#If one fails, pop this and continue
 			if status == False: #If all have not passed
@@ -72,10 +76,12 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 			
 			downloaded_uids.append(uids[i])
 			selected_uids.append(uids[i])
-			print(uids[i])
+			
 			subprocess.call(["wget",address+uids[i]+'.pdb'])
             
 		
+	if status == False:
+		print('The H-group does not fulfill the criteria.')
 
 	print(downloaded_uids)
         
@@ -105,6 +111,7 @@ def align(selected_uids, TMalign, output_dir,  H_group):
 			structure_j =output_dir+selected_uids[j]+'.pdb' #Get structure j
 			tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
 			(aligned_len, rmsd, identity, chain_lens, sequences)= parse_tm(tmalign_out)
+			 
 			if int(aligned_len) > (0.9*min(chain_lens)) and float(identity) > 0.90: #seq identity threshold. Considers the length of the alignment 
 				print(selected_uids[i], selected_uids[j])
 				print(aligned_len, min(chain_lens), identity)
@@ -118,7 +125,7 @@ def align(selected_uids, TMalign, output_dir,  H_group):
 			
 				 
 	if status == True: # save all info to files
-		pdb.set_trace()
+		
 		write_to_file(output_dir, H_group, parsed_output)
 	
 	
@@ -161,7 +168,7 @@ def write_to_file(output_dir, H_group, parsed_output):
 	'''
 
 	with open(output_dir+H_group+'_rmsd.tsv', 'w') as file_1:
-		file_1.write('uid1' + '\t' + 'uid2' + '\t' + 'RMSD') #Write headers
+		file_1.write('uid1' + '\t' + 'uid2' + '\t' + 'RMSD' + '\n') #Write headers
 		for key in parsed_output:
 			uid_1 = key.split('_')[0]
 			uid_2 = key.split('_')[1]
