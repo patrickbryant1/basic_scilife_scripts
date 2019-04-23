@@ -199,11 +199,8 @@ uids = read_newline(uid_file)
 #Get pdb ids to filter on
 filter_ids = read_newline(filter_file)
 
-downloaded_ids = get_structures(address, uids, filter_ids, H_group, TMalign, output_dir)
+get_structures(address, uids, filter_ids, H_group, TMalign, output_dir)
 
-#Print downloaded ids
-print(downloaded_ids)
-pdb.set_trace()
 
 
 

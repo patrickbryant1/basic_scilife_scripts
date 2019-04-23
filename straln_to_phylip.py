@@ -7,7 +7,7 @@ import argparse
 import sys
 import os
 import subprocess
-#import pexpect
+import glob 
 import pdb
 
 
@@ -15,67 +15,50 @@ import pdb
 parser = argparse.ArgumentParser(description = '''A program that takes aligned residue pairs from the structural
 								alignment from TMalign and runs tree-puzzle on them.''')
  
-parser.add_argument('align_file', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to file with TMalign output.')
+parser.add_argument('align_dir', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to directory with TMalign alignments.')
 
 #Functions
-def get_alignments(file_path):
+def get_alignments(align_dir):
 	'''A function that gets the aligned residue pairs from the structural
 	   alignment from TMalign and writes them to files in phylip format
 	   including copies of each sequence due to the quartet requirement of tree-puzzle.
 	'''
 
 	uid_pairs = [] #List with unique ids
-	aligned_seqs = [] #List with aligned residue pairs
-	fetch_next_3 = False #Keeping track of lines
+	aligned_seqs = [] #Store aligned sequences
 	file_names = [] #Store file names
-
-	with open(file_path) as file:
-		for line in file:
-			if 'Name of Chain' in line:
-				line = line.rstrip() #remove \n
-				line = line.split("/") #split on /
-				uid = line[-1].split(".")[0] #Get uid
-				
-				uid_pairs.append(uid)
-
-
-
-			if fetch_next_3 == True: #Fetch next three lines
-				#Fetch lines
-				if fetched_lines < 3:
-					fetched_lines+=1
-					line = line.rstrip() #remove \n
-					aligned_seqs.append(line) #Append to list
-				else:
-					file_name = make_phylip(uid_pairs, aligned_seqs)
-					file_names.append(file_name)
-					fetch_next_3 = False
-					uid_pairs = [] #reset list of pairs
-					aligned_seqs = [] #reset aligned seqs
+	
+	for infile in glob.glob(align_dir+"*.aln"):
+		
+		with open(infile) as file:
+			infile = infile.split('/')[-1] #Last part of path
+			uid_pairs =  infile.split('.')[0].split('_')
 			
-				
-			if 'denotes aligned residue pairs' in line:
-				fetch_next_3 = True
-				fetched_lines = 0
-			
+			#Get sequence alignments			
+			for line in file:
+				aligned_seqs.append(line.rstrip())
+			#Format sequence alignment into phylip to run tree-puzzle
+			file_name = make_phylip(align_dir, uid_pairs, aligned_seqs)
+			file_names.append(file_name)
+						
 
-
+	
 	return file_names
 
-def make_phylip(uid_pairs, aligned_seqs):
+def make_phylip(align_dir, uid_pairs, aligned_seqs):
 	'''Print phylip format for tree-puzzle calculations
 	'''
 	#Create text in phylip format
 	text = (' 4  ' + str(len(aligned_seqs[0])) + '\n'
 			+ uid_pairs[0] + '00|' + aligned_seqs[0] + '\n'
 			+ 'copy11111' + '|' + aligned_seqs[0] + '\n'
-			+ uid_pairs[1] + '00|' + aligned_seqs[2] + '\n'
-			+ 'copy22222' + '|' + aligned_seqs[2] + '\n')
+			+ uid_pairs[1] + '00|' + aligned_seqs[1] + '\n'
+			+ 'copy22222' + '|' + aligned_seqs[1] + '\n')
 	
 
 	#Define file name
-	file_name = uid_pairs[0] + '_' + uid_pairs[1] + '.phy'
+	file_name = align_dir+uid_pairs[0] + '_' + uid_pairs[1] + '.phy'
 	#Open file and write text to it
 	with open(file_name, "w") as file:
 		file.write(text)
@@ -86,12 +69,13 @@ def make_phylip(uid_pairs, aligned_seqs):
 #Main program
 args = parser.parse_args()
 
-align_file = args.align_file[0]
+align_dir = args.align_dir[0]
 
 
 
 #Make .phy files with alignments
-file_names = get_alignments(align_file)
+file_names = get_alignments(align_dir)
+
 print('Number of files to tree-puzzle: '+str(len(file_names)))
 #Run tree-puzzle on the files
 for name in file_names:
