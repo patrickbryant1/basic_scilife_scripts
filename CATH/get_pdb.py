@@ -139,7 +139,7 @@ def align(selected_uids, TMalign, output_dir,  H_group):
 				status = False
 				break #Break out, since too similar seqs
 			count+=1    
-			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [sequences, rmsd] #Add info to parsed output
+			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [sequences, rmsd, chain_lens, aligned_len, identity] #Add info to parsed output
 			
 		if status == False:
 			break #Break out, since too similar seqs
@@ -188,13 +188,14 @@ def write_to_file(output_dir, H_group, parsed_output):
 	that will be used downstream
 	'''
 
-	with open(output_dir+H_group+'_rmsd.tsv', 'w') as file_1:
-		file_1.write('uid1' + '\t' + 'uid2' + '\t' + 'RMSD' + '\n') #Write headers
+	with open(output_dir+H_group+'_tm.tsv', 'w') as file_1:
+		file_1.write('uid1' + '\t' + 'uid2' + '\t' + 'RMSD' + '\t' + 'Chain1' + '\t' + 'Chain2' + '\t' + 'Aligned' + '\t' + 'Identity' + '\n') #Write headers
 		for key in parsed_output:
 			uid_1 = key.split('_')[0]
 			uid_2 = key.split('_')[1]
 			
-			file_1.write(uid_1 + '\t' + uid_2 + '\t' + parsed_output[key][1] + '\n') #Write uids and corresponding rmsd
+			info = parsed_output[key]
+			file_1.write(uid_1 + '\t' + uid_2 + '\t' + info[1] + '\t' + str(info[2][0]) + '\t' + str(info[2][1]) + '\t' + info[3] + '\t' + info[4] + '\n') #Write uids and corresponding rmsd
 			with open(output_dir+key+'.aln', 'w') as file_2:
 				file_2.write(parsed_output[key][0][0]+'\n') #write sequences
 				file_2.write(parsed_output[key][0][1])
