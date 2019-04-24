@@ -25,8 +25,7 @@ def get_alignments(align_dir):
 	   including copies of each sequence due to the quartet requirement of tree-puzzle.
 	'''
 
-	uid_pairs = [] #List with unique ids
-	aligned_seqs = [] #Store aligned sequences
+	
 	file_names = [] #Store file names
 	
 	for infile in glob.glob(align_dir+"*.aln"):
@@ -34,7 +33,7 @@ def get_alignments(align_dir):
 		with open(infile) as file:
 			infile = infile.split('/')[-1] #Last part of path
 			uid_pairs =  infile.split('.')[0].split('_')
-			
+			aligned_seqs = [] #Store aligned sequences
 			#Get sequence alignments			
 			for line in file:
 				aligned_seqs.append(line.rstrip())

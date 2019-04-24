@@ -11,8 +11,8 @@ import random
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids)
-												from H-groups that have at least 10 entries.
-												It then runs TMalign on all pairs of 10 randomly selected entries. If a paired
+												from H-groups that have at least 2 entries.
+												It then runs TMalign on all pairs of 2-5 randomly selected entries. If a paired
 												alignment should happen to have above 90% sequence identity and above 90 % of residues
 												in the shortest chain have been aligned, the second uid
 												is dropped and a new domain structure downloaded, if available. Otherwise
@@ -53,33 +53,25 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 	'''
 
 	downloaded_uids = [] #Keep track of ids that have been downloaded	
-	selected_uids = [] #Selected for TMalign
 
+	status = False #Set original status
 	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
-	print(uids)
 	random.shuffle(uids)
-	print(uids)
-	for i in range(0, len(uids)):
-		if len(selected_uids) == 10:
-			#Make alignment of all of these
-			
-			(status, last_pos) = align(selected_uids, TMalign, output_dir, H_group)
-			#If one fails, pop this and continue
-			if status == False: #If all have not passed
-				selected_uids.pop(last_pos) #Pop this failed uid
-			else:
-				print('Done')
-				break				
-			#Save the passed uids to a special list
+	
+	#Check how many uids to get
+	if len(uids) > 5:
+		get_n = 5
+	else:
+		get_n = len(uids)
 
-		if uids[i][0:4].upper() in filter_ids: #Make check on pdb search
-			
-			downloaded_uids.append(uids[i])
-			selected_uids.append(uids[i])
-			
-			subprocess.call(["wget",address+uids[i]+'.pdb'])
-            
-		
+	#Go through uids and try to find get_n uids that match criteria
+	while get_n >= 2:
+		print(get_n)
+		(status, downloaded_uids) = loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, get_n, downloaded_uids)
+		if status == False:
+			get_n -= 1
+
+	#If you could not get at least 2 uids that fulfill criteria
 	if status == False:
 		print('The H-group does not fulfill the criteria.')
 
@@ -87,6 +79,33 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
         
 	return None
 
+def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, get_n, downloaded_uids):
+	'''Loop through uids and try to make get_n alignments
+	that fulfill criteria.
+	'''
+	selected_uids = [] #Selected for TMalign
+
+	for i in range(0, len(uids)):
+                if len(selected_uids) == get_n:
+                        #Make alignment of all of these
+
+                        (status, last_pos) = align(selected_uids, TMalign, output_dir, H_group)
+                        #If one fails, pop this and continue
+                        if status == False: #If all have not passed
+                                selected_uids.pop(last_pos) #Pop this failed uid
+                        else:
+                                print('Done')
+                                break
+                        #Save the passed uids to a special list
+
+                if uids[i][0:4].upper() in filter_ids: #Make check on pdb search
+			selected_uids.append(uids[i])
+			if uids[i] not in downloaded_uids:
+				downloaded_uids.append(uids[i])
+                                subprocess.call(["wget",address+uids[i]+'.pdb'])
+
+			
+	return(status, downloaded_uids)
 
 def align(selected_uids, TMalign, output_dir,  H_group):
 	'''Run TMalign on file pair and extract sequence identity,

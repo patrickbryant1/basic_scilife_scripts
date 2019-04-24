@@ -200,6 +200,7 @@ def encode_aln(dir_path, dssp_info, out_path):
 
 		if len(seq1) == len(seq2): #If the seqs are of equal lengths
 			#Get dssp encodings for uids
+			
 			dssp1 = dssp_info[uid1]
 			dssp2 = dssp_info[uid2]
 		else:
