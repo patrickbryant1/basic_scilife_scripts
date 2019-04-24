@@ -13,7 +13,7 @@ import pdb
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that investigates the distribution of
-									 each H-group in CATH. And writes all uids for each H-group with over 10 entries 
+									 each H-group in CATH. And writes all uids for each H-group with over 2 entries 
 									 into files(newline separated) in the output directory''')
  
 parser.add_argument('file_path', nargs=1, type= str,
@@ -54,17 +54,25 @@ def read_tsv(file_path):
 				if found == False:
 					H_groups.append(H_group)
 					uids.append([uid])
+					print(len(H_groups))
 			else:
 				H_groups.append(H_group)
 				uids.append([uid])
 
 
+
 	return uids, H_groups
 
 
-def plot_hist(id_count, bins):
+def plot_hist(id_count, bins, title):
+	plt.title(title)
+	plt.xlabel('Number of uids in H-group')
+	plt.ylabel('log(count) of number of H-groups with x uids')
 	plt.hist(id_count, bins = bins)
+	plt.yscale("log")
+	plt.xscale("log")
 	plt.show()
+
 
 	return None
 
@@ -94,19 +102,21 @@ outdir_path = args.outdir_path[0]
 uids, H_groups = read_tsv(file_path)
 
 #Count uids in each H_group:
-uid_counts = [] #Store uid_counts
+uid_counts_all = [] #Store uid counts
+uid_counts_over = [] #Store uid counts over n
 over_n_H = [] #Store H_groups with uid counts over n
 over_n_uids = [] #Store uids with over n entries
-n = 10 #Cutoff
+n = 2 #Cutoff
 
 for i in range(0, len(uids)):
-	uid_counts.append(len(uids[i]))
+	uid_counts_all.append(len(uids[i]))
 	if len(uids[i])>=n:
 		over_n_H.append(H_groups[i])
 		selected = uids[i]
 		over_n_uids.append(selected)
+		uid_counts_over.append(len(uids[i]))
 
-
+pdb.set_trace()
 write_selected(over_n_H, over_n_uids, outdir_path)
 
 

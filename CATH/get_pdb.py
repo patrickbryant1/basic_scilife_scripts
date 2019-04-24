@@ -86,23 +86,23 @@ def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, ge
 	selected_uids = [] #Selected for TMalign
 
 	for i in range(0, len(uids)):
-                if len(selected_uids) == get_n:
-                        #Make alignment of all of these
+        if len(selected_uids) == get_n:
+        #Make alignment of all of these
 
-                        (status, last_pos) = align(selected_uids, TMalign, output_dir, H_group)
-                        #If one fails, pop this and continue
-                        if status == False: #If all have not passed
-                                selected_uids.pop(last_pos) #Pop this failed uid
-                        else:
-                                print('Done')
-                                break
-                        #Save the passed uids to a special list
+            (status, last_pos) = align(selected_uids, TMalign, output_dir, H_group)
+            #If one fails, pop this and continue
+            if status == False: #If all have not passed
+                selected_uids.pop(last_pos) #Pop this failed uid
+            else:
+                print('Done')
+                break
 
-                if uids[i][0:4].upper() in filter_ids: #Make check on pdb search
+
+        if uids[i][0:4].upper() in filter_ids: #Make check on pdb search
 			selected_uids.append(uids[i])
 			if uids[i] not in downloaded_uids:
 				downloaded_uids.append(uids[i])
-                                subprocess.call(["wget",address+uids[i]+'.pdb'])
+                subprocess.call(["wget",address+uids[i]+'.pdb'])
 
 			
 	return(status, downloaded_uids)
