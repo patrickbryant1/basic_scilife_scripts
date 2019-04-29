@@ -54,7 +54,7 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 
 	downloaded_uids = [] #Keep track of ids that have been downloaded	
 
-	status = False #Set original status
+	#status = False #Set original status
 	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
 	random.shuffle(uids)
 	
@@ -66,7 +66,6 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 
 	#Go through uids and try to find get_n uids that match criteria
 	while get_n >= 2:
-		print(get_n)
 		(status, downloaded_uids) = loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, get_n, downloaded_uids)
 		if status == True:
 			break
@@ -75,7 +74,7 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 		
 	#If you could not get at least 2 uids that fulfill criteria
 	if status == False:
-		print('The H-group does not fulfill the criteria.')
+		print('The H-group ' + H_group + ' does not fulfill the criteria.')
 
 	print(downloaded_uids)
         
@@ -86,6 +85,7 @@ def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, ge
 	that fulfill criteria.
 	'''
 	selected_uids = [] #Selected for TMalign
+	status = False #Set original status
 
 	for i in range(0, len(uids)):
 		if len(selected_uids) == get_n:
@@ -96,7 +96,7 @@ def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, ge
 			if status == False: #If all have not passed
 				selected_uids.pop(last_pos) #Pop this failed uid
 			else:
-				print('Done')
+				print(H_group + 'aligned with TMalign!')
 				break
 
 
@@ -105,7 +105,8 @@ def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, ge
 			if uids[i] not in downloaded_uids:
 				downloaded_uids.append(uids[i])
 				subprocess.call(["wget",address+uids[i]+'.pdb'])
-
+		else:
+			print(uids[i] + ' did not pass filter')
 
 	return(status, downloaded_uids)
 
@@ -146,7 +147,7 @@ def align(selected_uids, TMalign, output_dir,  H_group):
 			
 				 
 	if status == True: # save all info to files
-		
+				
 		write_to_file(output_dir, H_group, parsed_output)
 	
 	
