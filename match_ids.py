@@ -38,6 +38,14 @@ def read_tsv(tsv_file):
 				uid_pair = line[0]+'/'+line[1]
 				distance = line[2]
 
+				#For TMalign output
+				if len(line) >3:
+					chain1 = line[3]
+					chain2 = line[4]
+					aligned = line[5]
+					identity = line[6]
+
+					distance = line[2] + '/' + chain1 + '/' + chain2 + '/' + aligned + '/' + identity
 				#Append to lists
 				uids.append(uid_pair)
 				distances.append(distance)
@@ -78,7 +86,9 @@ def match_ids(seq_dist_uids, seq_dist_distances, rmsd_uids, rmsd_distances):
 				structural_distances.append(rmsd_distances[search_space[j]])
 
 				#Print in tsv
-				print(seq_dist_uid_1 + '\t' + seq_dist_uid_2 + '\t' + seq_dist + '\t' + rmsd_distances[search_space[j]])
+				tm_info = rmsd_distances[search_space[j]].split('/')
+				print(seq_dist_uid_1 + '\t' + seq_dist_uid_2 + '\t' + seq_dist + '\t' + 
+					tm_info[0] + '\t' + tm_info[1] + '\t' + tm_info[2] + '\t' + tm_info[3] + '\t' + tm_info[4])
 				search_space.pop(j) #Remove item to reduce search space
 				break #When item is found, break out of loop
 
@@ -102,6 +112,7 @@ RMSD_file = args.RMSD_file[0]
 #Read tsvs
 (seq_dist_uids, seq_dist_distances) = read_tsv(seq_dist_file)
 (rmsd_uids, rmsd_distances) = read_tsv(RMSD_file)
+
 
 #Make sure they have an equal amount of entries
 if len(seq_dist_uids) != len(rmsd_uids):
