@@ -60,10 +60,8 @@ def get_locations(encode_locations):
 	locations = []
 	with open(encode_locations) as file:
   		for line in file:
-  			if '/home/pbryant' in line:
-  				directory = line.rstrip()[:-1]
-  			else:
-  				locations.append(directory+'/'+line.rstrip())
+  			line = line.rstrip()
+  			locations.append(line)
 
 
 

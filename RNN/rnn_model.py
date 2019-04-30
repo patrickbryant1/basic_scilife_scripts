@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for
 								secondary structure and surface accessibility.''')
  
 parser.add_argument('dist_file', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to distance file. Format: uid1	uid2	MLdist	RMSD')
+                  default=sys.stdin, help = 'Path to distance file. Format: uid1	uid2	MLdist	TMinfo..')
 
 parser.add_argument('encode_locations', nargs=1, type= str,
                   default=sys.stdin, help = '''Paths to files with encodings of alignments, secondary structure and surface acc.
@@ -72,11 +72,11 @@ for file_name in locations:
 
 
 
-
+pdb.set_trace()
 
 #Get corresponding labels (rmsds) for the encoded sequences
 (uids, encoding_list, rmsd_dists, ML_dists) = get_labels(encodings, distance_dict)
-
+pdb.set_trace()
 
 #Assign data and labels
 X = np.array(encoding_list)
