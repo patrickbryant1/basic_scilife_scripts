@@ -56,7 +56,7 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 
 	#status = False #Set original status
 	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
-	random.shuffle(uids)
+	random.Random(2).shuffle(uids)
 	
 	#Check how many uids to get
 	if len(uids) > 5:
@@ -91,10 +91,11 @@ def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, ge
 		if len(selected_uids) == get_n:
 		#Make alignment of all of these
 
-			(status, last_pos) = align(selected_uids, TMalign, output_dir, H_group)
+			(status, latest_pos) = align(selected_uids, TMalign, output_dir, H_group)
 			#If one fails, pop this and continue
 			if status == False: #If all have not passed
-				selected_uids.pop(last_pos) #Pop this failed uid
+				os.remove(output_dir + selected_uids[latest_pos]
+				selected_uids.pop(latest_pos) #Pop this failed uid
 			else:
 				print(H_group + 'aligned with TMalign!')
 				break

@@ -210,10 +210,11 @@ def encode_aln(dir_path, dssp_info, out_path):
 		#Calculate number of non-gaps in sequence
 		skip1 = count_non_gaps(seq1, dssp1, uid1)
 		skip2 = count_non_gaps(seq2, dssp2, uid2)
-		
+			
 		#Skip this pair if True
 		if skip1 == True or skip2 == True:
 			continue
+			
 		else:
 			encoded_aln = match_encoding(seq1, dssp1, seq2, dssp2)
 			name = out_path+uid1+'_'+uid2+'.enc'
@@ -240,7 +241,7 @@ def count_non_gaps(sequence, dssp, uid):
 	missing_pos = [] #Save positions for missing residues
 	diff = count - len(residues) #Number of residues that have not been read by dssp
 	if diff>=1: #If there are residues missing in the dssp output
-		print(dssp[3]+uid)
+		print('Residues missing in dssp output for: '+dssp[3]+uid)
 		skip = True
 		#for i in range(0, len(residues)):
 			
