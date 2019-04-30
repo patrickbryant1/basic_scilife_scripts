@@ -12,7 +12,7 @@ import tensorflow as tf
 
 
 #import custom functions
-from rnn_input import read_labels, rmsd_hot, make_dict, get_locations, get_labels, word_distributions, label_distr
+from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr
 import pdb
 
 
@@ -52,9 +52,11 @@ X = [] #Save data
 y = [] #Save labels
 
 
-dictionary = {} #dict to save all possible combinations
 accessibilities = [] #list to save all accessibilities
+structures = [] #list to save all secondary structures
+letters = [] #List to save all amino acids
 seqlens = [] #list to save all sequence lengths
+
 encodings = {} #Save all encodings
 #Test, load only little data
 max_aln_len = 0 #maximum aln length
@@ -63,7 +65,7 @@ max_aln_len = 0 #maximum aln length
 locations = get_locations(encode_locations)
 
 for file_name in locations:
-  (encoding, dictionary, accessibilities, seqlens) = make_dict(file_name, dictionary, accessibilities, seqlens)
+  (encoding, accessibilities, structures, letters, seqlens) = get_encodings(file_name, accessibilities, structures, letters, seqlens)
 
   file_name = file_name.split('/')
   h_group = file_name[-2]
@@ -72,7 +74,12 @@ for file_name in locations:
 
 
 
-pdb.set_trace()
+
+#Look at data distributions
+encoding_distributions('hist', accessibilities, 'Distribution of Normalized surface accessibilities', 101, out_dir, 'acc', True )
+encoding_distributions('bar',structures, 'Distribution of secondary structure elements', 10, out_dir, 'str', False)#, ['G', 'H', 'I', 'T', 'E', 'B', 'S', 'C', ' ', '-'])
+encoding_distributions('bar', letters, 'Distribution of amino acids in sequences', 22, out_dir, 'aa', True)
+encoding_distributions('hist', seqlens, 'Distribution of sequence lengths', 100, out_dir, 'seqlens', True)
 
 #Get corresponding labels (rmsds) for the encoded sequences
 (uids, encoding_list, rmsd_dists, ML_dists) = get_labels(encodings, distance_dict)

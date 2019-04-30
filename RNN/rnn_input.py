@@ -4,10 +4,50 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from collections import Counter
 
 import pdb
 
+#ENCODING INFO
 
+AMINO_ACIDS = { 
+'A':1,
+'R':2,
+'N':3,
+'D':4,
+'C':5,
+'E':6,
+'Q':7,
+'G':8,
+'H':9,
+'I':10,
+'L':11,
+'K':12,
+'M':13,
+'F':14,
+'P':15,
+'S':16,
+'T':17,
+'W':18,
+'Y':19,
+'V':20,
+'X':21, #UNKNOWN
+'-':22
+}
+
+
+SECONDARY_STR = {
+'G':1,
+'H':2,
+'I':3,
+'T':4,
+'E':5,
+'B':6,
+'S':7,
+'C':8,
+' ':9,
+'-':10
+}
 
 #Functions for reading, exploring and visualizing input data
 
@@ -68,45 +108,72 @@ def get_locations(encode_locations):
 	return locations
 
 
-def make_dict(file_name, dictionary, accessibilities, seqlens):
-	'''Make a dictionary of all encodings
+def get_encodings(file_name, accessibilities, structures, letters, seqlens):
+	'''Make a book of all encodings (sentences)
 	'''
 
-	encoding = [] #Save int encoding of sequence
-	
+	aa1 = []
+	str1 = []
+	acc1 = []
+	aa2 = []
+	str2 = []
+	acc2 = []
+
+	encoding = [aa1, str1, acc1, aa2, str2, acc2] #Save int encoding of sequence
+
 	with open(file_name) as file:
 		for line in file:
 			line = line.split(',')
-			acc1 = int(line[2])
-			acc2 = int(line[5])
-			accessibilities.append(acc1)
-			accessibilities.append(acc2)
+			aa1.append(AMINO_ACIDS[line[0]])
+			str1.append(SECONDARY_STR[line[1]])
+			acc1.append(int(line[2]))
+			aa2.append(AMINO_ACIDS[line[3]])
+			str2.append(SECONDARY_STR[line[4]])
+			acc2.append(int(line[5]))
 
-			#Sort acc to categorial (1 if above 10)
-			if acc1 > 10:
-				line[2] = '1'
-			else:
-				line[2] = '0'
+			#Save all info to see distribtuions
+			letters.append(line[0])
+			letters.append(line[3])
+			structures.append(line[1])
+			structures.append(line[4])
+			accessibilities.append(int(line[2]))
+			accessibilities.append(int(line[5]))
 
-			if acc2 > 10:
-				line[5] = '1'
-			else:
-				line[5] = '0'
-
-
-			word = ''.join(line[0:6])
 			
+	encoding = [aa1, str1, acc1, aa2, str2, acc2]
+	#For length distributions
+	seqlens.append(len(encoding[0]))
 
-			if word in dictionary:
-				encoding.append(dictionary[word])
-			else:
-				dictionary[word] = int(len(dictionary))
-				encoding.append(dictionary[word])
+	return(encoding, accessibilities, structures, letters, seqlens)
 
-	seqlens.append(len(encoding))
-	#encoding.append(len(encoding))
+def encoding_distributions(chart_type, encoding_info, title, bins, out_dir, name, scale):
+	'''Look at distributions of encoded info
+	'''
+	plt.title(title)
 
-	return(encoding, dictionary, accessibilities, seqlens)
+	if chart_type == 'bar':
+		counts = Counter(encoding_info)
+
+		x = []
+		y = []
+		for key in counts:
+			x.append(key)
+			y.append(counts[key])
+
+		
+		x_pos = np.arange(len(x))
+		plt.bar(x_pos , y, log = scale)
+
+		plt.xticks(x_pos, x)
+
+
+	if chart_type == 'hist':
+		plt.hist(encoding_info, bins = bins, log = scale)
+
+
+
+	plt.savefig(out_dir+name+'.png')
+	plt.close()
 
 
 def get_labels(encodings, distance_dict):
