@@ -168,7 +168,7 @@ with graph.as_default():
   num_unrollings = tf.placeholder(dtype = tf.uint32, shape = (1))
   # Input data. Create sturcutre for input data
   #Train data
-  train_inputs = tf.placeholder(tf.int32, shape=[num_unrollings, batch_size])
+  train_inputs = tf.placeholder(tf.int32, shape=[None, batch_size]) #None for varying input size = number of unrollings
   train_labels = tf.placeholder(tf.int32, shape=[101, batch_size])  
 
   #Valid data
@@ -201,7 +201,8 @@ with graph.as_default():
   outputs = [] #Store outputs
     
   #Unrolled lstm loop  
-  for i in range(num_unrollings): #Should go through sequence one position (= "word") at a time
+  #Have to figure out how to loop over the tensor
+  for i in range(>tensor length<):#range(num_unrollings): #Should go through sequence one position (= "word") at a time
     
       # The value of state is updated after processing each batch of words.
       # Look up embeddings for inputs.
