@@ -5,9 +5,9 @@
 import argparse
 import sys
 import subprocess
-import pdb
 import random
-
+import os
+import pdb
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids)
@@ -66,8 +66,12 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 
 	#Go through uids and try to find get_n uids that match criteria
 	while get_n >= 2:
-		(status, downloaded_uids) = loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, get_n, downloaded_uids)
+		(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, get_n, downloaded_uids)
 		if status == True:
+			#Remove the uids not to be used for later steps
+			for duid in downloaded_uids:
+				if duid not in selected_uids:
+					os.remove(output_dir + duid +'.pdb') #Remove failed .pdb file
 			break
 		else:
 			get_n -= 1
@@ -94,7 +98,6 @@ def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, ge
 			(status, latest_pos) = align(selected_uids, TMalign, output_dir, H_group)
 			#If one fails, pop this and continue
 			if status == False: #If all have not passed
-				os.remove(output_dir + selected_uids[latest_pos]
 				selected_uids.pop(latest_pos) #Pop this failed uid
 			else:
 				print(H_group + 'aligned with TMalign!')
@@ -109,7 +112,7 @@ def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, ge
 		else:
 			print(uids[i] + ' did not pass filter')
 
-	return(status, downloaded_uids)
+	return(status, downloaded_uids, selected_uids)
 
 def align(selected_uids, TMalign, output_dir,  H_group):
 	'''Run TMalign on file pair and extract sequence identity,
