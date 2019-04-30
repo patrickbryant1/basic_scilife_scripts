@@ -58,6 +58,7 @@ letters = [] #List to save all amino acids
 seqlens = [] #list to save all sequence lengths
 
 encodings = {} #Save all encodings
+threshold = 6 #ML seq distance threshold
 #Test, load only little data
 max_aln_len = 0 #maximum aln length
 
@@ -65,7 +66,7 @@ max_aln_len = 0 #maximum aln length
 locations = get_locations(encode_locations)
 
 for file_name in locations:
-  (encoding, accessibilities, structures, letters, seqlens) = get_encodings(file_name, accessibilities, structures, letters, seqlens)
+  (encoding) = get_encodings(file_name)
 
   file_name = file_name.split('/')
   h_group = file_name[-2]
@@ -73,23 +74,26 @@ for file_name in locations:
   encodings[uid_pair] = encoding
 
 
-
+#Get corresponding labels (rmsds) for the encoded sequences
+(uids, encoding_list, rmsd_dists, ML_dists, Chains, Align_lens, Identities, letters, structures, accessibilities, seqlens) = get_labels(encodings, distance_dict, threshold)
 
 #Look at data distributions
-encoding_distributions('hist', accessibilities, 'Distribution of Normalized surface accessibilities', 101, out_dir, 'acc', True )
-encoding_distributions('bar',structures, 'Distribution of secondary structure elements', 10, out_dir, 'str', False)#, ['G', 'H', 'I', 'T', 'E', 'B', 'S', 'C', ' ', '-'])
-encoding_distributions('bar', letters, 'Distribution of amino acids in sequences', 22, out_dir, 'aa', True)
-encoding_distributions('hist', seqlens, 'Distribution of sequence lengths', 100, out_dir, 'seqlens', True)
+#encoding_distributions('hist', accessibilities, 'Distribution of Normalized surface accessibilities', '% surface accessibility', 'log count', 101, out_dir, 'acc', True, [])
+#encoding_distributions('bar',structures, 'Distribution of secondary structure elements', 'secondary structure', 'log count', 10, out_dir, 'str', True, ['G', 'H', 'I', 'T', 'E', 'B', 'S', 'C', '-'])
+#encoding_distributions('bar', letters, 'Distribution of amino acids in sequences', 'amino acid', 'log count', 22, out_dir, 'aa', True, ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-'])
+#encoding_distributions('hist', seqlens, 'Distribution of sequence lengths', 'sequence length', 'count', 100, out_dir, 'seqlens', False, [])
 
-#Get corresponding labels (rmsds) for the encoded sequences
-(uids, encoding_list, rmsd_dists, ML_dists) = get_labels(encodings, distance_dict)
-pdb.set_trace()
+#Look at info from TMalign and tree-puzzle
+#encoding_distributions('hist', Chains, 'Distribution of chain lengths', 'Chain length', 'count', 100, out_dir, 'chains', False, [] )
+#encoding_distributions('hist', Align_lens, 'Distribution of % aligned of shortest chain length' , '% aligned of shortest chain length', 'log count', 100, out_dir, 'aligned', True, [])
+#encoding_distributions('hist', Identities, 'Distribution of chain Identities', 'Identity (%)', 'count', 100, out_dir, 'id', False, [])
+#label_distr(ML_dists, rmsd_dists, 'seq_str', out_dir, 'ML AA distance', 'RMSD')
+
 
 #Assign data and labels
 X = np.array(encoding_list)
-X = [np.array(enc) for enc in X]
 y = rmsd_hot(rmsd_dists) #One-hot encode labels
-
+pdb.set_trace()
 #Split train data to use 80% for training and 10% for validation and 10 % for testing. 
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
 #Random state = 42 guarantees the split is the same every time. This can be both bad and good, depending on

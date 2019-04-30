@@ -4,7 +4,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from collections import Counter
+import collections
+from scipy import stats
 
 import pdb
 
@@ -44,9 +45,8 @@ SECONDARY_STR = {
 'E':5,
 'B':6,
 'S':7,
-'C':8,
-' ':9,
-'-':10
+' ':8,
+'-':9
 }
 
 #Functions for reading, exploring and visualizing input data
@@ -65,8 +65,13 @@ def read_labels(tsv_file):
 			
 			ML_dist = float(line[2]) #aa evolutionary distance from tree-puzzle
 			rmsd_dist = float(line[3]) #rmsd from TMalign
+			Chain1 = int(line[4]) 
+			Chain2 = int(line[5])
+			Aligned = int(line[6])/min(Chain1, Chain2)
+			Identity = float(line[7])
+			
 
-			distance_dict[uid_pair] = [ML_dist, rmsd_dist]
+			distance_dict[uid_pair] = [ML_dist, rmsd_dist, Chain1, Chain2, Aligned, Identity]
 			
 				
 
@@ -108,7 +113,7 @@ def get_locations(encode_locations):
 	return locations
 
 
-def get_encodings(file_name, accessibilities, structures, letters, seqlens):
+def get_encodings(file_name):
 	'''Make a book of all encodings (sentences)
 	'''
 
@@ -131,52 +136,45 @@ def get_encodings(file_name, accessibilities, structures, letters, seqlens):
 			str2.append(SECONDARY_STR[line[4]])
 			acc2.append(int(line[5]))
 
-			#Save all info to see distribtuions
-			letters.append(line[0])
-			letters.append(line[3])
-			structures.append(line[1])
-			structures.append(line[4])
-			accessibilities.append(int(line[2]))
-			accessibilities.append(int(line[5]))
+			
 
 			
 	encoding = [aa1, str1, acc1, aa2, str2, acc2]
-	#For length distributions
-	seqlens.append(len(encoding[0]))
 
-	return(encoding, accessibilities, structures, letters, seqlens)
+	return(encoding)
 
-def encoding_distributions(chart_type, encoding_info, title, bins, out_dir, name, scale):
+def encoding_distributions(chart_type, encoding_info, title, xlabel, ylabel, bins, out_dir, name, scale, xticks):
 	'''Look at distributions of encoded info
 	'''
 	plt.title(title)
+	plt.xlabel(xlabel)
+	plt.ylabel(ylabel)
 
 	if chart_type == 'bar':
-		counts = Counter(encoding_info)
-
+		counts = collections.Counter(encoding_info)
+		#sort dicttionary
+		od = collections.OrderedDict(sorted(counts.items()))
 		x = []
 		y = []
-		for key in counts:
+		for key in od:
 			x.append(key)
 			y.append(counts[key])
 
-		
-		x_pos = np.arange(len(x))
-		plt.bar(x_pos , y, log = scale)
+		plt.bar(x , y, log = scale)
 
-		plt.xticks(x_pos, x)
+		plt.xticks(x, xticks)
 
 
 	if chart_type == 'hist':
 		plt.hist(encoding_info, bins = bins, log = scale)
-
-
+		mean = sum(encoding_info)/len(encoding_info)
+		plt.axvline(mean, color='k', linestyle='dashed', linewidth=1)
 
 	plt.savefig(out_dir+name+'.png')
 	plt.close()
 
 
-def get_labels(encodings, distance_dict):
+def get_labels(encodings, distance_dict, threshold):
 	'''Get corresponding labels for encodings
 	'''
 
@@ -184,20 +182,46 @@ def get_labels(encodings, distance_dict):
 	encoding_list = [] #save encodings
 	rmsd_dists = []
 	ML_dists = []
+	Chains = []
+	Align_lens = []
+	Identities = []
 
-
+	letters = []
+	structures = []
+	accessibilities = []
+	seqlens = []
+	
 	for key in encodings:
 		uids.append(key)
 
-		encoding_list.append(encodings[key])
-		[ML_dist, rmsd_dist] = distance_dict[key]
+		
+		[ML_dist, rmsd_dist, Chain1, Chain2, Aligned, Identity] = distance_dict[key]
 
-		rmsd_dists.append(rmsd_dist)
-		ML_dists.append(ML_dist)
+		if ML_dist <= threshold:
+			#Save all info to see distribtuions and to feed later
+			#From tree-puzzle and TMalign
+			rmsd_dists.append(rmsd_dist)
+			ML_dists.append(ML_dist)
+			Chains.append(Chain1)
+			Chains.append(Chain2)
+			Align_lens.append(Aligned)
+			Identities.append(Identity)
 
+			#From encoding
+			encoding = encodings[key]
+			for pos in range(0, len(encoding[0])):
 
+				letters.append(encoding[0][pos])
+				letters.append(encoding[3][pos])
+				structures.append(encoding[1][pos])
+				structures.append(encoding[4][pos])
+				accessibilities.append(encoding[2][pos])
+				accessibilities.append(encoding[5][pos])
 
-	return (uids, encoding_list, rmsd_dists, ML_dists)
+			seqlens.append(len(encoding[0]))
+			encoding_list.append(encoding)
+
+	return (uids, encoding_list, rmsd_dists, ML_dists, Chains, Align_lens, Identities, letters, structures, accessibilities, seqlens)
 
 
 def word_distributions(encoding_list, bins, out_dir, name):
@@ -213,16 +237,31 @@ def word_distributions(encoding_list, bins, out_dir, name):
 	return None
 
 
-def label_distr(y, name, out_dir):
+def label_distr(x, y, name, out_dir, xlabel, ylabel):
 	'''plot distribution of labels (normalized rmsd values)
 	'''
+	xedges, yedges = np.linspace(0, 9, 10*9), np.linspace(0, 8, 10*8)
+	hist, xedges, yedges = np.histogram2d(x, y, (xedges, yedges))
 
-	#Convert back to ints
-	y_ints = np.argmax(y, axis = 1)
+	xidx = np.clip(np.digitize(x, xedges), 0, hist.shape[0]-1)
+	yidx = np.clip(np.digitize(y, yedges), 0, hist.shape[1]-1)
+	c = hist[xidx, yidx]
+	plt.scatter(x, y, c=c)
 
-	plt.hist(y_ints, bins = 101)
-	plt.savefig(out_dir+name+'_label_distr.png')
+	#Calculate line of best fit
+	(slope, intercept, r_value, p_value, std_err) = stats.linregress(x, y)
+
+	#Desciption
+	plt.title('Sequence vs Structural distance' + '\n' + 'R-squared: ' + str((r_value**2).round(3)) +'|' + 'Slope: ' + str(slope.round(3)))
+	plt.xlabel(xlabel)
+	plt.ylabel(ylabel)
+	#Line of best fit
+	plt.plot(x, intercept + slope*np.array(x), 'r')
+	#Colorbar
+	plt.colorbar()
+
+	plt.savefig(out_dir+name+'.png')
 	plt.close()
 	
-	#plt.show()
+	
 	return None
