@@ -265,3 +265,12 @@ def label_distr(x, y, name, out_dir, xlabel, ylabel):
 	
 	
 	return None
+
+def plot_split(y):
+	'''Plots data distributions after train/valid/test split
+	'''
+
+	back = np.argmax(y, axis = 1)
+
+
+	return None

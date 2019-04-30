@@ -93,7 +93,7 @@ for file_name in locations:
 #Assign data and labels
 X = np.array(encoding_list)
 y = rmsd_hot(rmsd_dists) #One-hot encode labels
-pdb.set_trace()
+
 #Split train data to use 80% for training and 10% for validation and 10 % for testing. 
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
 #Random state = 42 guarantees the split is the same every time. This can be both bad and good, depending on
@@ -102,9 +102,9 @@ X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, rando
 X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
 
 #Get all lengths for all sequences
-trainlen = [len(i) for i in X_train]
-validlen = [len(i) for i in X_valid]
-testlen = [len(i) for i in X_test]
+trainlen = [len(i[0]) for i in X_train]
+validlen = [len(i[0]) for i in X_valid]
+testlen = [len(i[0]) for i in X_test]
 
 
 print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
@@ -115,8 +115,9 @@ print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
 #data = (X_train, X_valid, X_test)
 #names = ['Train', 'Valid', 'Test']
 #for i in range(0,3):
-#	label_distr(labels[i], names[i], out_dir)
-#	word_distributions(data[i], 500, out_dir, names[i])
+#	pdb.set_trace()
+#	(labels[i], names[i], out_dir)
+
 
 
 
@@ -124,14 +125,14 @@ print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
 #Parameters
 number_of_layers = 3
 num_unrollings = 0#length of longest alignment in batch
-vocab_size = len(dictionary)
+vocab_sizes = [22, 9, 101, 22, 9, 101]
 batch_size = 10 #Number of alignments
 
 epoch_length = int(len(X_train)/batch_size)
 num_epochs = 1
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
 num_nodes = 300
-embedding_size = num_nodes # Dimension of the embedding vector. 1:1 ratio with hidden nodes. Should probably have smaller embeddings
+embedding_size = 10 # Dimension of the embedding vector. 1:1 ratio with hidden nodes. Should probably have smaller embeddings
 
 
 init_scale = 0.1
@@ -153,12 +154,18 @@ with graph.as_default():
   softmax_w = tf.Variable(tf.random_uniform(shape = [num_nodes, 101], minval = -init_scale, maxval = init_scale, name = 'softmax_w'))
   softmax_b = tf.Variable(tf.zeros([101]), name = 'softmax_b')
   
-    #Embedding vector, input_size should be vocab_siz = 101
-  embeddings = tf.Variable(tf.random_uniform(shape = [vocab_size, embedding_size], minval = -init_scale, maxval = init_scale), name = 'embeddings')
+    #Embedding vectors, input_size should be vocab_size (variable btq 22, 9 and 101)
+    #One embedding vector for each aa, 2ndarystr, acc in each pair 
+  embedding1 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[0], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding1')
+  embedding2 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[1], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding2')
+  embedding3 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[2], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding3')
+  embedding4 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[3], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding4')
+  embedding5 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[4], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding5')
+  embedding6 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[5], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding6')
     
 
   #Number of unrollings - longest sequence length in batch
-  num_unrollings = tf.placeholder(tf.uint32)
+  num_unrollings = tf.placeholder(dtype = tf.uint32, shape = (1))
   # Input data. Create sturcutre for input data
   #Train data
   train_inputs = tf.placeholder(tf.int32, shape=[num_unrollings, batch_size])
@@ -194,14 +201,30 @@ with graph.as_default():
   outputs = [] #Store outputs
     
   #Unrolled lstm loop  
-  for i in range(num_unrollings):
+  for i in range(num_unrollings): #Should go through sequence one position (= "word") at a time
     
       # The value of state is updated after processing each batch of words.
       # Look up embeddings for inputs.
-      embed = tf.nn.embedding_lookup(embeddings, train_inputs[i])
+      embed1 = tf.nn.embedding_lookup(embedding1, train_inputs[i][0]) #input: 1xlength of longest sequence in batch 
+      embed2 = tf.nn.embedding_lookup(embedding2, train_inputs[i][1])
+      embed3 = tf.nn.embedding_lookup(embedding3, train_inputs[i][2])
+      embed4 = tf.nn.embedding_lookup(embedding1, train_inputs[i][3])
+      embed5 = tf.nn.embedding_lookup(embedding2, train_inputs[i][4])
+      embed6 = tf.nn.embedding_lookup(embedding3, train_inputs[i][5])
      
+      #Reshape to one dimension
+      flat1 = tf.reshape(embed1, [-1])
+      flat2 = tf.reshape(embed2, [-1])
+      flat3 = tf.reshape(embed3, [-1])
+      flat4 = tf.reshape(embed4, [-1])
+      flat5 = tf.reshape(embed5, [-1])
+      flat6 = tf.reshape(embed6, [-1])
+
+      #Cat all embeddings
+      cat_embed = tf.concat([flat1, flat2, flat3, flat4, flat5, flat6],0)
+
       #Output, state of  LSTM
-      output, state = stacked_lstm(embed, state)
+      output, state = stacked_lstm(cat_embed, state)
 
       outputs.append(output)
 
