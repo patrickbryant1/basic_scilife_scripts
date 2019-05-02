@@ -202,7 +202,7 @@ with graph.as_default():
     
   #Unrolled lstm loop  
   #Have to figure out how to loop over the tensor
-  for i in range(>tensor length<):#range(num_unrollings): #Should go through sequence one position (= "word") at a time
+  for i in range(200):#range(num_unrollings): #Should go through sequence one position (= "word") at a time
     
       # The value of state is updated after processing each batch of words.
       # Look up embeddings for inputs.
@@ -272,7 +272,7 @@ with tf.Session(graph=graph) as session:
   			train_feed_inputs = np.array(X_train[j:j+batch_size])
 
 
-  			maxlen = max(trainlen[j:j+batch_size])
+  			maxlen = 200#max(trainlen[j:j+batch_size])
   			#Pad
   			train_feed_inputs = [np.pad(inp, (0,maxlen-len(inp)), 'constant') for inp in train_feed_inputs]
 
