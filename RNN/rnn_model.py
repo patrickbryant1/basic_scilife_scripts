@@ -20,11 +20,11 @@ import pdb
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for predicting
-								RMSD between structural alignments based on sequences from per-residue alignments,
-								secondary structure and surface accessibility.''')
+                                                                RMSD between structural alignments based on sequences from per-residue alignments,
+                                                                secondary structure and surface accessibility.''')
  
 parser.add_argument('dist_file', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to distance file. Format: uid1	uid2	MLdist	TMinfo..')
+                  default=sys.stdin, help = 'Path to distance file. Format: uid1        uid2    MLdist  TMinfo..')
 
 parser.add_argument('encode_locations', nargs=1, type= str,
                   default=sys.stdin, help = '''Paths to files with encodings of alignments, secondary structure and surface acc.
@@ -115,8 +115,8 @@ print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
 #data = (X_train, X_valid, X_test)
 #names = ['Train', 'Valid', 'Test']
 #for i in range(0,3):
-#	pdb.set_trace()
-#	(labels[i], names[i], out_dir)
+#       pdb.set_trace()
+#       (labels[i], names[i], out_dir)
 
 
 
@@ -156,9 +156,9 @@ with graph.as_default():
   
     #Embedding vectors, input_size should be vocab_size (variable btq 22, 9 and 101)
     #One embedding vector for each aa, 2ndarystr, acc in each pair 
-  embedding1 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[0], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding1')
-  embedding2 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[1], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding2')
-  embedding3 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[2], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding3')
+  embedding1 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[0], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding1') #22x10
+  embedding2 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[1], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding2') #9x10
+  embedding3 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[2], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding3') #101x10
   embedding4 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[3], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding4')
   embedding5 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[4], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding5')
   embedding6 = tf.Variable(tf.random_uniform(shape = [vocab_sizes[5], embedding_size], minval = -init_scale, maxval = init_scale), name = 'embedding6')
@@ -168,7 +168,7 @@ with graph.as_default():
   num_unrollings = tf.placeholder(dtype = tf.uint32, shape = (1))
   # Input data. Create sturcutre for input data
   #Train data
-  train_inputs = tf.placeholder(tf.int32, shape=[None, batch_size]) #None for varying input size = number of unrollings
+  train_inputs = tf.placeholder(tf.int32, shape=[batch_size, 6, 200]) #None for varying input size = number of unrollings
   train_labels = tf.placeholder(tf.int32, shape=[101, batch_size])  
 
   #Valid data
@@ -213,6 +213,11 @@ with graph.as_default():
       embed5 = tf.nn.embedding_lookup(embedding2, train_inputs[i][4])
       embed6 = tf.nn.embedding_lookup(embedding3, train_inputs[i][5])
      
+      #print(embed1.get_shape(), embed2.get_shape(), embed3.get_shape(), embed4.get_shape(), embed5.get_shape(), embed6.get_shape())#Get shape
+      print(i)
+      print(train_inputs.get_shape())
+      print(train_inputs[i].get_shape())
+      print(train_inputs[i][0].get_shape())
       #Reshape to one dimension
       flat1 = tf.reshape(embed1, [-1])
       flat2 = tf.reshape(embed2, [-1])
@@ -222,19 +227,24 @@ with graph.as_default():
       flat6 = tf.reshape(embed6, [-1])
 
       #Cat all embeddings
-      cat_embed = tf.concat([flat1, flat2, flat3, flat4, flat5, flat6],0)
-
+      cat_embed = tf.concat([embed1, embed2, embed3, embed4, embed5, embed6], axis = 0)
+      print(cat_embed.get_shape())
+      
+      cat_embed = tf.transpose(cat_embed)
+      print(cat_embed.get_shape())
+      #reshape_embed = tf.reshape(cat_embed, [10, 6])
       #Output, state of  LSTM
       output, state = stacked_lstm(cat_embed, state)
-
+      #print(output.get_shape())
       outputs.append(output)
 
   #Save final state for validation and testing
   final_state = state
 
+  print('Length of outputs: '+str(len(outputs)))
   logits = tf.nn.xw_plus_b(tf.concat(outputs,0), softmax_w, softmax_b) #Computes matmul, need to have this tf concat, any other and it complains
   logits = tf.layers.batch_normalization(logits, training=True) #Batch normalize to avoid vanishing gradients
-  logits = tf.reshape(logits, [num_unrollings , batch_size, input_size])   
+  logits = tf.reshape(logits, [200 , batch_size, 101])   
 
 
   #Returns 1D batch-sized float Tensor: The log-perplexity for each sequence.
@@ -261,28 +271,38 @@ with graph.as_default():
 
 
 ##########RUN#########
-
 with tf.Session(graph=graph) as session:
-	tf.global_variables_initializer().run()
-	print('Initialized')
-	for i in range(num_epochs):
+        tf.global_variables_initializer().run()
+        print('Initialized')
+        
+        for i in range(num_epochs):
+                
+                for j in range(epoch_length):
 
-  		for j in range(epoch_length):
+                        train_feed_inputs = np.array(X_train[j:j+batch_size]) #Train feed inputs has 6 lists for each entry in the outermost list
+                        
 
-  			train_feed_inputs = np.array(X_train[j:j+batch_size])
+                        maxlen = 200#max(trainlen[j:j+batch_size])
+                        #Pad
+                        for k in range(0, len(train_feed_inputs)):
+                            if len(train_feed_inputs[k][0]) > 200:
+                                for l in range(0, len(train_feed_inputs[k])):
+                                        train_feed_inputs[k][l] =  train_feed_inputs[k][l][0:200]
 
+                            else:
+                                pad = [[np.pad(inp, (0,200-len(inp)), 'constant') for inp in a ] for a in train_feed_inputs[k]]
+                                train_feed_inputs[k] = pad
+                        #train_feed_inputs = [np.pad(inp, (0,maxlen-len(inp)), 'constant') for inp in train_feed_inputs]
+                        
+                        train_feed_inputs = np.array(train_feed_inputs).T
 
-  			maxlen = 200#max(trainlen[j:j+batch_size])
-  			#Pad
-  			train_feed_inputs = [np.pad(inp, (0,maxlen-len(inp)), 'constant') for inp in train_feed_inputs]
+                        train_feed_labels = y_train[j:j+batch_size]
+                        
+                        
+                        #Feed dict
+                      
+                        feed_dict= {train_inputs: train_feed_inputs, train_labels: train_feed_labels, keep_probability: keep_prob, num_unrollings: maxlen}
 
-  			train_feed_inputs = np.array(train_feed_inputs).T
-
-  			train_feed_labels = y_train[j:j+batch_size]
-  			pdb.set_trace()
-   			#Feed dict
-  			feed_dict= {train_inputs: train_feed_inputs, train_labels: train_feed_labels, keep_probability: keep_prob, num_unrollings: maxlen}
-
-  			_, t_perplexity, train_pred, summary = session.run([optimize, train_perplexity, train_predictions, merged], feed_dict= feed_dict)
+                        _, t_perplexity, train_pred, summary = session.run([optimize, train_perplexity, train_predictions, merged], feed_dict= feed_dict)
 
 
