@@ -18,7 +18,7 @@ from tensorflow.keras.layers import concatenate
 from tensorflow.keras.backend import reshape
 
 #import custom functions
-from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr
+from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, pad_cut
 import pdb
 
 
@@ -107,13 +107,21 @@ X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, rando
 
 X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
 
+
+
+#Pad data/cut to maxlen     
+X_train = pad_cut(X_train, 300)
+X_valid = pad_cut(X_valid, 300)
+X_test = pad_cut(X_test, 300)
+
+
 #Get all lengths for all sequences
-trainlen = [len(i[0]) for i in X_train]
-validlen = [len(i[0]) for i in X_valid]
-testlen = [len(i[0]) for i in X_test]
+#trainlen = [len(i[0]) for i in X_train]
+#validlen = [len(i[0]) for i in X_valid]
+#testlen = [len(i[0]) for i in X_test]
 
 
-print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
+print('Train:',len(X_train[0]), 'Valid:',len(X_valid[0]), 'Test:',len(X_test[0]))
 
 
 #Plot distributions of labels and words- make sure split preserves variation in rmsd
@@ -154,22 +162,7 @@ penalty = 1.3
 
 
 
-maxlen = 300
-#Pad data/cut to maxlen     
-inputs = [[], [], [], [], [], []]
-for i in range(len(X_train)):
-    
-    if len(X_train[i][0]) > 200:
-        for k in range(0, len(X_train[i])):
-            X_train[i][k] =  X_train[i][k][0:200]
-            inputs[k].append(X_train[i][k][0:200])
-           
 
-    else:
-         pad = [np.pad(inp, (0,200-len(inp)), 'constant') for inp in X_train[i]]
-         X_train[i] = pad
-         for l in range(0, len(pad)):
-         	inputs[l].append(pad[l])
 
 #Define 6 different embeddings and append to model:
 
@@ -191,7 +184,7 @@ embed6 = Embedding(vocab_sizes[5] ,embedding_size, input_length = None)(embed6_i
 
 cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), (embed6)])
 #cat_embeddings = Flatten(cat_embeddings)
-#cat_embeddings = Reshape((1,10))(cat_embeddings)  #Katarina said I need to explain I have 1 sample
+
 
 lstm_out = LSTM(128, dropout=0.2, recurrent_dropout=0.2)(cat_embeddings)
 outp = Dense(101, activation='sigmoid')(lstm_out)
@@ -214,11 +207,12 @@ model.summary()
 #X_train = np.transpose(X_train)
 
 
-inputs = [np.asarray(inputs[0]), np.asarray(inputs[1]), np.asarray(inputs[2]), np.asarray(inputs[3]), np.asarray(inputs[4]), np.asarray(inputs[5])]
+
 #pdb.set_trace()
-model.fit(inputs, y_train,
+model.fit(X_train, y_train,
           batch_size=batch_size,
           epochs=2,
+          validation_data=(X_valid, y_valid)
           )
 
 
