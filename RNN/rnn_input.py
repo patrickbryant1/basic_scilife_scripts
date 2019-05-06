@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import collections
 from scipy import stats
+import random
 
 import pdb
 
@@ -174,12 +175,14 @@ def encoding_distributions(chart_type, encoding_info, title, xlabel, ylabel, bin
         plt.close()
 
 
-def get_labels(encodings, distance_dict, threshold):
+def get_labels(encodings, distance_dict, threshold, H_groups):
         '''Get corresponding labels for encodings
         '''
 
+        #Save information in lists for later processing
         uids = [] #save uids
         encoding_list = [] #save encodings
+        H_group_list = []
         rmsd_dists = []
         ML_dists = []
         Chains = []
@@ -210,6 +213,7 @@ def get_labels(encodings, distance_dict, threshold):
                         #From encoding
                         encoding = encodings[key]
 
+
                         for pos in range(0, len(encoding[0])):
 
                                 letters.append(encoding[0][pos])
@@ -222,8 +226,9 @@ def get_labels(encodings, distance_dict, threshold):
                         seqlens.append(len(encoding[0]))
                         #encoding = [np.asarray(enc) for enc in encoding]
                         encoding_list.append(encoding)
+                        H_group_list.append(H_groups[key])
 
-        return (uids, encoding_list, rmsd_dists, ML_dists, Chains, Align_lens, Identities, letters, structures, accessibilities, seqlens)
+        return (uids, encoding_list, rmsd_dists, ML_dists, Chains, Align_lens, Identities, letters, structures, accessibilities, seqlens,  H_group_list)
 
 
 def word_distributions(encoding_list, bins, out_dir, name):
@@ -267,6 +272,28 @@ def label_distr(x, y, name, out_dir, xlabel, ylabel):
         
         
         return None
+
+def split_on_h_group(encoding_list, H_group_list, unique_groups, counted_groups, percentages):
+	'''Split data so that there are no overlaps btw H-groups in train, validation and test data
+	'''
+	X_train = []
+	X_valid = []
+	X_test = []
+
+	#1. Shuffle keys of counted_groups
+	random.shuffle(unique_groups)
+
+	i = 0
+	count = 0
+	while count < target:
+		count += unique_groups[i]
+		i+=1
+
+
+	#Add vals of counted groups up to percentage*len(encoding_list)
+	#for i in range(len(encoding_list)):
+
+
 
 def plot_split(y):
         '''Plots data distributions after train/valid/test split

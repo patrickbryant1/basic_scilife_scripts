@@ -94,6 +94,8 @@ for file_name in locations:
 X = np.array(encoding_list)
 y = rmsd_hot(rmsd_dists) #One-hot encode labels
 
+
+
 #Split train data to use 80% for training and 10% for validation and 10 % for testing. 
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
 #Random state = 42 guarantees the split is the same every time. This can be both bad and good, depending on
@@ -105,6 +107,7 @@ X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=
 trainlen = [len(i[0]) for i in X_train]
 validlen = [len(i[0]) for i in X_valid]
 testlen = [len(i[0]) for i in X_test]
+
 
 
 print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))

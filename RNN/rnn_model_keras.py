@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import glob
 from sklearn.model_selection import train_test_split
+from collections import Counter
 
 import tensorflow.keras as keras
 from tensorflow.keras.models import Sequential, Model
@@ -64,6 +65,7 @@ letters = [] #List to save all amino acids
 seqlens = [] #list to save all sequence lengths
 
 encodings = {} #Save all encodings
+H_groups = {} #Save all H-groups for split
 threshold = 6 #ML seq distance threshold
 #Test, load only little data
 max_aln_len = 0 #maximum aln length
@@ -75,27 +77,33 @@ for file_name in locations:
   (encoding) = get_encodings(file_name)
 
   file_name = file_name.split('/')
-  h_group = file_name[-2]
+  H_group = file_name[-2]
   uid_pair = file_name[-1].split('.')[0]
   encodings[uid_pair] = encoding
+  H_groups[uid_pair] = H_group
 
 
 #Get corresponding labels (rmsds) for the encoded sequences
-(uids, encoding_list, rmsd_dists, ML_dists, Chains, Align_lens, Identities, letters, structures, accessibilities, seqlens) = get_labels(encodings, distance_dict, threshold)
+(uids, encoding_list, rmsd_dists, ML_dists, Chains, Align_lens, Identities, letters, structures, accessibilities, seqlens, H_group_list) = get_labels(encodings, distance_dict, threshold, H_groups)
+
+#Look at H-groups
+counted_groups = Counter(H_group_list)
+labels, values = zip(*counted_groups.items())
+encoding_distributions('hist', values, 'Distribution of number of encoded pairs per H-group', 'Number of encoded pairs', 'log count', 10, out_dir, 'hgroups', True, [])
 
 #Look at data distributions
-#encoding_distributions('hist', accessibilities, 'Distribution of Normalized surface accessibilities', '% surface accessibility', 'log count', 101, out_dir, 'acc', True, [])
-#encoding_distributions('bar',structures, 'Distribution of secondary structure elements', 'secondary structure', 'log count', 10, out_dir, 'str', True, ['G', 'H', 'I', 'T', 'E', 'B', 'S', 'C', '-'])
-#encoding_distributions('bar', letters, 'Distribution of amino acids in sequences', 'amino acid', 'log count', 22, out_dir, 'aa', True, ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-'])
-#encoding_distributions('hist', seqlens, 'Distribution of sequence lengths', 'sequence length', 'count', 100, out_dir, 'seqlens', False, [])
+encoding_distributions('hist', accessibilities, 'Distribution of Normalized surface accessibilities', '% surface accessibility', 'log count', 101, out_dir, 'acc', True, [])
+encoding_distributions('bar',structures, 'Distribution of secondary structure elements', 'secondary structure', 'log count', 10, out_dir, 'str', True, ['G', 'H', 'I', 'T', 'E', 'B', 'S', 'C', '-'])
+encoding_distributions('bar', letters, 'Distribution of amino acids in sequences', 'amino acid', 'log count', 22, out_dir, 'aa', True, ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-'])
+encoding_distributions('hist', seqlens, 'Distribution of sequence lengths', 'sequence length', 'count', 100, out_dir, 'seqlens', False, [])
  
 #Look at info from TMalign and tree-puzzle
-#encoding_distributions('hist', Chains, 'Distribution of chain lengths', 'Chain length', 'count', 100, out_dir, 'chains', False, [] )
-#encoding_distributions('hist', Align_lens, 'Distribution of % aligned of shortest chain length' , '% aligned of shortest chain length', 'log count', 100, out_dir, 'aligned', True, [])
-#encoding_distributions('hist', Identities, 'Distribution of chain Identities', 'Identity (%)', 'count', 100, out_dir, 'id', False, [])
-#label_distr(ML_dists, rmsd_dists, 'seq_str', out_dir, 'ML AA distance', 'RMSD')
+encoding_distributions('hist', Chains, 'Distribution of chain lengths', 'Chain length', 'count', 100, out_dir, 'chains', False, [] )
+encoding_distributions('hist', Align_lens, 'Distribution of % aligned of shortest chain length' , '% aligned of shortest chain length', 'log count', 100, out_dir, 'aligned', True, [])
+encoding_distributions('hist', Identities, 'Distribution of chain Identities', 'Identity (%)', 'count', 100, out_dir, 'id', False, [])
+label_distr(ML_dists, rmsd_dists, 'seq_str', out_dir, 'ML AA distance', 'RMSD')
 
-
+pdb.set_trace()
 #Assign data and labels
 X = encoding_list
 y = rmsd_hot(rmsd_dists) #One-hot encode labels
@@ -114,7 +122,7 @@ X_train = pad_cut(X_train, 300)
 X_valid = pad_cut(X_valid, 300)
 X_test = pad_cut(X_test, 300)
 
-
+pdb.set_trace()
 #Get all lengths for all sequences
 #trainlen = [len(i[0]) for i in X_train]
 #validlen = [len(i[0]) for i in X_valid]
