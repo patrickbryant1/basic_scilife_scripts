@@ -130,8 +130,8 @@ print('Train:',len(X_train), 'Valid:',len(X_valid), 'Test:',len(X_test))
 ######MODEL######
 #Parameters
 number_of_layers = 3
-num_unrollings = 0#length of longest alignment in batch
-vocab_sizes = [22, 9, 101, 22, 9, 101]
+
+vocab_sizes = [23, 10, 102, 23, 10, 102] #needs to be num_unique+1 for Keras
 batch_size = 10 #Number of alignments
 
 epoch_length = int(len(X_train)/batch_size)
@@ -156,18 +156,20 @@ penalty = 1.3
 
 maxlen = 300
 #Pad data/cut to maxlen     
-
-#for i in range(len(X_train)):
+inputs = [[], [], [], [], [], []]
+for i in range(len(X_train)):
     
- #   if len(X_train[i][0]) > 200:
- #       for k in range(0, len(X_train[i])):
- #           X_train[i][k] =  X_train[i][k][0:200]
- #           inputs[k].append(X_train[i][k][0:200])
+    if len(X_train[i][0]) > 200:
+        for k in range(0, len(X_train[i])):
+            X_train[i][k] =  X_train[i][k][0:200]
+            inputs[k].append(X_train[i][k][0:200])
+           
 
- #   else:
- #        pad = [np.pad(inp, (0,200-len(inp)), 'constant') for inp in X_train[i]]
- #        X_train[i] = pad
-
+    else:
+         pad = [np.pad(inp, (0,200-len(inp)), 'constant') for inp in X_train[i]]
+         X_train[i] = pad
+         for l in range(0, len(pad)):
+         	inputs[l].append(pad[l])
 
 #Define 6 different embeddings and append to model:
 
@@ -209,9 +211,11 @@ model.compile(loss='binary_crossentropy',
 model.summary()
 
 #Fit model
-X_train = np.transpose(X_train)
-pdb.set_trace()
-inputs = [X_train[0],X_train[1],X_train[2],X_train[3],X_train[4],X_train[5]]
+#X_train = np.transpose(X_train)
+
+
+inputs = [np.asarray(inputs[0]), np.asarray(inputs[1]), np.asarray(inputs[2]), np.asarray(inputs[3]), np.asarray(inputs[4]), np.asarray(inputs[5])]
+#pdb.set_trace()
 model.fit(inputs, y_train,
           batch_size=batch_size,
           epochs=2,
