@@ -209,6 +209,7 @@ def get_labels(encodings, distance_dict, threshold):
 
 			#From encoding
 			encoding = encodings[key]
+
 			for pos in range(0, len(encoding[0])):
 
 				letters.append(encoding[0][pos])
@@ -219,6 +220,7 @@ def get_labels(encodings, distance_dict, threshold):
 				accessibilities.append(encoding[5][pos])
 
 			seqlens.append(len(encoding[0]))
+			encoding = [np.asarray(enc) for enc in encoding]
 			encoding_list.append(encoding)
 
 	return (uids, encoding_list, rmsd_dists, ML_dists, Chains, Align_lens, Identities, letters, structures, accessibilities, seqlens)

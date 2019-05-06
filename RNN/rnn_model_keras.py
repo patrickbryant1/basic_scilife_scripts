@@ -10,10 +10,12 @@ import glob
 from sklearn.model_selection import train_test_split
 
 import tensorflow.keras as keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Embedding
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Embedding, Flatten
 from tensorflow.keras.layers import LSTM
 from tensorflow.keras.layers import Reshape
+from tensorflow.keras.layers import concatenate
+from tensorflow.keras.backend import reshape
 
 #import custom functions
 from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr
@@ -86,7 +88,7 @@ for file_name in locations:
 #encoding_distributions('bar',structures, 'Distribution of secondary structure elements', 'secondary structure', 'log count', 10, out_dir, 'str', True, ['G', 'H', 'I', 'T', 'E', 'B', 'S', 'C', '-'])
 #encoding_distributions('bar', letters, 'Distribution of amino acids in sequences', 'amino acid', 'log count', 22, out_dir, 'aa', True, ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-'])
 #encoding_distributions('hist', seqlens, 'Distribution of sequence lengths', 'sequence length', 'count', 100, out_dir, 'seqlens', False, [])
-
+ 
 #Look at info from TMalign and tree-puzzle
 #encoding_distributions('hist', Chains, 'Distribution of chain lengths', 'Chain length', 'count', 100, out_dir, 'chains', False, [] )
 #encoding_distributions('hist', Align_lens, 'Distribution of % aligned of shortest chain length' , '% aligned of shortest chain length', 'log count', 100, out_dir, 'aligned', True, [])
@@ -95,7 +97,7 @@ for file_name in locations:
 
 
 #Assign data and labels
-X = np.array(encoding_list)
+X = encoding_list
 y = rmsd_hot(rmsd_dists) #One-hot encode labels
 
 #Split train data to use 80% for training and 10% for validation and 10 % for testing. 
@@ -154,49 +156,65 @@ penalty = 1.3
 
 maxlen = 300
 #Pad data/cut to maxlen     
-for i in range(len(X_train)):
+
+#for i in range(len(X_train)):
     
-    if len(X_train[i][0]) > 200:
-        for k in range(0, len(X_train[i])):
-            X_train[i][k] =  X_train[i][k][0:200]
+ #   if len(X_train[i][0]) > 200:
+ #       for k in range(0, len(X_train[i])):
+ #           X_train[i][k] =  X_train[i][k][0:200]
+ #           inputs[k].append(X_train[i][k][0:200])
 
-    else:
-         pad = [np.pad(inp, (0,200-len(inp)), 'constant') for inp in X_train[i]]
-         X_train[i] = pad
+ #   else:
+ #        pad = [np.pad(inp, (0,200-len(inp)), 'constant') for inp in X_train[i]]
+ #        X_train[i] = pad
 
-
-
-#Save models
-models = []
 
 #Define 6 different embeddings and append to model:
-for size in vocab_sizes :
 
-    model = Sequential()
-    
-    model.add( Embedding(size ,embedding_size, input_length = 200 ))
-    model.add(Reshape(target_shape=(embedding_size,)))
-    models.append( model )
 
-#Now combine these
-full_model = Sequential()
-full_model.add(Merge(models, mode='concat'))
+embed1_in = keras.Input(shape = [None])
+embed1 = Embedding(vocab_sizes[0] ,embedding_size, input_length = None)(embed1_in)#None indicates a variable input length
+embed2_in =  keras.Input(shape =  [None])
+embed2 = Embedding(vocab_sizes[1] ,embedding_size, input_length = None)(embed2_in)#None indicates a variable input length
+embed3_in =  keras.Input(shape =  [None])
+embed3 = Embedding(vocab_sizes[2] ,embedding_size, input_length = None)(embed3_in)#None indicates a variable input length
+embed4_in =  keras.Input(shape =  [None])
+embed4 = Embedding(vocab_sizes[3] ,embedding_size, input_length = None)(embed4_in)#None indicates a variable input length
+embed5_in =  keras.Input(shape =  [None])
+embed5 = Embedding(vocab_sizes[4] ,embedding_size, input_length = None)(embed5_in)#None indicates a variable input length
+embed6_in =  keras.Input(shape =  [None])
+embed6 = Embedding(vocab_sizes[5] ,embedding_size, input_length = None)(embed6_in)#None indicates a variable input length
 
-full_model.add(LSTM(128, dropout=0.2, recurrent_dropout=0.2))
-full_model.add(Dense(101, activation='sigmoid'))
 
-#Write summary of model
-full_model.summary()
+
+cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), (embed6)])
+#cat_embeddings = Flatten(cat_embeddings)
+#cat_embeddings = Reshape((1,10))(cat_embeddings)  #Katarina said I need to explain I have 1 sample
+
+lstm_out = LSTM(128, dropout=0.2, recurrent_dropout=0.2)(cat_embeddings)
+outp = Dense(101, activation='sigmoid')(lstm_out)
+
+
+model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = outp)
+
+
 
 #compile
-full_model.compile(loss='binary_crossentropy',
+model.compile(loss='binary_crossentropy',
               optimizer='adam',
               metrics=['accuracy'])
 
+
+#Write summary of model
+model.summary()
+
 #Fit model
-full_model.fit(X_train, y_train,
+X_train = np.transpose(X_train)
+pdb.set_trace()
+inputs = [X_train[0],X_train[1],X_train[2],X_train[3],X_train[4],X_train[5]]
+model.fit(inputs, y_train,
           batch_size=batch_size,
-          epochs=1,
+          epochs=2,
           )
 
 
