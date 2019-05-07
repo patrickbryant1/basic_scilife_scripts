@@ -302,19 +302,34 @@ def split_on_h_group(encoding_list, H_group_list, unique_groups, counted_groups,
 	#Assign X and y based on H-group
 	for j in range(len(H_group_list)):
 		if H_group_list[j] in train_groups:
+			#Make check
+			if (H_group_list[j] in valid_groups) or (H_group_list[j] in test_groups):
+				print('OVERLAP BTW SPLIT ON H-GROUPS!')
+				break
 			X_train.append(encoding_list[j])
 			y_train.append(y[j])
+			continue
 
 		if H_group_list[j] in valid_groups:
+			#Make check
+			if (H_group_list[j] in train_groups) or (H_group_list[j] in test_groups):
+				print('OVERLAP BTW SPLIT ON H-GROUPS!')
+				break
 			X_valid.append(encoding_list[j])
 			y_valid.append(y[j])
+			continue
 
 		if H_group_list[j] in test_groups:
+			#Make check
+			if (H_group_list[j] in valid_groups) or (H_group_list[j] in train_groups):
+				print('OVERLAP BTW SPLIT ON H-GROUPS!')
+				break
 			X_test.append(encoding_list[j])
 			y_test.append(y[j])
+			continue
 
 
-
+	
 	#Plot RMSD distributions
 	encoding_distributions('hist', np.argmax(y_train, axis = 1), 'Distribution of RMSDs for train set. Number of H-groups: ' + str(len(train_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'train_rmsd', False, [])
 	encoding_distributions('hist', np.argmax(y_valid, axis = 1), 'Distribution of RMSDs for validation set. Number of H-groups: ' + str(len(valid_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'valid_rmsd', False, [])
