@@ -8,14 +8,18 @@ import sys
 import numpy as np
 import glob
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
 from collections import Counter
 
 import tensorflow.keras as keras
+from tensorflow.keras import regularizers
+from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Embedding, Flatten
 from tensorflow.keras.layers import Bidirectional,CuDNNLSTM, Dropout
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import concatenate
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
 
 
 #import custom functions
@@ -146,23 +150,24 @@ vocab_sizes = [23, 10, 102, 23, 10, 102] #needs to be num_unique+1 for Keras
 batch_size = 20 #Number of alignments
 
 epoch_length = int(len(X_train)/batch_size)
-num_epochs = 10
+num_epochs = 1
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
 num_nodes = 128 #Number of nodes in LSTM
 embedding_size = 10 # Dimension of the embedding vector.
 drop_rate = 0.5
 
-
+lambda_recurrent = 0.01 #High much the model should be penalized #Lasso regression?
+recurrent_max_norm = 2.0
     
 
-
+#Opt
+find_lr = True
 
 
 
 #####LAYERS#####
+
 #Define 6 different embeddings and cat
-
-
 embed1_in = keras.Input(shape = [None])
 embed1 = Embedding(vocab_sizes[0] ,embedding_size, input_length = None)(embed1_in)#None indicates a variable input length
 embed2_in =  keras.Input(shape =  [None])
@@ -176,12 +181,10 @@ embed5 = Embedding(vocab_sizes[4] ,embedding_size, input_length = None)(embed5_i
 embed6_in =  keras.Input(shape =  [None])
 embed6 = Embedding(vocab_sizes[5] ,embedding_size, input_length = None)(embed6_in)#None indicates a variable input length
 
-
-
 cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), (embed6)])
 
 cat_embeddings = Dropout(rate = drop_rate)(cat_embeddings) #Dropout
-lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
+lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
 lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
 #lstm_out1 = Reshape(-1, num_nodes*2, 1)(lstm_out1) #num_nodes*2 since bidirectional LSTM
 lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2)))(lstm_out1)
@@ -203,6 +206,61 @@ model.compile(loss='categorical_crossentropy',
 #Write summary of model
 model.summary()
 
+
+
+#LR
+#One cycle lr optimization function 
+save_lrate = []
+def one_cycle(epochs):
+  '''Increase lr each batch to find start lr
+  '''
+  step = epochs
+  initial_rate = 0.000001
+  final_rate = 1
+  #steps_per_epoch = len(X_train) / batch_size
+  #interval = steps_per_epoch/100
+  interval = (math.log(final_rate)-math.log(initial_rate))/100
+
+  lrate = math.log(initial_rate)+(interval*step)
+  print(lrate)
+  save_lrate.append(lrate)
+  lrate = math.exp(lrate)
+
+  return lrate
+
+
+def lr_schedule(epochs):
+  '''lr scheduel according to one-cycle policy.
+  '''
+  
+  #Increase lrate in beginning
+  if epochs == 0:
+    lrate = min_lr
+  elif (epochs <6 and epochs > 0):
+    lrate = min_lr+(epochs*lr_change)
+  #Decrease further below min_lr last three epochs
+  elif epochs > 10:
+    lrate = min_lr/(10*(epochs-10))
+  #After the max lrate is reached, decrease it back to the min
+  else:
+    lrate = max_lr-((epochs-5)*lr_change)
+
+  print(epochs,lrate)
+  return lrate
+
+
+if find_lr == True:
+  lrate = LearningRateScheduler(one_cycle)
+  callbacks = [lrate]
+  steps_per_epoch = (len(X_train) / batch_size)/100
+  num_epochs = 100
+  validation_data=(X_valid[0:100], y_valid[0:100])
+else:
+  lrate = LearningRateScheduler(lr_schedule)
+  callbacks=[tensorboard, checkpoint, lrate]
+  steps_per_epoch = (len(X_train) / batch_size)
+validation_data=(X_valid, y_valid)
+
 #Fit model
 model.fit(X_train, y_train,
           batch_size=batch_size,
@@ -211,9 +269,16 @@ model.fit(X_train, y_train,
           )
 
 
+model.fit_generator((X_train, y_train, batch_size = batch_size),
+              steps_per_epoch=steps_per_epoch,
+              epochs=num_epochs,
+              validation_data=validation_data,
+              shuffle=True, #Dont feed continuously
+			  callbacks=callbacks) #, lr_scheduler])
+
+
 
 pdb.set_trace()
-
 
 #Save model for future use
 
