@@ -168,7 +168,7 @@ def encoding_distributions(chart_type, encoding_info, title, xlabel, ylabel, bin
 
         if chart_type == 'hist':
                 plt.hist(encoding_info, bins = bins, log = scale)
-                mean = sum(encoding_info)/len(encoding_info)
+                mean = np.sum(encoding_info)/len(encoding_info)
                 plt.axvline(mean, color='k', linestyle='dashed', linewidth=1)
 
         plt.savefig(out_dir+name+'.png')
@@ -273,26 +273,75 @@ def label_distr(x, y, name, out_dir, xlabel, ylabel):
         
         return None
 
-def split_on_h_group(encoding_list, H_group_list, unique_groups, counted_groups, percentages):
+def split_on_h_group(encoding_list, H_group_list, unique_groups, counted_groups, percentages, y, out_dir):
 	'''Split data so that there are no overlaps btw H-groups in train, validation and test data
 	'''
 	X_train = []
+	y_train = []
 	X_valid = []
+	y_valid = []
 	X_test = []
+	y_test = []
 
-	#1. Shuffle keys of counted_groups
-	random.shuffle(unique_groups)
 
-	i = 0
-	count = 0
-	while count < target:
-		count += unique_groups[i]
-		i+=1
+	train_groups = []
+	
 
+	#1. Shuffle keys of counted_groups, 2 ensures same random shuffling each time
+	unique_groups = np.array(unique_groups)
+	random.Random(2).shuffle(unique_groups)
+
+	#Count encodings in H-group and assign to split data
+	(train_groups, index) = count_encodings(0, encoding_list, unique_groups,counted_groups, percentages[0])
+
+	(valid_groups, index) = count_encodings(index, encoding_list, unique_groups,counted_groups, percentages[1])
+	
+	test_groups = unique_groups[index:]
+
+
+	#Assign X and y based on H-group
+	for j in range(len(H_group_list)):
+		if H_group_list[j] in train_groups:
+			X_train.append(encoding_list[j])
+			y_train.append(y[j])
+
+		if H_group_list[j] in valid_groups:
+			X_valid.append(encoding_list[j])
+			y_valid.append(y[j])
+
+		if H_group_list[j] in test_groups:
+			X_test.append(encoding_list[j])
+			y_test.append(y[j])
+
+
+
+	#Plot RMSD distributions
+	encoding_distributions('hist', np.argmax(y_train, axis = 1), 'Distribution of RMSDs for train set. Number of H-groups: ' + str(len(train_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'train_rmsd', False, [])
+	encoding_distributions('hist', np.argmax(y_valid, axis = 1), 'Distribution of RMSDs for validation set. Number of H-groups: ' + str(len(valid_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'valid_rmsd', False, [])
+	encoding_distributions('hist', np.argmax(y_test, axis = 1), 'Distribution of RMSDs for test set. Number of H-groups: ' + str(len(test_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'test_rmsd', False, [])
+
+	return (X_train, np.asarray(y_train), X_valid, np.asarray(y_valid), X_test, np.asarray(y_test))
 
 	#Add vals of counted groups up to percentage*len(encoding_list)
 	#for i in range(len(encoding_list)):
 
+def count_encodings(start, encoding_list, unique_groups, counted_groups, percentage):
+	'''Count H-group entries to ensure a suffucient encoding representation
+	is present in each split
+	'''
+
+	i = start
+	count = 0
+	save_groups = []
+	target = len(encoding_list)*percentage
+	while count < target:
+		group = unique_groups[i] #
+		count += int(counted_groups[group])
+		save_groups.append(group)
+		i+=1
+
+
+	return (save_groups, i)
 
 
 def plot_split(y):
