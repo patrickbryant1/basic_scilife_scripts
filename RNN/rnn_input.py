@@ -79,7 +79,7 @@ def read_labels(tsv_file):
         return(distance_dict)
 
 
-def rmsd_hot(rmsd_dists):
+def rmsd_hot(rmsd_dists, bins):
         '''Normalize rmsd distances and convert to one-hot encodings
         '''
 
@@ -93,8 +93,13 @@ def rmsd_hot(rmsd_dists):
         rmsd_dists = np.around(rmsd_dists, decimals = 0)
         #Convert to ints
         rmsd_dists = rmsd_dists.astype(int)
+
+
+        #Bin data
+        rmsd_dists = np.digitize(rmsd_dists, bins)
+
         #Convert to one-hot encoding
-        rmsd_dists_hot = np.eye(101)[rmsd_dists]
+        rmsd_dists_hot = np.eye(len(bins)+1)[rmsd_dists]
 
 
         return rmsd_dists_hot

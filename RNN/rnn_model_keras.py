@@ -105,7 +105,7 @@ unique_groups, counts = zip(*counted_groups.items())
 
 
 #Assign data and labels
-y = rmsd_hot(rmsd_dists) #One-hot encode labels
+y = rmsd_hot(rmsd_dists, [0,20,40,60,80,100]) #One-hot encode labels
 
 
 (X_train, y_train, X_valid, y_valid, X_test, y_test) = split_on_h_group(encoding_list, H_group_list, unique_groups, counted_groups, [0.8, 0.1, 0.1], y, out_dir)
@@ -124,7 +124,6 @@ X_train = pad_cut(X_train, 300)
 X_valid = pad_cut(X_valid, 300)
 X_test = pad_cut(X_test, 300)
 
-pdb.set_trace()
 #Get all lengths for all sequences
 #trainlen = [len(i[0]) for i in X_train]
 #validlen = [len(i[0]) for i in X_valid]
@@ -155,7 +154,7 @@ batch_size = 10 #Number of alignments
 epoch_length = int(len(X_train)/batch_size)
 num_epochs = 1
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
-num_nodes = 300
+num_nodes = 128
 embedding_size = 10 # Dimension of the embedding vector. 1:1 ratio with hidden nodes. Should probably have smaller embeddings
 
 
@@ -197,7 +196,7 @@ cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), 
 
 
 lstm_out = LSTM(128, dropout=0.2, recurrent_dropout=0.2)(cat_embeddings)
-outp = Dense(101, activation='sigmoid')(lstm_out)
+outp = Dense(101, activation='softmax')(lstm_out)
 
 
 model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = outp)
@@ -205,7 +204,7 @@ model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, e
 
 
 #compile
-model.compile(loss='binary_crossentropy',
+model.compile(loss='categorical_crossentropy',
               optimizer='adam',
               metrics=['accuracy'])
 
@@ -221,9 +220,23 @@ model.summary()
 #pdb.set_trace()
 model.fit(X_train, y_train,
           batch_size=batch_size,
-          epochs=2,
+          epochs=num_epochs,
           validation_data=(X_valid, y_valid)
           )
 
 
+pred = model.predict(X_test)
+pdb.set_trace()
 
+
+#Save model for future use
+
+#from tensorflow.keras.models import model_from_json   
+#serialize model to JSON
+model_json = model.to_json()
+with open(out_dir+"model.json", "w") as json_file:
+	json_file.write(model_json)
+
+# serialize weights to HDF5
+model.save_weights(out_dir+"model.h5")
+print("Saved model to disk")
