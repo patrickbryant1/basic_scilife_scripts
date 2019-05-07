@@ -3,7 +3,7 @@
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import collections
 from scipy import stats
 import random
@@ -96,11 +96,11 @@ def rmsd_hot(rmsd_dists, bins):
 
 
         #Bin data
-        rmsd_dists = np.digitize(rmsd_dists, bins)
+        rmsd_dists = np.digitize(rmsd_dists, bins, right = True)
 
         #Convert to one-hot encoding
-        rmsd_dists_hot = np.eye(len(bins)+1)[rmsd_dists]
-
+        rmsd_dists_hot = np.eye(len(bins))[rmsd_dists]
+ 
 
         return rmsd_dists_hot
 
@@ -336,9 +336,9 @@ def split_on_h_group(encoding_list, H_group_list, unique_groups, counted_groups,
 
 	
 	#Plot RMSD distributions
-	encoding_distributions('hist', np.argmax(y_train, axis = 1), 'Distribution of RMSDs for train set. Number of H-groups: ' + str(len(train_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'train_rmsd', False, [])
-	encoding_distributions('hist', np.argmax(y_valid, axis = 1), 'Distribution of RMSDs for validation set. Number of H-groups: ' + str(len(valid_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'valid_rmsd', False, [])
-	encoding_distributions('hist', np.argmax(y_test, axis = 1), 'Distribution of RMSDs for test set. Number of H-groups: ' + str(len(test_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'test_rmsd', False, [])
+	#encoding_distributions('hist', np.argmax(y_train, axis = 1), 'Distribution of RMSDs for train set. Number of H-groups: ' + str(len(train_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'train_rmsd', False, [])
+	#encoding_distributions('hist', np.argmax(y_valid, axis = 1), 'Distribution of RMSDs for validation set. Number of H-groups: ' + str(len(valid_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'valid_rmsd', False, [])
+	#encoding_distributions('hist', np.argmax(y_test, axis = 1), 'Distribution of RMSDs for test set. Number of H-groups: ' + str(len(test_groups)), 'Normalized RMSD', 'count', 101, out_dir, 'test_rmsd', False, [])
 
 	return (X_train, np.asarray(y_train), X_valid, np.asarray(y_valid), X_test, np.asarray(y_test))
 

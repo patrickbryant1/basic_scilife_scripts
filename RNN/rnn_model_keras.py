@@ -4,7 +4,7 @@
 
 import argparse
 import sys
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import glob
 from sklearn.model_selection import train_test_split
@@ -13,10 +13,10 @@ from collections import Counter
 import tensorflow.keras as keras
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Embedding, Flatten
-from tensorflow.keras.layers import LSTM
+from tensorflow.keras.layers import Bidirectional,CuDNNLSTM, Dropout
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import concatenate
-from tensorflow.keras.backend import reshape
+
 
 #import custom functions
 from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, split_on_h_group, pad_cut
@@ -40,8 +40,6 @@ parser.add_argument('encode_locations', nargs=1, type= str,
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
 
-#Functions
-
 
 #MAIN
 args = parser.parse_args()
@@ -55,10 +53,6 @@ out_dir = args.out_dir[0]
 
 
 #Get macthing alignments, sendary structure and surface acc
-X = [] #Save data
-y = [] #Save labels
-
-
 accessibilities = [] #list to save all accessibilities
 structures = [] #list to save all secondary structures
 letters = [] #List to save all amino acids
@@ -146,24 +140,17 @@ print('Train:',len(X_train[0]), 'Valid:',len(X_valid[0]), 'Test:',len(X_test[0])
 
 ######MODEL######
 #Parameters
-number_of_layers = 3
+num_classes = 6
 
 vocab_sizes = [23, 10, 102, 23, 10, 102] #needs to be num_unique+1 for Keras
-batch_size = 10 #Number of alignments
+batch_size = 20 #Number of alignments
 
 epoch_length = int(len(X_train)/batch_size)
-num_epochs = 1
+num_epochs = 10
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
-num_nodes = 128
-embedding_size = 10 # Dimension of the embedding vector. 1:1 ratio with hidden nodes. Should probably have smaller embeddings
-
-
-init_scale = 0.1
-start_learning_rate = 5.0
-max_grad_norm = 0.25
-keep_prob = 0.9
-epsilon = 0.0000001
-penalty = 1.3
+num_nodes = 128 #Number of nodes in LSTM
+embedding_size = 10 # Dimension of the embedding vector.
+drop_rate = 0.5
 
 
     
@@ -172,8 +159,8 @@ penalty = 1.3
 
 
 
-
-#Define 6 different embeddings and append to model:
+#####LAYERS#####
+#Define 6 different embeddings and cat
 
 
 embed1_in = keras.Input(shape = [None])
@@ -192,11 +179,15 @@ embed6 = Embedding(vocab_sizes[5] ,embedding_size, input_length = None)(embed6_i
 
 
 cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), (embed6)])
-#cat_embeddings = Flatten(cat_embeddings)
 
+cat_embeddings = Dropout(rate = drop_rate)(cat_embeddings) #Dropout
+lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
+lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
+#lstm_out1 = Reshape(-1, num_nodes*2, 1)(lstm_out1) #num_nodes*2 since bidirectional LSTM
+lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2)))(lstm_out1)
+lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
 
-lstm_out = LSTM(128, dropout=0.2, recurrent_dropout=0.2)(cat_embeddings)
-outp = Dense(101, activation='softmax')(lstm_out)
+outp = Dense(num_classes, activation='relu')(lstm_out2)
 
 
 model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = outp)
@@ -213,11 +204,6 @@ model.compile(loss='categorical_crossentropy',
 model.summary()
 
 #Fit model
-#X_train = np.transpose(X_train)
-
-
-
-#pdb.set_trace()
 model.fit(X_train, y_train,
           batch_size=batch_size,
           epochs=num_epochs,
@@ -225,7 +211,7 @@ model.fit(X_train, y_train,
           )
 
 
-pred = model.predict(X_test)
+
 pdb.set_trace()
 
 
