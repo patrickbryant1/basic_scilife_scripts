@@ -10,7 +10,7 @@ import glob
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 from collections import Counter
-
+import math
 import tensorflow.keras as keras
 from tensorflow.keras import regularizers
 from tensorflow.keras.constraints import max_norm
@@ -195,8 +195,6 @@ outp = Dense(num_classes, activation='relu')(lstm_out2)
 
 model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = outp)
 
-
-
 #compile
 model.compile(loss='categorical_crossentropy',
               optimizer='adam',
@@ -262,13 +260,11 @@ else:
 validation_data=(X_valid, y_valid)
 
 #Fit model
-model.fit(x = X_train, y = y_train, batch_size = batch_size,
-              steps_per_epoch=steps_per_epoch,
+model.fit(X_train, y_train, batch_size = batch_size,             
               epochs=num_epochs,
               validation_data=validation_data,
               shuffle=True, #Dont feed continuously
 	      callbacks=callbacks) #, lr_scheduler])
-
 
 
 pdb.set_trace()
