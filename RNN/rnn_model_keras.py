@@ -20,7 +20,7 @@ from tensorflow.keras.layers import Bidirectional,CuDNNLSTM, Dropout
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
-
+from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
 
 #import custom functions
 from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, split_on_h_group, pad_cut
@@ -262,19 +262,12 @@ else:
 validation_data=(X_valid, y_valid)
 
 #Fit model
-model.fit(X_train, y_train,
-          batch_size=batch_size,
-          epochs=num_epochs,
-          validation_data=(X_valid, y_valid)
-          )
-
-
-model.fit_generator((X_train, y_train, batch_size = batch_size),
+model.fit(x = X_train, y = y_train, batch_size = batch_size,
               steps_per_epoch=steps_per_epoch,
               epochs=num_epochs,
               validation_data=validation_data,
               shuffle=True, #Dont feed continuously
-			  callbacks=callbacks) #, lr_scheduler])
+	      callbacks=callbacks) #, lr_scheduler])
 
 
 
