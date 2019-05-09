@@ -171,7 +171,7 @@ recurrent_max_norm = 2.0
 find_lr = False
 max_lr = 0.01
 min_lr = max_lr/10
-lr_change = (max_lr-min_lr)/5 #Reduce further lst three epochs
+lr_change = (max_lr-min_lr)/((num_epochs-3)/2) #Reduce further lst three epochs
 
 
 #####LAYERS#####
@@ -226,14 +226,14 @@ def lr_schedule(epochs):
   #Increase lrate in beginning
   if epochs == 0:
     lrate = min_lr
-  elif (epochs <6 and epochs > 0):
+  elif (epochs <((num_epochs-3)/2) and epochs > 0):
     lrate = min_lr+(epochs*lr_change)
   #Decrease further below min_lr last three epochs
-  elif epochs > 10:
-    lrate = min_lr/(10*(epochs-10))
+  elif epochs > (num_epochs-3):
+    lrate = min_lr/(10*(epochs-(num_epochs-3)))
   #After the max lrate is reached, decrease it back to the min
   else:
-    lrate = max_lr-((epochs-5)*lr_change)
+    lrate = max_lr-((epochs-((num_epochs-3)/2))*lr_change)
 
   print(epochs,lrate)
   return lrate
