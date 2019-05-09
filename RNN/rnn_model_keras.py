@@ -11,6 +11,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 from collections import Counter
 import math
+import time
+
+
 import tensorflow.keras as keras
 from tensorflow.keras import regularizers
 from tensorflow.keras.constraints import max_norm
@@ -21,9 +24,11 @@ from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
+from tensorflow.keras.callbacks import TensorBoard
 
 #import custom functions
 from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, split_on_h_group, pad_cut
+from lr_finder import LRFinder
 import pdb
 
 
@@ -140,7 +145,9 @@ print('Train:',len(X_train[0]), 'Valid:',len(X_valid[0]), 'Test:',len(X_test[0])
 #       (labels[i], names[i], out_dir)
 
 
-
+#Tensorboard for logging and visualization
+log_name = str(time.time())
+tensorboard = TensorBoard(log_dir=out_dir+log_name)
 
 ######MODEL######
 #Parameters
@@ -150,7 +157,7 @@ vocab_sizes = [23, 10, 102, 23, 10, 102] #needs to be num_unique+1 for Keras
 batch_size = 20 #Number of alignments
 
 epoch_length = int(len(X_train)/batch_size)
-num_epochs = 1
+num_epochs = 23
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
 num_nodes = 128 #Number of nodes in LSTM
 embedding_size = 10 # Dimension of the embedding vector.
@@ -161,8 +168,10 @@ recurrent_max_norm = 2.0
     
 
 #Opt
-find_lr = True
-
+find_lr = False
+max_lr = 0.01
+min_lr = max_lr/10
+lr_change = (max_lr-min_lr)/5 #Reduce further lst three epochs
 
 
 #####LAYERS#####
@@ -204,29 +213,12 @@ model.compile(loss='categorical_crossentropy',
 #Write summary of model
 model.summary()
 
+#Checkpoint
+filepath="weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
+checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
 
 
-#LR
-#One cycle lr optimization function 
-save_lrate = []
-def one_cycle(epochs):
-  '''Increase lr each batch to find start lr
-  '''
-  step = epochs
-  initial_rate = 0.000001
-  final_rate = 1
-  #steps_per_epoch = len(X_train) / batch_size
-  #interval = steps_per_epoch/100
-  interval = (math.log(final_rate)-math.log(initial_rate))/100
-
-  lrate = math.log(initial_rate)+(interval*step)
-  print(lrate)
-  save_lrate.append(lrate)
-  lrate = math.exp(lrate)
-
-  return lrate
-
-
+#LR schedule
 def lr_schedule(epochs):
   '''lr scheduel according to one-cycle policy.
   '''
@@ -248,16 +240,21 @@ def lr_schedule(epochs):
 
 
 if find_lr == True:
-  lrate = LearningRateScheduler(one_cycle)
-  callbacks = [lrate]
-  steps_per_epoch = (len(X_train) / batch_size)/100
-  num_epochs = 100
-  validation_data=(X_valid[0:100], y_valid[0:100])
+    # model is a Keras model
+    lr_finder = LRFinder(model)
+
+    # Train a model with batch size 20 for 5 epochs
+    # with learning rate growing exponentially from 0.000001 to 1
+    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=20, epochs=5)
+    # Plot the loss, ignore 20 batches in the beginning and 5 in the end
+    lr_finder.plot_loss(n_skip_beginning=20, n_skip_end=5)
+
 else:
   lrate = LearningRateScheduler(lr_schedule)
   callbacks=[tensorboard, checkpoint, lrate]
   steps_per_epoch = (len(X_train) / batch_size)
-validation_data=(X_valid, y_valid)
+  validation_data=(X_valid, y_valid)
+
 
 #Fit model
 model.fit(X_train, y_train, batch_size = batch_size,             
