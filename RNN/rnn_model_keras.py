@@ -196,7 +196,7 @@ cat_embeddings = Dropout(rate = drop_rate)(cat_embeddings) #Dropout
 lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
 lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
 #lstm_out1 = Reshape(-1, num_nodes*2, 1)(lstm_out1) #num_nodes*2 since bidirectional LSTM
-lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2)))(lstm_out1)
+lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2), recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_out1)
 lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
 
 outp = Dense(num_classes, activation='relu')(lstm_out2)
