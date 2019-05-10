@@ -20,7 +20,7 @@ from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Embedding, Flatten
 from tensorflow.keras.layers import Bidirectional,CuDNNLSTM, Dropout
-from tensorflow.keras.layers import Reshape
+from tensorflow.keras.layers import Reshape, Activation, RepeatVector, Permute, multiply, Lambda
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
@@ -161,7 +161,7 @@ num_epochs = 23
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
 num_nodes = 128 #Number of nodes in LSTM
 embedding_size = 10 # Dimension of the embedding vector.
-drop_rate = 0.5
+drop_rate = 0.7 #Fraction of input units to drop
 
 lambda_recurrent = 0.01 #High much the model should be penalized #Lasso regression?
 recurrent_max_norm = 2.0
@@ -197,27 +197,27 @@ lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regulariz
 lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
 #lstm_out1 = Reshape(-1, num_nodes*2, 1)(lstm_out1) #num_nodes*2 since bidirectional LSTM
 lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2), recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_out1)
- recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm),lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
+lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
 
-#Attention layer
+#Attention layer. Really it would be nice to have it closer to input in orer to distribute more information throughout the network. 
+#The question is if the LSTM will handle this in the same proportion?
 # compute importance for each step
 attention = Dense(1, activation='tanh')(lstm_out2) #Normalize and extract info with tanh activated weight matrix (hidden attention weights)
 attention = Flatten()(attention)
 attention = Activation('softmax')(attention) #Softmax on all activations (normalize activations)
-attention = RepeatVector(units)(attention) #Repeats the input "units" times.
+attention = RepeatVector(num_nodes)(attention) #Repeats the input "num_nodes" times.
 attention = Permute([2, 1])(attention) #Permutes the dimensions of the input according to a given pattern. (permutes pos 2 and 1 of attention)
 
+sent_representation = multiply([lstm_out2, attention]) #Multiply input to attention with normalized
+sent_representation = Lambda(lambda xin: keras.backend.sum(xin, axis=-2), output_shape=(num_nodes,))(sent_representation)
 
-sent_representation = merge([lstm_out2, attention], mode='mul') #Multiply input to attention with normalized 
-sent_representation = Lambda(lambda xin: K.sum(xin, axis=-2), output_shape=(units,))(sent_representation)
-
-probabilities = Dense(3, activation='softmax')(sent_representation)
+probabilities = Dense(num_classes, activation='softmax')(sent_representation)
 
 
-outp = Dense(num_classes, activation='relu')(lstm_out2)
+#outp = Dense(num_classes, activation='relu')(lstm_out2)
 
 #Model: inputs and outputs
-model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = outp)
+model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = probabilities)
 
 #compile
 model.compile(loss='categorical_crossentropy',
