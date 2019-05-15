@@ -19,12 +19,13 @@ from tensorflow.keras import regularizers
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Embedding, Flatten
-from tensorflow.keras.layers import Bidirectional,CuDNNLSTM, Dropout
+from tensorflow.keras.layers import Bidirectional,CuDNNLSTM, Dropout, BatchNormalization
 from tensorflow.keras.layers import Reshape, Activation, RepeatVector, Permute, multiply, Lambda
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
 from tensorflow.keras.callbacks import TensorBoard
+import tensorflow.keras.backend as K
 
 #import custom functions
 from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, split_on_h_group, pad_cut
@@ -161,7 +162,7 @@ num_epochs = 23
 forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
 num_nodes = 128 #Number of nodes in LSTM
 embedding_size = 10 # Dimension of the embedding vector.
-drop_rate = 0.7 #Fraction of input units to drop
+drop_rate = 0.4 #Fraction of input units to drop
 
 lambda_recurrent = 0.01 #High much the model should be penalized #Lasso regression?
 recurrent_max_norm = 2.0
@@ -191,12 +192,14 @@ embed6_in =  keras.Input(shape =  [None])
 embed6 = Embedding(vocab_sizes[5] ,embedding_size, input_length = None)(embed6_in)#None indicates a variable input length
 
 cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), (embed6)])
-
+cat_embeddings = BatchNormalization(cat_embeddings) #Bacth normalize, focus on segment of input
 cat_embeddings = Dropout(rate = drop_rate)(cat_embeddings) #Dropout
 lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
+lstm_out1 = BatchNormalization(lstm_out1) #Bacth normalize, focus on segment of lstm_out1
 lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
 #lstm_out1 = Reshape(-1, num_nodes*2, 1)(lstm_out1) #num_nodes*2 since bidirectional LSTM
 lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2), recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_out1)
+lstm_out2 = BatchNormalization(lstm_out2) #Bacth normalize, focus on segment of lstm_out2
 lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
 
 #Attention layer. Really it would be nice to have it closer to input in orer to distribute more information throughout the network. 
@@ -219,8 +222,56 @@ probabilities = Dense(num_classes, activation='softmax')(sent_representation)
 #Model: inputs and outputs
 model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = probabilities)
 
+#Loss function
+#Keras loss functions must only take (y_true, y_pred) as parameters. So we need a separate function that returns another function
+def categorical_focal_loss(gamma=2., alpha=.25):
+    """
+    Softmax version of focal loss.
+           m
+      FL = ∑  -alpha * (1 - p_o,c)^gamma * y_o,c * log(p_o,c)
+          c=1
+      where m = number of classes, c = class and o = observation
+    Parameters:
+      alpha -- the same as weighing factor in balanced cross entropy
+      gamma -- focusing parameter for modulating factor (1-p)
+    Default value:
+      gamma -- 2.0 as mentioned in the paper
+      alpha -- 0.25 as mentioned in the paper
+    References:
+        Official paper: https://arxiv.org/pdf/1708.02002.pdf
+        https://www.tensorflow.org/api_docs/python/tf/keras/backend/categorical_crossentropy
+    Usage:
+     model.compile(loss=[categorical_focal_loss(alpha=.25, gamma=2)], metrics=["accuracy"], optimizer=adam)
+    """
+    def categorical_focal_loss_fixed(y_true, y_pred):
+        """
+        :param y_true: A tensor of the same shape as `y_pred`
+        :param y_pred: A tensor resulting from a softmax
+        :return: Output tensor.
+        """
+
+        # Scale predictions so that the class probas of each sample sum to 1
+        y_pred /= K.sum(y_pred, axis=-1, keepdims=True)
+
+        # Clip the prediction value to prevent NaN's and Inf's
+        epsilon = K.epsilon()
+        y_pred = K.clip(y_pred, epsilon, 1. - epsilon)
+
+        # Calculate Cross Entropy
+        cross_entropy = -y_true * K.log(y_pred)
+
+        # Calculate Focal Loss
+        loss = alpha * K.pow(1 - y_pred, gamma) * cross_entropy
+
+        # Sum the losses in mini_batch
+        return K.sum(loss, axis=1)
+
+    return categorical_focal_loss_fixed
+
+
+
 #compile
-model.compile(loss='categorical_crossentropy',
+model.compile(loss=[categorical_focal_loss(alpha=.25, gamma=2)],	#loss='categorical_crossentropy',
               optimizer='adam',
               metrics=['accuracy'])
 
@@ -229,7 +280,7 @@ model.compile(loss='categorical_crossentropy',
 model.summary()
 
 #Checkpoint
-filepath="weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
+filepath=out_dir+"weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
 
 
