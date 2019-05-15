@@ -194,11 +194,11 @@ embed6 = Embedding(vocab_sizes[5] ,embedding_size, input_length = None)(embed6_i
 cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), (embed6)])
 #cat_embeddings = BatchNormalization()(cat_embeddings) #Bacth normalize, focus on segment of input
 cat_embeddings = Dropout(rate = drop_rate)(cat_embeddings) #Dropout
-lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  recurrent_constraint=max_norm(recurrent_max_norm), return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
+lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
 #lstm_out1 = BatchNormalization()(lstm_out1) #Bacth normalize, focus on segment of lstm_out1
 lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
 #lstm_out1 = Reshape(-1, num_nodes*2, 1)(lstm_out1) #num_nodes*2 since bidirectional LSTM
-lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2), recurrent_regularizer = regularizers.l2(lambda_recurrent),  recurrent_constraint=max_norm(recurrent_max_norm)))(lstm_out1)
+lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2), recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_out1)
 #lstm_out2 = BatchNormalization()(lstm_out2) #Bacth normalize, focus on segment of lstm_out2
 lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
 
