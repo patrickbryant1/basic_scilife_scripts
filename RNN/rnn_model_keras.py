@@ -21,11 +21,11 @@ from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Embedding, Flatten
 from tensorflow.keras.layers import Bidirectional,CuDNNLSTM, Dropout, BatchNormalization
 from tensorflow.keras.layers import Reshape, Activation, RepeatVector, Permute, multiply, Lambda
-from tensorflow.keras.layers import concatenate
+from tensorflow.keras.layers import concatenate, add, Conv1D
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
 from tensorflow.keras.callbacks import TensorBoard
-import tensorflow.keras.backend as K
+
 
 #import custom functions
 from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, split_on_h_group, pad_cut
@@ -124,6 +124,7 @@ y = rmsd_hot(rmsd_dists, [0,20,40,60,80,100]) #One-hot encode labels
 
 
 #Pad data/cut to maxlen     
+maxlen = 300
 X_train = pad_cut(X_train, 300)
 X_valid = pad_cut(X_valid, 300)
 X_test = pad_cut(X_test, 300)
@@ -155,7 +156,7 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 num_classes = 6
 
 vocab_sizes = [23, 10, 102, 23, 10, 102] #needs to be num_unique+1 for Keras
-batch_size = 20 #Number of alignments
+batch_size = 5 #Number of alignments
 
 epoch_length = int(len(X_train)/batch_size)
 num_epochs = 23
@@ -193,26 +194,51 @@ embed6 = Embedding(vocab_sizes[5] ,embedding_size, input_length = None)(embed6_i
 
 cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), (embed6)])
 #cat_embeddings = BatchNormalization()(cat_embeddings) #Bacth normalize, focus on segment of input
-cat_embeddings = Dropout(rate = drop_rate)(cat_embeddings) #Dropout
+cat_embeddings = Dropout(rate = drop_rate, name = 'cat_embed_dropped')(cat_embeddings) #Dropout
+
+
+def resnet(cat_embeddings, num_res_blocks, num_classes=num_classes):
+	"""Builds a resnet with bidirectinoal LSTMs of the defined depth.
+	"""
+	
+	x = cat_embeddings
+	# Instantiate the stack of residual units
+	for res_block in range(num_res_blocks):
+		lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(x) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
+		lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
+		lstm_out2 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(lstm_out1)
+		lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
+		
+		x = add([x, lstm_out2])
+		x = Activation('relu')(x)
+
+	return x
+
+
+
+#x = resnet(cat_embeddings, 1, num_classes)
 lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
 #lstm_out1 = BatchNormalization()(lstm_out1) #Bacth normalize, focus on segment of lstm_out1
 lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
-#lstm_out1 = Reshape(-1, num_nodes*2, 1)(lstm_out1) #num_nodes*2 since bidirectional LSTM
-lstm_out2 = Bidirectional(CuDNNLSTM(int(num_nodes/2), recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_out1)
+lstm_out2 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_out1)
 #lstm_out2 = BatchNormalization()(lstm_out2) #Bacth normalize, focus on segment of lstm_out2
 lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
 
+#1D convolution
+conv_embed = Conv1D(filters=1, kernel_size=(maxlen-num_nodes+1), activation='relu')(cat_embeddings) #filters = the dimensionality of the output space, kernel_size = length of convolutional window
+#lstm_out2 = Conv1D(filters=64, kernel_size=3, activation='relu')(lstm_out2)
+x = add([conv_embed, lstm_out2])
 #Attention layer. Really it would be nice to have it closer to input in orer to distribute more information throughout the network. 
 #The question is if the LSTM will handle this in the same proportion?
 # compute importance for each step
-attention = Dense(1, activation='tanh')(lstm_out2) #Normalize and extract info with tanh activated weight matrix (hidden attention weights)
+attention = Dense(1, activation='tanh')(x) #Normalize and extract info with tanh activated weight matrix (hidden attention weights)
 attention = Flatten()(attention)
 attention = Activation('softmax')(attention) #Softmax on all activations (normalize activations)
-attention = RepeatVector(num_nodes)(attention) #Repeats the input "num_nodes" times.
+attention = RepeatVector(num_nodes*2)(attention) #Repeats the input "num_nodes" times.
 attention = Permute([2, 1])(attention) #Permutes the dimensions of the input according to a given pattern. (permutes pos 2 and 1 of attention)
 
-sent_representation = multiply([lstm_out2, attention]) #Multiply input to attention with normalized
-sent_representation = Lambda(lambda xin: keras.backend.sum(xin, axis=-2), output_shape=(num_nodes,))(sent_representation)
+sent_representation = multiply([x, attention]) #Multiply input to attention with normalized
+sent_representation = Lambda(lambda xin: keras.backend.sum(xin, axis=-2), output_shape=(num_nodes*2,))(sent_representation)
 
 probabilities = Dense(num_classes, activation='softmax')(sent_representation)
 
