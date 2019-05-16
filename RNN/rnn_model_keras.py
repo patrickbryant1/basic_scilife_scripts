@@ -156,11 +156,13 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 num_classes = 6
 
 vocab_sizes = [23, 10, 102, 23, 10, 102] #needs to be num_unique+1 for Keras
-batch_size = 5 #Number of alignments
+batch_size = 2 #Number of alignments
+num_res_blocks = 2
 
 epoch_length = int(len(X_train)/batch_size)
-num_epochs = 23
-forget_bias = 0.0 #Bias for LSTMs forget gate, reduce forgetting in beginning of training
+base_epochs = 20
+finish_epochs = 3
+num_epochs = base_epochs+finish_epochs
 num_nodes = 128 #Number of nodes in LSTM
 embedding_size = 10 # Dimension of the embedding vector.
 drop_rate = 0.5 #Fraction of input units to drop
@@ -173,7 +175,7 @@ recurrent_max_norm = 2.0
 find_lr = False
 max_lr = 0.01
 min_lr = max_lr/10
-lr_change = (max_lr-min_lr)/((num_epochs-3)/2) #Reduce further lst three epochs
+lr_change = (max_lr-min_lr)/(base_epochs/2) #Reduce further lst three epochs
 
 
 #####LAYERS#####
@@ -222,7 +224,7 @@ def resnet(cat_embeddings, num_res_blocks, num_classes=num_classes):
 
 
 
-x = resnet(cat_embeddings, 2, num_classes)
+x = resnet(cat_embeddings, num_res_blocks, num_classes)
 
 
 
@@ -265,14 +267,14 @@ def lr_schedule(epochs):
   #Increase lrate in beginning
   if epochs == 0:
     lrate = min_lr
-  elif (epochs <((num_epochs-3)/2) and epochs > 0):
+  elif (epochs <(base_epochs/2) and epochs > 0):
     lrate = min_lr+(epochs*lr_change)
   #Decrease further below min_lr last three epochs
-  elif epochs > (num_epochs-3):
-    lrate = min_lr/(10*(epochs-(num_epochs-3)))
+  elif epochs > base_epochs:
+    lrate = min_lr/(2*(epochs-base_epochs))
   #After the max lrate is reached, decrease it back to the min
   else:
-    lrate = max_lr-((epochs-((num_epochs-3)/2))*lr_change)
+    lrate = max_lr-((epochs-(base_epochs/2))*lr_change)
 
   print(epochs,lrate)
   return lrate
@@ -291,11 +293,11 @@ if find_lr == True:
 else:
   lrate = LearningRateScheduler(lr_schedule)
   callbacks=[tensorboard, checkpoint, lrate]
-  steps_per_epoch = (len(X_train) / batch_size)
   validation_data=(X_valid, y_valid)
 
 
 #Fit model
+pdb.set_trace()
 model.fit(X_train, y_train, batch_size = batch_size,             
               epochs=num_epochs,
               validation_data=validation_data,
