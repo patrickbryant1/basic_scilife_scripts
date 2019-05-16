@@ -205,32 +205,28 @@ def resnet(cat_embeddings, num_res_blocks, num_classes=num_classes):
 	# Instantiate the stack of residual units
 	for res_block in range(num_res_blocks):
 		lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(x) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
+		#lstm_out1 = BatchNormalization()(lstm_out1) #Bacth normalize, focus on segment of lstm_out1
 		lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
 		lstm_out2 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(lstm_out1)
+		#lstm_out2 = BatchNormalization()(lstm_out2) #Bacth normalize, focus on segment of lstm_out2
 		lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
-		
-		x = add([x, lstm_out2])
-		x = Activation('relu')(x)
+		lstm_add1 = add([lstm_out1, lstm_out2]) #Skip connection, add before or after dropout?
+		if res_block == (num_res_blocks-1): #The last block should use all time steps, not only the last output.
+			lstm_out3 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_add1)
+		else:
+			lstm_out3 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(lstm_add1)
+		lstm_out3 = Dropout(rate = drop_rate)(lstm_out3) #Dropout		
+		x = add([lstm_out2, lstm_out3])
 
 	return x
 
 
 
-#x = resnet(cat_embeddings, 1, num_classes)
-lstm_out1 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(cat_embeddings) #stateful: Boolean (default False). If True, the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
-#lstm_out1 = BatchNormalization()(lstm_out1) #Bacth normalize, focus on segment of lstm_out1
-lstm_out1 = Dropout(rate = drop_rate)(lstm_out1) #Dropout
-lstm_out2 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_out1)
-#lstm_out2 = BatchNormalization()(lstm_out2) #Bacth normalize, focus on segment of lstm_out2
-lstm_out2 = Dropout(rate = drop_rate)(lstm_out2) #Dropout
+x = resnet(cat_embeddings, 2, num_classes)
 
-#1D convolution
-conv_embed = Conv1D(filters=1, kernel_size=(maxlen-num_nodes+1), activation='relu')(cat_embeddings) #filters = the dimensionality of the output space, kernel_size = length of convolutional window
-#lstm_out2 = Conv1D(filters=64, kernel_size=3, activation='relu')(lstm_out2)
-x = add([conv_embed, lstm_out2])
-#Attention layer. Really it would be nice to have it closer to input in orer to distribute more information throughout the network. 
-#The question is if the LSTM will handle this in the same proportion?
-# compute importance for each step
+
+
+#Attention layer - information will be redistributed in the backwards pass
 attention = Dense(1, activation='tanh')(x) #Normalize and extract info with tanh activated weight matrix (hidden attention weights)
 attention = Flatten()(attention)
 attention = Activation('softmax')(attention) #Softmax on all activations (normalize activations)
@@ -243,60 +239,11 @@ sent_representation = Lambda(lambda xin: keras.backend.sum(xin, axis=-2), output
 probabilities = Dense(num_classes, activation='softmax')(sent_representation)
 
 
-#outp = Dense(num_classes, activation='relu')(lstm_out2)
-
 #Model: inputs and outputs
 model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = probabilities)
 
-#Loss function
-#Keras loss functions must only take (y_true, y_pred) as parameters. So we need a separate function that returns another function
-def categorical_focal_loss(gamma=2., alpha=.25):
-    """
-    Softmax version of focal loss.
-           m
-      FL = ∑  -alpha * (1 - p_o,c)^gamma * y_o,c * log(p_o,c)
-          c=1
-      where m = number of classes, c = class and o = observation
-    Parameters:
-      alpha -- the same as weighing factor in balanced cross entropy
-      gamma -- focusing parameter for modulating factor (1-p)
-    Default value:
-      gamma -- 2.0 as mentioned in the paper
-      alpha -- 0.25 as mentioned in the paper
-    References:
-        Official paper: https://arxiv.org/pdf/1708.02002.pdf
-        https://www.tensorflow.org/api_docs/python/tf/keras/backend/categorical_crossentropy
-    Usage:
-     model.compile(loss=[categorical_focal_loss(alpha=.25, gamma=2)], metrics=["accuracy"], optimizer=adam)
-    """
-    def categorical_focal_loss_fixed(y_true, y_pred):
-        """
-        :param y_true: A tensor of the same shape as `y_pred`
-        :param y_pred: A tensor resulting from a softmax
-        :return: Output tensor.
-        """
 
-        # Scale predictions so that the class probas of each sample sum to 1
-        y_pred /= K.sum(y_pred, axis=-1, keepdims=True)
-
-        # Clip the prediction value to prevent NaN's and Inf's
-        epsilon = K.epsilon()
-        y_pred = K.clip(y_pred, epsilon, 1. - epsilon)
-
-        # Calculate Cross Entropy
-        cross_entropy = -y_true * K.log(y_pred)
-
-        # Calculate Focal Loss
-        loss = alpha * K.pow(1 - y_pred, gamma) * cross_entropy
-
-        # Sum the losses in mini_batch
-        return K.sum(loss, axis=1)
-
-    return categorical_focal_loss_fixed
-
-
-
-#compile
+#Compile
 model.compile(loss='categorical_crossentropy', #[categorical_focal_loss(alpha=.25, gamma=2)],
               optimizer='adam',
               metrics=['accuracy'])
