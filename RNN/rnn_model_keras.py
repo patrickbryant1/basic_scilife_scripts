@@ -172,7 +172,7 @@ find_lr = bool(int(net_params['find_lr']))
 #Fixed params
 num_classes = 6
 vocab_sizes = [22, 9, 101, 22, 9, 101] #needs to be num_unique+1 for Keras
-batch_size = 2 #Number of alignments
+batch_size = 20 #Number of alignments
 num_epochs = base_epochs+finish_epochs
 
 
@@ -293,7 +293,7 @@ if find_lr == True:
 
     # Train a model with batch size 20 for 5 epochs
     # with learning rate growing exponentially from 0.000001 to 1
-    lr_finder.find(X_train, y_train[0:10], start_lr=0.000001, end_lr=1, batch_size=1, epochs=2)
+    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=1, epochs=2)
     # Print lr and loss
 
     x  = lr_finder.lrs
@@ -312,14 +312,12 @@ else:
 
 
   #Fit model
-  model.fit(X_train, y_train[0:10], batch_size = batch_size,             
+  model.fit(X_train, y_train, batch_size = batch_size,             
               epochs=num_epochs,
               validation_data=validation_data,
               shuffle=True, #Dont feed continuously
 	      callbacks=callbacks) #, lr_scheduler])
 
-
-  pdb.set_trace()
 
   #Save model for future use
 

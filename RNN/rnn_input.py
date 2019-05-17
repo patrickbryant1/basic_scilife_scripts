@@ -392,7 +392,7 @@ def pad_cut(X, length):
                     X_pad[l].append(pad[l])
 
         #Convert to arrays
-        X_pad = [np.asarray(X_pad[0][0:10]), np.asarray(X_pad[1][0:10]), np.asarray(X_pad[2][0:10]), np.asarray(X_pad[3][0:10]), np.asarray(X_pad[4][0:10]), np.asarray(X_pad[5][0:10])]
+        X_pad = [np.asarray(X_pad[0]), np.asarray(X_pad[1]), np.asarray(X_pad[2]), np.asarray(X_pad[3]), np.asarray(X_pad[4]), np.asarray(X_pad[5])]
 
         return X_pad
 
