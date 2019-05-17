@@ -12,42 +12,43 @@ import pdb
 
 #ENCODING INFO
 
+#Has to start at 0, since Keras apparently uses the index for lookup
 AMINO_ACIDS = { 
-'A':1,
-'R':2,
-'N':3,
-'D':4,
-'C':5,
-'E':6,
-'Q':7,
-'G':8,
-'H':9,
-'I':10,
-'L':11,
-'K':12,
-'M':13,
-'F':14,
-'P':15,
-'S':16,
-'T':17,
-'W':18,
-'Y':19,
-'V':20,
-'X':21, #UNKNOWN
-'-':22
+'A':0,
+'R':1,
+'N':2,
+'D':3,
+'C':4,
+'E':5,
+'Q':6,
+'G':7,
+'H':8,
+'I':9,
+'L':10,
+'K':11,
+'M':12,
+'F':13,
+'P':14,
+'S':15,
+'T':16,
+'W':17,
+'Y':18,
+'V':19,
+'X':20, #UNKNOWN
+'-':21
 }
 
 
 SECONDARY_STR = {
-'G':1,
-'H':2,
-'I':3,
-'T':4,
-'E':5,
-'B':6,
-'S':7,
-' ':8,
-'-':9
+'G':0,
+'H':1,
+'I':2,
+'T':3,
+'E':4,
+'B':5,
+'S':6,
+' ':7,
+'-':8
 }
 
 #Functions for reading, exploring and visualizing input data
@@ -391,10 +392,26 @@ def pad_cut(X, length):
                     X_pad[l].append(pad[l])
 
         #Convert to arrays
-        X_pad = [np.asarray(X_pad[0]), np.asarray(X_pad[1]), np.asarray(X_pad[2]), np.asarray(X_pad[3]), np.asarray(X_pad[4]), np.asarray(X_pad[5])]
+        X_pad = [np.asarray(X_pad[0][0:10]), np.asarray(X_pad[1][0:10]), np.asarray(X_pad[2][0:10]), np.asarray(X_pad[3][0:10]), np.asarray(X_pad[4][0:10]), np.asarray(X_pad[5][0:10])]
 
         return X_pad
 
+
+def read_net_params(params_file):
+    '''Read and return net parameters
+    '''
+    net_params = {} #Save information for net
+        
+    with open(params_file) as file:
+        for line in file:
+            line = line.rstrip() #Remove newlines
+            line = line.split("=") #Split on "="
+
+            net_params[line[0]] = line[1]
+
+
+    return net_params
+                
 
 def plot_confusion_matrix(y_true, y_pred, classes,
                           normalize=False,

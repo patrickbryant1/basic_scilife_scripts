@@ -28,7 +28,7 @@ from tensorflow.keras.callbacks import TensorBoard
 
 
 #import custom functions
-from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, split_on_h_group, pad_cut
+from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, split_on_h_group, pad_cut, read_net_params
 from lr_finder import LRFinder
 import pdb
 
@@ -50,12 +50,16 @@ parser.add_argument('encode_locations', nargs=1, type= str,
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
 
+parser.add_argument('params_file', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to file with net parameters')
+
 
 #MAIN
 args = parser.parse_args()
 dist_file = args.dist_file[0]
 encode_locations = args.encode_locations[0]
 out_dir = args.out_dir[0]
+params_file = args.params_file[0]
 #Read tsv
 (distance_dict) = read_labels(dist_file)
 #Format rmsd_dists into one-hot encoding
@@ -153,29 +157,33 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 
 ######MODEL######
 #Parameters
+net_params = read_net_params(params_file)
+
+#Variable params
+num_res_blocks = int(net_params['num_res_blocks'])
+base_epochs = int(net_params['base_epochs'])
+finish_epochs = int(net_params['finish_epochs'])
+num_nodes = int(net_params['num_nodes']) #Number of nodes in LSTM
+embedding_size = int(net_params['embedding_size']) # Dimension of the embedding vector.
+drop_rate = float(net_params['drop_rate'])  #Fraction of input units to drop
+find_lr = bool(int(net_params['find_lr']))
+
+
+#Fixed params
 num_classes = 6
-
-vocab_sizes = [23, 10, 102, 23, 10, 102] #needs to be num_unique+1 for Keras
+vocab_sizes = [22, 9, 101, 22, 9, 101] #needs to be num_unique+1 for Keras
 batch_size = 2 #Number of alignments
-num_res_blocks = 2
-
-epoch_length = int(len(X_train)/batch_size)
-base_epochs = 20
-finish_epochs = 3
 num_epochs = base_epochs+finish_epochs
-num_nodes = 128 #Number of nodes in LSTM
-embedding_size = 10 # Dimension of the embedding vector.
-drop_rate = 0.5 #Fraction of input units to drop
+
 
 lambda_recurrent = 0.01 #How much the model should be penalized #Lasso regression?
 recurrent_max_norm = 2.0
     
 
-#Opt
-find_lr = False
+#LR schedule
 max_lr = 0.01
 min_lr = max_lr/10
-lr_change = (max_lr-min_lr)/(base_epochs/2) #Reduce further lst three epochs
+lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
 
 
 #####LAYERS#####
@@ -230,33 +238,32 @@ x = resnet(cat_embeddings, num_res_blocks, num_classes)
 
 #Attention layer - information will be redistributed in the backwards pass
 attention = Dense(1, activation='tanh')(x) #Normalize and extract info with tanh activated weight matrix (hidden attention weights)
-attention = Flatten()(attention)
+attention = Flatten()(attention) #Make 1D
 attention = Activation('softmax')(attention) #Softmax on all activations (normalize activations)
 attention = RepeatVector(num_nodes*2)(attention) #Repeats the input "num_nodes" times.
 attention = Permute([2, 1])(attention) #Permutes the dimensions of the input according to a given pattern. (permutes pos 2 and 1 of attention)
 
-sent_representation = multiply([x, attention]) #Multiply input to attention with normalized
-sent_representation = Lambda(lambda xin: keras.backend.sum(xin, axis=-2), output_shape=(num_nodes*2,))(sent_representation)
+sent_representation = multiply([x, attention]) #Multiply input to attention with normalized activations 
+sent_representation = Lambda(lambda xin: keras.backend.sum(xin, axis=-2), output_shape=(num_nodes*2,))(sent_representation) #Sum all attentions
 
-probabilities = Dense(num_classes, activation='softmax')(sent_representation)
+#Dense final layer for classification
+probabilities = Dense(num_classes, activation='softmax')(sent_representation) 
 
 
-#Model: inputs and outputs
+#Model: define inputs and outputs
 model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = probabilities)
 
-
-#Compile
+#Compile model
 model.compile(loss='categorical_crossentropy', #[categorical_focal_loss(alpha=.25, gamma=2)],
               optimizer='adam',
               metrics=['accuracy'])
-
 
 #Write summary of model
 model.summary()
 
 #Checkpoint
 filepath=out_dir+"weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
-checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=False, mode='max')
 
 
 #LR schedule
@@ -270,8 +277,8 @@ def lr_schedule(epochs):
   elif (epochs <(base_epochs/2) and epochs > 0):
     lrate = min_lr+(epochs*lr_change)
   #Decrease further below min_lr last three epochs
-  elif epochs > base_epochs:
-    lrate = min_lr/(2*(epochs-base_epochs))
+  elif epochs >= base_epochs:
+    lrate = min_lr/(2*(epochs+1-base_epochs))
   #After the max lrate is reached, decrease it back to the min
   else:
     lrate = max_lr-((epochs-(base_epochs/2))*lr_change)
@@ -286,35 +293,38 @@ if find_lr == True:
 
     # Train a model with batch size 20 for 5 epochs
     # with learning rate growing exponentially from 0.000001 to 1
-    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=20, epochs=5)
-    # Plot the loss, ignore 20 batches in the beginning and 5 in the end
-    lr_finder.plot_loss(n_skip_beginning=20, n_skip_end=5)
+    lr_finder.find(X_train, y_train[0:10], start_lr=0.000001, end_lr=1, batch_size=1, epochs=2)
+    # Print lr and loss
 
+    x  = lr_finder.lrs
+    y = lr_finder.losses
+    with open(out_dir+'lr_finder_out.txt', "w") as file:
+        for i in range(min(len(x), len(y))):
+          	file.write(str(x[i]) + '\t' + str(y[i]) + '\n')    
+    pdb.set_trace()
 else:
   lrate = LearningRateScheduler(lr_schedule)
   callbacks=[tensorboard, checkpoint, lrate]
-  validation_data=(X_valid, y_valid)
+  validation_data=(X_valid, y_valid[0:10])
 
 
-#Fit model
-pdb.set_trace()
-model.fit(X_train, y_train, batch_size = batch_size,             
+
+
+
+  #Fit model
+  model.fit(X_train, y_train[0:10], batch_size = batch_size,             
               epochs=num_epochs,
               validation_data=validation_data,
               shuffle=True, #Dont feed continuously
 	      callbacks=callbacks) #, lr_scheduler])
 
 
-pdb.set_trace()
+  pdb.set_trace()
 
-#Save model for future use
+  #Save model for future use
 
-#from tensorflow.keras.models import model_from_json   
-#serialize model to JSON
-model_json = model.to_json()
-with open(out_dir+"model.json", "w") as json_file:
-	json_file.write(model_json)
-
-# serialize weights to HDF5
-model.save_weights(out_dir+"model.h5")
-print("Saved model to disk")
+  #from tensorflow.keras.models import model_from_json   
+  #serialize model to JSON
+  model_json = model.to_json()
+  with open(out_dir+"model.json", "w") as json_file:
+  	json_file.write(model_json)
