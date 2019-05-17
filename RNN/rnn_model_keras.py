@@ -290,7 +290,7 @@ class CollectOutputAndTarget(Callback):
         y_true = np.argmax(np.array(y_true), axis = 1)
         y_pred = np.argmax(np.array(y_pred), axis = 1)
         report = classification_report(y_true, y_pred)
-        with open('clf_report.txt', "a") as file:
+        with open(out_dir+'clf_report.txt', "a") as file:
                 file.write('epoch: '+str(epoch)+'\n')
                 file.write(report)	
         self.targets = [] #reset
@@ -329,12 +329,12 @@ if find_lr == True:
 
     # Train a model with batch size 20 for 5 epochs
     # with learning rate growing exponentially from 0.000001 to 1
-    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=1, epochs=2)
+    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=20, epochs=1)
     # Print lr and loss
 
     x  = lr_finder.lrs
     y = lr_finder.losses
-    with open(out_dir+'lr_finder_out.txt', "w") as file:
+    with open(out_dir+params_file.split('/')[-1].split('.')[0]+'.lr', "w") as file:
         for i in range(min(len(x), len(y))):
           	file.write(str(x[i]) + '\t' + str(y[i]) + '\n')    
     #pdb.set_trace()

@@ -6,12 +6,12 @@ Prints files with different combinations of parameters to be used to define diff
 '''
 
 num_res_blocks=[1,2,3,4,5]
-base_epochs=[10,20,30]
+base_epochs=[10]
 finish_epochs=[3]
 num_nodes=[128,192,256]
 embedding_size=[5,10]
 drop_rate=[0.5,0.7]
-find_lr=[0]
+find_lr=[1]
 
 for block in num_res_blocks:
 	for base in base_epochs:
