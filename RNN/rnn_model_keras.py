@@ -283,8 +283,16 @@ class CollectOutputAndTarget(Callback):
         self.outputs.append(backend.eval(self.var_y_pred))
     def on_epoch_end(self, epoch, logs=None):
         print(epoch)
-        print(len(self.targets))
-        print(len(self.outputs))
+        y_true = []
+        y_pred = []
+        for i in range(len(self.targets)):
+                [y_true.append(j) for j in self.targets[i]]
+                [y_pred.append(j) for j in self.outputs[i]]
+        y_true = np.argmax(np.array(y_true), axis = 1)
+        y_pred = np.argmax(np.array(y_pred), axis = 1)
+        report = classification_report(y_true, y_pred)
+        with open('clf_report.txt', "a") as file:
+                file.write(report)	
         pdb.set_trace()
         self.targets = [] #reset
         self.outputs = []
