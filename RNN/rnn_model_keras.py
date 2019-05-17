@@ -13,9 +13,9 @@ from collections import Counter
 import math
 import time
 
-
+import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras import regularizers
+from tensorflow.keras import regularizers, backend
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Embedding, Flatten
@@ -114,7 +114,7 @@ unique_groups, counts = zip(*counted_groups.items())
 
 #Assign data and labels
 y = rmsd_hot(rmsd_dists, [0,20,40,60,80,100]) #One-hot encode labels
-
+#pdb.set_trace()
 
 (X_train, y_train, X_valid, y_valid, X_test, y_test) = split_on_h_group(encoding_list, H_group_list, unique_groups, counted_groups, [0.8, 0.1, 0.1], y, out_dir)
 
@@ -266,17 +266,33 @@ filepath=out_dir+"weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=False, mode='max')
 
 #Confusion matrix
-class sklearn_metrics(Callback):
-  y_true = K.eval(self.var_y_true)
-  y_pred = K.eval(self.var_y_pred)
-  def print_report(y_true, y_pred):
-  '''Print the confusion matrix at each epoch
-  '''
+class CollectOutputAndTarget(Callback):
+    def __init__(self):
+        super(CollectOutputAndTarget, self).__init__()
+        self.targets = []  # collect y_true batches
+        self.outputs = []  # collect y_pred batches
 
-  with open('log.txt', 'a+') as f:
-    f.write(epoch + '\n')
-    f.write(classification_report(y_true, y_pred))
+        # the shape of these 2 variables will change according to batch shape
+        # to handle the "last batch", specify `validate_shape=False`
+        self.var_y_true = tf.Variable(0., validate_shape=False)
+        self.var_y_pred = tf.Variable(0., validate_shape=False)
 
+    def on_batch_end(self, batch, logs=None):
+        # evaluate the variables and save them into lists
+        self.targets.append(backend.eval(self.var_y_true))
+        self.outputs.append(backend.eval(self.var_y_pred))
+    def on_epoch_end(self, epoch, logs=None):
+        print(epoch)
+        print(len(self.targets))
+        print(len(self.outputs))
+        pdb.set_trace()
+        self.targets = [] #reset
+        self.outputs = []
+# initialize the variables and the `tf.assign` ops
+cbk = CollectOutputAndTarget()
+fetches = [tf.assign(cbk.var_y_true, model.targets[0], validate_shape=False),
+           tf.assign(cbk.var_y_pred, model.outputs[0], validate_shape=False)]
+model._function_kwargs = {'fetches': fetches}  # use `model._function_kwargs` if using `Model` instead of `Sequential`
 
 
 #LR schedule
@@ -314,11 +330,11 @@ if find_lr == True:
     with open(out_dir+'lr_finder_out.txt', "w") as file:
         for i in range(min(len(x), len(y))):
           	file.write(str(x[i]) + '\t' + str(y[i]) + '\n')    
-    pdb.set_trace()
+    #pdb.set_trace()
 else:
   lrate = LearningRateScheduler(lr_schedule)
-  callbacks=[tensorboard, checkpoint, lrate, sklearn_metrics]
-  validation_data=(X_valid, y_valid[0:10])
+  callbacks=[tensorboard, checkpoint, lrate, cbk]
+  validation_data=(X_valid, y_valid)
 
 
 

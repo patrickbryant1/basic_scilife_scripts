@@ -101,8 +101,6 @@ def rmsd_hot(rmsd_dists, bins):
 
         #Convert to one-hot encoding
         rmsd_dists_hot = np.eye(len(bins))[rmsd_dists]
- 
-
         return rmsd_dists_hot
 
 def get_locations(encode_locations):
