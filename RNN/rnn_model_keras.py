@@ -22,7 +22,7 @@ from tensorflow.keras.layers import Dense, Embedding, Flatten
 from tensorflow.keras.layers import Bidirectional,CuDNNLSTM, Dropout, BatchNormalization
 from tensorflow.keras.layers import Reshape, Activation, RepeatVector, Permute, multiply, Lambda
 from tensorflow.keras.layers import concatenate, add, Conv1D
-from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, Callback
 from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
 from tensorflow.keras.callbacks import TensorBoard
 
@@ -231,7 +231,7 @@ def resnet(cat_embeddings, num_res_blocks, num_classes=num_classes):
 	return x
 
 
-
+#Create resnet and get outputs
 x = resnet(cat_embeddings, num_res_blocks, num_classes)
 
 
@@ -264,6 +264,19 @@ model.summary()
 #Checkpoint
 filepath=out_dir+"weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=False, mode='max')
+
+#Confusion matrix
+class sklearn_metrics(Callback):
+  y_true = K.eval(self.var_y_true)
+  y_pred = K.eval(self.var_y_pred)
+  def print_report(y_true, y_pred):
+  '''Print the confusion matrix at each epoch
+  '''
+
+  with open('log.txt', 'a+') as f:
+    f.write(epoch + '\n')
+    f.write(classification_report(y_true, y_pred))
+
 
 
 #LR schedule
@@ -304,7 +317,7 @@ if find_lr == True:
     pdb.set_trace()
 else:
   lrate = LearningRateScheduler(lr_schedule)
-  callbacks=[tensorboard, checkpoint, lrate]
+  callbacks=[tensorboard, checkpoint, lrate, sklearn_metrics]
   validation_data=(X_valid, y_valid[0:10])
 
 
@@ -316,7 +329,7 @@ else:
               epochs=num_epochs,
               validation_data=validation_data,
               shuffle=True, #Dont feed continuously
-	      callbacks=callbacks) #, lr_scheduler])
+	            callbacks=callbacks)
 
 
   #Save model for future use
