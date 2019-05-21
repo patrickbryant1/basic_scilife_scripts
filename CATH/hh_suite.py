@@ -12,20 +12,29 @@ import pdb
 from hh_reader import read_result
 
 
-#Arguments for argparse module:
-parser = argparse.ArgumentParser(description = '''A program that runs hhblitz to create HMMs of domain sequences, then runs hhalign on all
-						pairs and checks that over 75 % has been aligned using hh_reader.py''')
- 
-parser.add_argument('indir', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to directory with input files.')
+#FUNCTIONS
+def pdb_to_fasta(uid, outdir):
+	'''Convert pdb file to fasta.
+	'''
+	letters = {'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLU':'E','GLN':'Q','GLY':'G','HIS':'H',
+           	'ILE':'I','LEU':'L','LYS':'K','MET':'M','PHE':'F','PRO':'P','SER':'S','THR':'T','TRP':'W',
+		'TYR':'Y','VAL':'V'}
 
+	inname = uid+'.pdb'
+	outname = uid+'.fa'
 
+	sequence = '' #Save AA sequence
+	with open(inname, "r") as infile:
+		for line in infile:
+			line = line.split()
+			if line[0] == 'ATOM' and line[2] == 'CA':
+				sequence+=line[3]
 
+	with open(outdir+outname, "w") as outfile:
+		outfile.write('>'+uid+'\n')
+		i = 0 #index
+		while i<len(sequence):
+			outfile.write(sequence[i:i+60]+'\n')
+			i+=60
 
-
-
-
-
-read_result
-
-
+	return None
