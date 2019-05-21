@@ -5,12 +5,14 @@
 import argparse
 import sys
 import subprocess
+import pexpect
 import random
 import os
 import pdb
 
 #Custom imports
 from hh_suite import pdb_to_fasta, run_hhblits
+from hh_reader import read_result
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids)
@@ -72,7 +74,8 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 		get_n = 5
 	else:
 		get_n = len(uids)
-
+	#How many to get
+	get_n = 2
 	#Go through uids and try to find get_n uids that match criteria
 	while get_n >= 2:
 		(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
@@ -123,15 +126,16 @@ def loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, down
 				pdb_to_fasta(uids[i], output_dir)
 				#Make HMM
 				run_hhblits(uids[i], output_dir, hhblits, uniprot)
-				pdb.set_trace()
+				
 		else:
 			print(uids[i] + ' did not pass filter')
 
 	return(status, downloaded_uids, selected_uids)
 
-def align(selected_uids, TMalign, output_dir,  H_group):
-	'''Run TMalign on file pair and extract sequence identity,
-	remove file2 if 90 % or above
+def align(selected_uids, output_dir, H_group, hhalign):
+	'''Run hhalign on file pair and extract sequence identity and
+	% aligned of shortest sequence.
+	Remove file2 if identity is 90 % or above or if less than 75 % has been aligned.
 	'''
 
 
@@ -146,12 +150,14 @@ def align(selected_uids, TMalign, output_dir,  H_group):
 	parsed_output = {} #Save parsed output from TMalign
 
 	for i in range(0, end):
-		structure_i =output_dir+selected_uids[i]+'.pdb' #Get structure i
+		structure_i =output_dir+selected_uids[i]+'.hhm' #Get structure i
 		
 		for j in range(i+1, end):
-			structure_j =output_dir+selected_uids[j]+'.pdb' #Get structure j
-			tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
-			(aligned_len, rmsd, identity, chain_lens, sequences)= parse_tm(tmalign_out)
+			structure_j =output_dir+selected_uids[j]+'.hhm' #Get structure j
+			#Run hhalign
+			pexpect.run(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -glob')
+			result = read_result(output_dir+uids[i]+'_'+uids[j]+'.hhr')
+			pdb.set_trace()
 			 
 			if int(aligned_len) > (0.9*min(chain_lens)) and float(identity) > 0.90: #seq identity threshold. Considers the length of the alignment 
 				print(selected_uids[i], selected_uids[j])

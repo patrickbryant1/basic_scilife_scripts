@@ -49,5 +49,5 @@ def run_hhblits(uid, outdir, hhblits, uniprot):
 	outname = uid+'.hhm'
 	statement = hhblits +' -i ' +outdir+inname + ' -d ' + uniprot + ' -ohhm ' + outname
 	pexpect.run(statement)
-	pdb.set_trace()
+	#pdb.set_trace()
 	return None
