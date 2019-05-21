@@ -149,7 +149,7 @@ def align(selected_uids, output_dir, H_group, hhalign):
 		for j in range(i+1, end):
 			structure_j =output_dir+selected_uids[j]+'.hhm' #Get structure j
 			#Run hhalign
-			subprocess.check_output(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -glob', shell=True)
+			outp = subprocess.check_output(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -glob', shell=True)
 			result = read_result(output_dir+uids[i]+'_'+uids[j]+'.hhr')
 			chain_lens = [result[0].query_length, result[0].template_length]
 			aligned_len = result[0].aligned_cols
