@@ -52,7 +52,7 @@ def read_newline(file_name):
 
 
 
-def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
+def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhalign, uniprot):
 	'''Download .pdb structure, run TMalign and check sequence identity
 	'''
 
@@ -70,7 +70,7 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
 
 	#Go through uids and try to find get_n uids that match criteria
 	while get_n >= 2:
-		(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, get_n, downloaded_uids)
+		(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
 		if status == True:
 			#Remove the uids not to be used for later steps
 			for duid in downloaded_uids:
@@ -88,18 +88,18 @@ def get_structures(address, uids, filter_ids, H_group, TMalign, output_dir):
         
 	return None
 
-def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, get_n, downloaded_uids):
+def loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot):
 	'''Loop through uids and try to make get_n alignments
 	that fulfill criteria.
 	'''
-	selected_uids = [] #Selected for TMalign
+	selected_uids = [] #Selected for hhsuite
 	status = False #Set original status
 
 	for i in range(0, len(uids)):
 		if len(selected_uids) == get_n:
 		#Make alignment of all of these
 
-			(status, latest_pos) = align(selected_uids, TMalign, output_dir, H_group)
+			(status, latest_pos) = align(selected_uids, output_dir, H_group, hhalign)
 			#If one fails, pop this and continue
 			if status == False: #If all have not passed
 				selected_uids.pop(latest_pos) #Pop this failed uid
@@ -112,7 +112,10 @@ def loop_through_ids(address, uids, filter_ids, H_group, TMalign, output_dir, ge
 			selected_uids.append(uids[i])
 			if uids[i] not in downloaded_uids:
 				downloaded_uids.append(uids[i])
+				#Get pdb file
 				subprocess.call(["wget",address+uids[i]+'.pdb'])
+				#Make fasta
+				pdb_to_fasta(uid, output_dir)
 		else:
 			print(uids[i] + ' did not pass filter')
 
