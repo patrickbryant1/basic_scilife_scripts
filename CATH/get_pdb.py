@@ -74,8 +74,7 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 		get_n = 5
 	else:
 		get_n = len(uids)
-	#How many to get
-	get_n = 2
+
 	#Go through uids and try to find get_n uids that match criteria
 	while get_n >= 2:
 		(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
@@ -112,7 +111,7 @@ def loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, down
 			if status == False: #If all have not passed
 				selected_uids.pop(latest_pos) #Pop this failed uid
 			else:
-				print(H_group + 'aligned with TMalign!')
+				print(H_group + 'aligned!')
 				break
 
 
@@ -162,7 +161,7 @@ def align(selected_uids, output_dir, H_group, hhalign):
 			identity = result[0].identity
 			query_aln = result[0].query_ali
 			template_aln = result[0].template_ali
-			pdb.set_trace()
+			
 			 
 			if (aligned_len < (0.75*min(chain_lens))) or (identity >= 0.90): #aligned lenght and sequence identity thresholds 
 				print(selected_uids[i], selected_uids[j])
@@ -191,11 +190,11 @@ def write_to_file(output_dir, H_group, parsed_output):
 
 	for key in parsed_output:
 		with open(output_dir+key+'.aln', 'w') as f:
-			f.write('#'+'q_length: ' + parsed_output[key][2][0] + '|t_length: ' + parsed_output[key][2][1] + '|aligned_len: ' + parsed_output[key][3] + '|Identity: ' + parsed_output[key][4] + '\n') 
+			f.write('#'+'q_length: ' + str(parsed_output[key][2][0]) + '|t_length: ' + str(parsed_output[key][2][1]) + '|aligned_len: ' + str(parsed_output[key][3]) + '|Identity: ' + str(parsed_output[key][4]) + '\n') 
 			f.write(parsed_output[key][0]+'\n') #write sequences
                         f.write(parsed_output[key][1])
 
-	pdb.set_trace()
+
 
 
 	return None
