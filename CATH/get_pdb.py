@@ -157,15 +157,19 @@ def align(selected_uids, output_dir, H_group, hhalign):
 			#Run hhalign
 			pexpect.run(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -glob')
 			result = read_result(output_dir+uids[i]+'_'+uids[j]+'.hhr')
+			shortest_seq = min(int(result[0].query_length), int(result[0].template_length))
+			aligned_len = int(result[0].aligned_cols)
+			query_aln = result[0].query_ali
+			template_aln = result[0].template_ali
 			pdb.set_trace()
 			 
-			if int(aligned_len) > (0.9*min(chain_lens)) and float(identity) > 0.90: #seq identity threshold. Considers the length of the alignment 
+			if aligned_len < (0.75*shortest_seq) or result[0].identity => 0.90: #seq identity threshold. Considers the length of the alignment 
 				print(selected_uids[i], selected_uids[j])
-				print(aligned_len, min(chain_lens), identity)
+				print(aligned_len, shortest_seq, identity)
 				status = False
 				break #Break out, since too similar seqs
 			count+=1    
-			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [sequences, rmsd, chain_lens, aligned_len, identity] #Add info to parsed output
+			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, rmsd, chain_lens, aligned_len, identity] #Add info to parsed output
 			
 		if status == False:
 			break #Break out, since too similar seqs
