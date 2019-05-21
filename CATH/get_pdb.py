@@ -82,7 +82,9 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 			#Remove the uids not to be used for later steps
 			for duid in downloaded_uids:
 				if duid not in selected_uids:
-					os.remove(output_dir + duid +'.pdb') #Remove failed .pdb file
+					delete_files = glob.glob(output_dir +'*'+ duid +'*') 
+					for dfile in delete_files:
+						os.remove(dfile) #Remove failed uid files
 			break
 		else:
 			get_n -= 1
@@ -165,7 +167,7 @@ def align(selected_uids, output_dir, H_group, hhalign):
 			 
 			if (aligned_len < (0.75*min(chain_lens))) or (identity >= 0.90): #aligned lenght and sequence identity thresholds 
 				print(selected_uids[i], selected_uids[j])
-				print(aligned_len, shortest_seq, identity)
+				print(aligned_len, identity)
 				status = False
 				break #Break out, since too similar seqs
 			count+=1    
