@@ -69,27 +69,20 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
 	random.Random(2).shuffle(uids)
 	
-	#Check how many uids to get
-	if len(uids) > 5:
-		get_n = 5
-	else:
-		get_n = len(uids)
+	get_n = 2
 
 	#Go through uids and try to find get_n uids that match criteria
-	while get_n >= 2:
-		(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
-		if status == True:
-			#Remove the uids not to be used for later steps
-			for duid in downloaded_uids:
-				if duid not in selected_uids:
-					delete_files = glob.glob(output_dir +'*'+ duid +'*') 
-					for dfile in delete_files:
-						os.remove(dfile) #Remove failed uid files
-			break
-		else:
-			get_n -= 1
+	(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
+	if status == True:
+	#Remove the uids not to be used for later steps
+		for duid in downloaded_uids:
+			if duid not in selected_uids:
+				delete_files = glob.glob(output_dir +'*'+ duid +'*') 
+				for dfile in delete_files:
+					os.remove(dfile) #Remove failed uid files
+	
 		
-	#If you could not get at least 2 uids that fulfill criteria
+	#If you could not get at least x uids that fulfill criteria
 	if status == False:
 		print('The H-group ' + H_group + ' does not fulfill the criteria.')
 
@@ -156,8 +149,7 @@ def align(selected_uids, output_dir, H_group, hhalign):
 		for j in range(i+1, end):
 			structure_j =output_dir+selected_uids[j]+'.hhm' #Get structure j
 			#Run hhalign
-			child = pexpect.spawn(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -glob')
-			child.expect('No Hit')
+			subprocess.check_output(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -glob', shell=True)
 			result = read_result(output_dir+uids[i]+'_'+uids[j]+'.hhr')
 			chain_lens = [result[0].query_length, result[0].template_length]
 			aligned_len = result[0].aligned_cols
