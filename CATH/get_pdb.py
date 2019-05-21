@@ -164,7 +164,7 @@ def align(selected_uids, output_dir, H_group, hhalign):
 			template_aln = result[0].template_ali
 			pdb.set_trace()
 			 
-			if aligned_len < (0.75*min(chain_lens)) or identity => 0.90: #aligned lenght and sequence identity thresholds 
+			if (aligned_len < (0.75*min(chain_lens))) or (identity >= 0.90): #aligned lenght and sequence identity thresholds 
 				print(selected_uids[i], selected_uids[j])
 				print(aligned_len, shortest_seq, identity)
 				status = False
@@ -189,18 +189,13 @@ def write_to_file(output_dir, H_group, parsed_output):
 	that will be used downstream
 	'''
 
-	with open(output_dir+H_group+.tsv', 'w') as file_1:
-		file_1.write('uid1' + '\t' + 'uid2' + '\t' + 'RMSD' + '\t' + 'Chain1' + '\t' + 'Chain2' + '\t' + 'Aligned' + '\t' + 'Identity' + '\n') #Write headers
-		for key in parsed_output:
-			uid_1 = key.split('_')[0]
-			uid_2 = key.split('_')[1]
-			
-			info = parsed_output[key]
-			file_1.write(uid_1 + '\t' + uid_2 + '\t' + info[1] + '\t' + str(info[2][0]) + '\t' + str(info[2][1]) + '\t' + info[3] + '\t' + info[4] + '\n') #Write uids and corresponding rmsd
-			with open(output_dir+key+'.aln', 'w') as file_2:
-				file_2.write(parsed_output[key][0][0]+'\n') #write sequences
-				file_2.write(parsed_output[key][0][1])
+	for key in parsed_output:
+		with open(output_dir+key+'.aln', 'w') as f:
+			f.write('#'+'q_length: ' + parsed_output[key][2][0] + '|t_length: ' + parsed_output[key][2][1] + '|aligned_len: ' + parsed_output[key][3] + '|Identity: ' + parsed_output[key][4] + '\n') 
+			f.write(parsed_output[key][0]+'\n') #write sequences
+                        f.write(parsed_output[key][1])
 
+	pdb.set_trace()
 
 
 	return None
