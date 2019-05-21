@@ -36,7 +36,7 @@ def pdb_to_fasta(uid, outdir):
 		while i<len(sequence):
 			outfile.write(sequence[i:i+60]+'\n')
 			i+=60
-
+	pdb.set_trace()
 	return None
 
 def run_hhblits(uid, outdir, hhblits, uniprot):
@@ -46,7 +46,7 @@ def run_hhblits(uid, outdir, hhblits, uniprot):
 
 	inname = uid+'.fa'
 	outname = uid+'.hhm'
-
-	subprocess.call([hhblits +' -i ' +inname + ' d ' + uniprot + ' -ohhm ' + outname])
+	pdb.set_trace()
+	subprocess.call([hhblits +' -i ' +inname + ' -d ' + uniprot + ' -ohhm ' + outname])
 
 	return None

@@ -9,6 +9,9 @@ import random
 import os
 import pdb
 
+#Custom imports
+from hh_suite import pdb_to_fasta, run_hhblits
+
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids)
 						from H-groups that have at least x entries.
@@ -117,7 +120,10 @@ def loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, down
 				#Get pdb file
 				subprocess.call(["wget",address+uids[i]+'.pdb'])
 				#Make fasta
-				pdb_to_fasta(uid, output_dir)
+				pdb_to_fasta(uids[i], output_dir)
+				#Make HMM
+				run_hhblits(uids[i], output_dir, hhblits, uniprot)
+				pdb.set_trace()
 		else:
 			print(uids[i] + ' did not pass filter')
 
