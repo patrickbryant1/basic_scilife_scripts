@@ -147,7 +147,7 @@ def align(selected_uids, output_dir, H_group, hhalign):
 
 	
 
-	parsed_output = {} #Save parsed output from TMalign
+	parsed_output = {} #Save parsed output from hhalign
 
 	for i in range(0, end):
 		structure_i =output_dir+selected_uids[i]+'.hhm' #Get structure i
@@ -157,19 +157,20 @@ def align(selected_uids, output_dir, H_group, hhalign):
 			#Run hhalign
 			pexpect.run(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -glob')
 			result = read_result(output_dir+uids[i]+'_'+uids[j]+'.hhr')
-			shortest_seq = min(int(result[0].query_length), int(result[0].template_length))
-			aligned_len = int(result[0].aligned_cols)
+			chain_lens = [result[0].query_length, result[0].template_length]
+			aligned_len = result[0].aligned_cols
+			identity = result[0].identity
 			query_aln = result[0].query_ali
 			template_aln = result[0].template_ali
 			pdb.set_trace()
 			 
-			if aligned_len < (0.75*shortest_seq) or result[0].identity => 0.90: #seq identity threshold. Considers the length of the alignment 
+			if aligned_len < (0.75*min(chain_lens)) or identity => 0.90: #aligned lenght and sequence identity thresholds 
 				print(selected_uids[i], selected_uids[j])
 				print(aligned_len, shortest_seq, identity)
 				status = False
 				break #Break out, since too similar seqs
 			count+=1    
-			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, rmsd, chain_lens, aligned_len, identity] #Add info to parsed output
+			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, chain_lens, aligned_len, identity] #Add info to parsed output
 			
 		if status == False:
 			break #Break out, since too similar seqs
@@ -182,43 +183,13 @@ def align(selected_uids, output_dir, H_group, hhalign):
 	
 	return(status, i)
 
-def parse_tm(tmalign_out):
-	'''A function that gets the uids and the corresponding scores
-	and prints them in tsv.
-	'''
-	
-	tmalign_out = tmalign_out.decode("utf-8")
-	tmalign_out = tmalign_out.split('\n')
-	
-	for i in range(0, len(tmalign_out)): #Step through all items in list
-			
-		if 'Aligned length' and 'RMSD' and 'Seq_ID' in tmalign_out[i]:
-			row = tmalign_out[i].split(',')
-			aligned_len = row[0].split('=')[1].lstrip()
-			rmsd = row[1].split('=')[1].lstrip()
-			identity = row[2].split('=')[2].lstrip() 
-		
-		if 'Length of Chain_1:' in tmalign_out[i]:
-			len_1 = tmalign_out[i].split(':')[1].split()[0]
-				
-		if 'Length of Chain_2:' in tmalign_out[i]:
-                        len_2 = tmalign_out[i].split(':')[1].split()[0]
-
-
-	#Get per residue sequence alignments from structural alignment
-	sequences = [tmalign_out[-5], tmalign_out[-3]]
-
-	chain_lens = [int(len_1), int(len_2)]
-	
-			
-	return(aligned_len, rmsd, identity, chain_lens, sequences)
 
 def write_to_file(output_dir, H_group, parsed_output):
-	'''Write all extracted information from TMalign to files 
+	'''Write all extracted information from hhalign to files 
 	that will be used downstream
 	'''
 
-	with open(output_dir+H_group+'_tm.tsv', 'w') as file_1:
+	with open(output_dir+H_group+.tsv', 'w') as file_1:
 		file_1.write('uid1' + '\t' + 'uid2' + '\t' + 'RMSD' + '\t' + 'Chain1' + '\t' + 'Chain2' + '\t' + 'Aligned' + '\t' + 'Identity' + '\n') #Write headers
 		for key in parsed_output:
 			uid_1 = key.split('_')[0]
