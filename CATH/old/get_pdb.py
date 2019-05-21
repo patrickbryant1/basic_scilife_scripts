@@ -9,6 +9,7 @@ import random
 import os
 import pdb
 
+
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids)
 												from H-groups that have at least 2 entries.
@@ -26,12 +27,8 @@ parser.add_argument('address', nargs=1, type= str,
                   default=sys.stdin, help = 'Web adress to download from.') #www.cathdb.info/version/v4_2_0/api/rest/id/
 parser.add_argument('output_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'output directory.')
-parser.add_argument('hhblits', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to hhblits.')
-parser.add_argument('hhalign', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to hhalign.')
-parser.add_argument('uniprot', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to uniprot database.')
+parser.add_argument('TMalign_path', nargs=1, type= str,
+                  default=sys.stdin, help = 'path to TMalign.')
 
 #FUNCTIONS
 def read_newline(file_name):
@@ -136,15 +133,15 @@ def align(selected_uids, TMalign, output_dir,  H_group):
 
 	for i in range(0, end):
 		structure_i =output_dir+selected_uids[i]+'.pdb' #Get structure i
-		
+
 		for j in range(i+1, end):
 			structure_j =output_dir+selected_uids[j]+'.pdb' #Get structure j
 			tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
-			(aligned_len, rmsd, identity, chain_lens, sequences)= parse_tm(tmalign_out)
+			(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)
 			 
-			if int(aligned_len) > (0.9*min(chain_lens)) and float(identity) > 0.90: #seq identity threshold. Considers the length of the alignment 
+			if int(tm_aligned_len) > (0.9*min(chain_lens)) and float(tm_identity) > 0.90: #seq identity threshold. Considers the length of the alignment 
 				print(selected_uids[i], selected_uids[j])
-				print(aligned_len, min(chain_lens), identity)
+				print(tm_aligned_len, min(chain_lens), tm_identity)
 				status = False
 				break #Break out, since too similar seqs
 			count+=1    
@@ -220,9 +217,7 @@ uid_file = args.uid_file[0]
 filter_file = args.filter_file[0]
 address = args.address[0]
 output_dir = args.output_dir[0]
-hhblits = args.hhblits[0]
-hhalign = args.hhalign[0]
-uniprot = args.uniprot[0]
+TMalign = args.TMalign_path[0]
 
 #Get selected uids:
 H_group = uid_file.split('/')[-1] #Get H-group (last part of path)
@@ -232,7 +227,7 @@ uids = read_newline(uid_file)
 #Get pdb ids to filter on
 filter_ids = read_newline(filter_file)
 
-get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhalign, uniprot)
+get_structures(address, uids, filter_ids, H_group, TMalign, output_dir)
 
 
 
