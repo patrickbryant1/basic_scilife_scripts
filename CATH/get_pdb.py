@@ -11,12 +11,14 @@ import pdb
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that downloads pdb structures based on CATH uids (domain ids)
-												from H-groups that have at least 2 entries.
-												It then runs TMalign on all pairs of 2-5 randomly selected entries. If a paired
-												alignment should happen to have above 90% sequence identity and above 90 % of residues
-												in the shortest chain have been aligned, the second uid
-												is dropped and a new domain structure downloaded, if available. Otherwise
-												the whole H-group is dropped''')
+						from H-groups that have at least x entries.
+						It then converts the files to fasta and to a HMM using hhblits.
+						All pairs of x-y randomly selected entries are then aligned with hhalign. 
+						If less than 75 % of the shortest sequence has been aligned, the second uid
+						is dropped and a new domain structure downloaded, if available.
+						If the aligned sequences are over 90 % identical, the second uid
+                                                is dropped and a new domain structure downloaded, if available. 
+						Otherwise the whole H-group is dropped''')
  
 parser.add_argument('uid_file', nargs=1, type= str,
                   default=sys.stdin, help = 'path to CATH ids file.')
