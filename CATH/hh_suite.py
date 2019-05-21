@@ -38,3 +38,15 @@ def pdb_to_fasta(uid, outdir):
 			i+=60
 
 	return None
+
+def run_hhblits(uid, outdir, hhblits, uniprot):
+	'''A function that runs hhblits to create a HMM of an input sequence in fasta format
+	'''
+
+
+	inname = uid+'.fa'
+	outname = uid+'.hhm'
+
+	subprocess.call([hhblits +' -i ' +inname + ' d ' + uniprot + ' -ohhm ' + outname])
+
+	return None
