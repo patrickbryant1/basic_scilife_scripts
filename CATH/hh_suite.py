@@ -51,3 +51,16 @@ def run_hhblits(uid, outdir, hhblits, uniprot):
 	outp = subprocess.check_output(statement, shell = True)
 	
 	return None
+
+def seq_to_pdb(sequence, pdb):
+	'''Extracts CAs from pdb file based on sequence.
+	Enables extraction of residues in alignment for
+	further use.
+	'''
+
+
+
+
+
+
+

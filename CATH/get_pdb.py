@@ -142,7 +142,6 @@ def align(selected_uids, output_dir, H_group, hhalign):
 	
 
 	parsed_output = {} #Save parsed output from hhalign
-
 	for i in range(0, end):
 		structure_i =output_dir+selected_uids[i]+'.hhm' #Get structure i
 		
@@ -156,7 +155,8 @@ def align(selected_uids, output_dir, H_group, hhalign):
 			identity = result[0].identity
 			query_aln = result[0].query_ali
 			template_aln = result[0].template_ali
-			
+			start_pos = result[0].start
+                        end_pos = result[0].end
 			 
 			if (aligned_len < (0.75*min(chain_lens))) or (identity >= 0.90): #aligned lenght and sequence identity thresholds 
 				print(selected_uids[i], selected_uids[j])
@@ -164,7 +164,7 @@ def align(selected_uids, output_dir, H_group, hhalign):
 				status = False
 				break #Break out, since too similar seqs
 			count+=1    
-			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, chain_lens, aligned_len, identity] #Add info to parsed output
+			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos] #Add info to parsed output
 			
 		if status == False:
 			break #Break out, since too similar seqs
@@ -180,12 +180,13 @@ def align(selected_uids, output_dir, H_group, hhalign):
 
 def write_to_file(output_dir, H_group, parsed_output):
 	'''Write all extracted information from hhalign to files 
-	that will be used downstream
+	that will be used downstream.
+	Also create new .pdb files based on the alignments.
 	'''
 
 	for key in parsed_output:
 		with open(output_dir+key+'.aln', 'w') as f:
-			f.write('#'+'q_length: ' + str(parsed_output[key][2][0]) + '|t_length: ' + str(parsed_output[key][2][1]) + '|aligned_len: ' + str(parsed_output[key][3]) + '|Identity: ' + str(parsed_output[key][4]) + '\n') 
+			f.write('#'+'query:' + 'l=' + str(parsed_output[key][2][0]) + ' s=' + str(parsed_output[key][5][0]) + ' e=' + str(parsed_output[key][6][0]) + '|template: ' + 'l=' + str(parsed_output[key][2][1]) + ' s=' + str(parsed_output[key][5][1]) + ' e=' + str(parsed_output[key][6][1]) +  '|aligned_len: ' + str(parsed_output[key][3]) + '|Identity: ' + str(parsed_output[key][4]) + '\n') 
 			f.write(parsed_output[key][0]+'\n') #write sequences
                         f.write(parsed_output[key][1])
 
