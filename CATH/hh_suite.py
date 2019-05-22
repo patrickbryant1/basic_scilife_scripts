@@ -20,7 +20,7 @@ def pdb_to_fasta(uid, outdir):
 	inname = uid+'.pdb'
 	outname = uid+'.fa'
 	#Path to pdb parser
-	command = 'python /home/p/pbryant/pfs/bioinfo-toolbox/parsing/parse_pdb_resid.py ' + inname
+	command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + inname
 	outp = subprocess.check_output(command, shell = True)#Save AA sequence
 	sequence = outp.split('\n')[0]
 	pdb.set_trace()
@@ -52,7 +52,7 @@ def seq_to_pdb(aligned_seq, start, end, uid):
 	'''
 
 	pdb_file = uid + '.pdb'
-	command = 'python /home/p/pbryant/pfs/bioinfo-toolbox/parsing/parse_pdb_resid.py ' + pdb_file
+	command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + pdb_file
         outp = subprocess.check_output(command, shell = True)#Save AA sequence
 	outp = outp.split('\n')[0]
 	original_seq = outp[0]

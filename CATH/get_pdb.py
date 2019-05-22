@@ -187,7 +187,7 @@ def write_to_file(output_dir, H_group, parsed_output):
 	for key in parsed_output:
 		#Write new pdb files based on alignment
 		uids = key.split('_')
-		seq_to_pdb(parsed_output[key][0],uids[0]) 
+		seq_to_pdb(parsed_output[key][0],uids[0], parsed_output[key][5][0], parsed_output[key][6][0]) 
 		#Write alignment and info to file
 		with open(output_dir+key+'.aln', 'w') as f:
 			f.write('#'+'query:' + 'l=' + str(parsed_output[key][2][0]) + ' s=' + str(parsed_output[key][5][0]) + ' e=' + str(parsed_output[key][6][0]) + '|template: ' + 'l=' + str(parsed_output[key][2][1]) + ' s=' + str(parsed_output[key][5][1]) + ' e=' + str(parsed_output[key][6][1]) +  '|aligned_len: ' + str(parsed_output[key][3]) + '|Identity: ' + str(parsed_output[key][4]) + '\n') 
