@@ -11,25 +11,17 @@ import pdb
 
 #Other script imports
 from hh_reader import read_result
-
+from parse_pdb_resid import get_atom_seq
 
 #FUNCTIONS
 def pdb_to_fasta(uid, outdir):
 	'''Convert pdb file to fasta.
 	'''
-	letters = {'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLU':'E','GLN':'Q','GLY':'G','HIS':'H',
-           	'ILE':'I','LEU':'L','LYS':'K','MET':'M','PHE':'F','PRO':'P','SER':'S','THR':'T','TRP':'W',
-		'TYR':'Y','VAL':'V'}
 
 	inname = uid+'.pdb'
 	outname = uid+'.fa'
 
-	sequence = '' #Save AA sequence
-	with open(inname, "r") as infile:
-		for line in infile:
-			line = line.split()
-			if line[0] == 'ATOM' and line[2] == 'CA':
-				sequence+=line[3]
+	sequence = get_atom_seq(inname) #Save AA sequence
 
 	with open(outdir+outname, "w") as outfile:
 		outfile.write('>'+uid+'\n')
@@ -52,15 +44,14 @@ def run_hhblits(uid, outdir, hhblits, uniprot):
 	
 	return None
 
-def seq_to_pdb(sequence, pdb):
+def seq_to_pdb(aligned_seq, uid):
 	'''Extracts CAs from pdb file based on sequence.
 	Enables extraction of residues in alignment for
 	further use.
 	'''
 
+	pdb_file = uid + '.pdb'
+	original_seq = get_atom_seq(pdb_file)
 
-
-
-
-
+	pdb.set_trace()
 
