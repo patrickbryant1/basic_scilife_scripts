@@ -2,7 +2,7 @@ import sys
 import operator
 import numpy as np
 from collections import defaultdict
-
+import pdb
 # Here we try to correct some problems in parse_pdb that occurs from the assumption that res_no is a unique number
 
 
@@ -241,12 +241,12 @@ def get_res_dict(pdbfile, chain):
         if atm_record['atm_name'] == 'CA':
                 i+=1
                 atm = [atm_record['x'], atm_record['y'], atm_record['z']]
-                res_dict[i].append(np.array(atm))   
+                res_dict[i].append(line)   
                 lastresid=resid
         elif atm_record['atm_name'] == 'CB':
                 atm = [atm_record['x'], atm_record['y'], atm_record['z']]
                 res_dict[i].append(np.array(atm)) 
-    
+        
     return res_dict
 
 
@@ -483,6 +483,8 @@ if __name__ == '__main__':
         chain = get_first_chain(pdbfile)
     print(get_atom_seq(pdbfile, chain))
     pdbfile.close()
-    #pdbfile = open(sys.argv[1], 'r')
-    #print get_coordinates(pdbfile)
-    #pdbfile.close()
+    pdbfile = open(sys.argv[1], 'r')
+    ca = get_ca_coordinates(pdbfile, chain)
+    for item in ca:
+        print(item.rstrip())
+    pdbfile.close()
