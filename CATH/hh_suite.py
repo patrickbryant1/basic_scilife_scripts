@@ -11,7 +11,6 @@ import pdb
 
 #Other script imports
 from hh_reader import read_result
-from parse_pdb_resid import get_atom_seq
 
 #FUNCTIONS
 def pdb_to_fasta(uid, outdir):
@@ -20,9 +19,11 @@ def pdb_to_fasta(uid, outdir):
 
 	inname = uid+'.pdb'
 	outname = uid+'.fa'
-
-	sequence = get_atom_seq(inname) #Save AA sequence
-
+	#Path to pdb parser
+	command = 'python /home/p/pbryant/pfs/bioinfo-toolbox/parsing/parse_pdb_resid.py ' + inname
+	outp = subprocess.check_output(command, shell = True)#Save AA sequence
+	sequence = outp.split('\n')[0]
+	pdb.set_trace()
 	with open(outdir+outname, "w") as outfile:
 		outfile.write('>'+uid+'\n')
 		i = 0 #index
@@ -44,14 +45,17 @@ def run_hhblits(uid, outdir, hhblits, uniprot):
 	
 	return None
 
-def seq_to_pdb(aligned_seq, uid):
+def seq_to_pdb(aligned_seq, start, end, uid):
 	'''Extracts CAs from pdb file based on sequence.
 	Enables extraction of residues in alignment for
 	further use.
 	'''
 
 	pdb_file = uid + '.pdb'
-	original_seq = get_atom_seq(pdb_file)
-
+	command = 'python /home/p/pbryant/pfs/bioinfo-toolbox/parsing/parse_pdb_resid.py ' + pdb_file
+        outp = subprocess.check_output(command, shell = True)#Save AA sequence
+	outp = outp.split('\n')[0]
+	original_seq = outp[0]
+	ca_coord = outp[1:-1] 
 	pdb.set_trace()
 
