@@ -91,7 +91,8 @@ def parse_tm(tmalign_out):
 def parse_puzzle(measures, indir):
 	'''Parse output from tree-puzzle and write to dict
 	'''
-	for key in measures:
+	keys = [*measures] #Make list of keys in dict
+	for key in keys:
 		uids = key.split('_')
 		rmsd = measures[key] #Get rmsd
 		try:
@@ -102,7 +103,6 @@ def parse_puzzle(measures, indir):
 			measures.pop(key)
 			#change key to match other file names
 			key = uids[1] + '_' + uids[0]
-
 		for line in dist_file:
 			line = line.rstrip()
 			line = line.split(" ") #split on double space
