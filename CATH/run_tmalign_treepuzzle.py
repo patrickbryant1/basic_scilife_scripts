@@ -121,11 +121,11 @@ def print_tsv(measures, hgroup):
 	'''Print measures in tsv to file
 	'''
 	with open(hgroup+'.tsv', 'w') as file:
-		file.write('uid1\tuid2\tRMSD\tMLAAdist\n')
+		file.write('uid1\tuid2\tMLAAdist\tRMSD\n')
 		for key in measures:
 			uids = key.split('_')
 			rmsd, seq_dist = measures[key]
-			file.write(uids[0]+'\t'+uids[1]+'\t'+rmsd+'\t'+seq_dist+'\n')
+			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\n')
 
 	return None
 
