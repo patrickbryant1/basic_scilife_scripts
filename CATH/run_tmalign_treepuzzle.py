@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(description = '''A program that runs TMalign an
 						receives the resulting output.''')
 
 parser.add_argument('indir', nargs=1, type= str, default=sys.stdin, help = 'Path to input directory.')
+parser.add_argument('hgroup', nargs=1, type= str, default=sys.stdin, help = 'H-group.')
 parser.add_argument('puzzle', nargs=1, type= str, default=sys.stdin, help = 'Path to tree-puzzle.')
 parser.add_argument('TMalign', nargs=1, type= str, default=sys.stdin, help = 'Path to TMalign.')
 
@@ -52,7 +53,7 @@ def run_TMalign(indir, TMalign):
 			uid2 = structure_j.split('/')[-1].split('_')[0]
 			tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
 			(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
-			measures[uid1+'_'+uid2] = [rmsd]
+			measures[uid1+'_'+uid2] = rmsd
 	return measures
 
 def parse_tm(tmalign_out):
@@ -91,8 +92,17 @@ def parse_puzzle(measures, indir):
 	'''Parse output from tree-puzzle and write to dict
 	'''
 	for key in measures:
-		name =indir + key + '.phy.dist'
-		dist_file = open(name, 'r') 
+		uids = key.split('_')
+		rmsd = measures[key] #Get rmsd
+		try:
+			dist_file = open(indir + key + '.phy.dist')
+		except:
+			uids = key.split('_')
+			dist_file = open(indir + uids[1] + '_' + uids[0] + '.phy.dist')
+			measures.pop(key)
+			#change key to match other file names
+			key = uids[1] + '_' + uids[0]
+
 		for line in dist_file:
 			line = line.rstrip()
 			line = line.split(" ") #split on double space
@@ -100,22 +110,35 @@ def parse_puzzle(measures, indir):
 
 			if len(line)>2:
 				seq_dist = line[-1] #Get ML evolutionary distance between sequences
-				pdb.set_trace()
-				measures[key] = measures[key].append(seq_dist) 
+				measures[key] = [rmsd, seq_dist] 
 				break
-
+		dist_file.close()
 
 	return measures
 
+
+def print_tsv(measures, hgroup):
+	'''Print measures in tsv to file
+	'''
+	with open(hgroup+'.tsv', 'w') as file:
+		file.write('uid1\tuid2\tRMSD\tMLAAdist\n')
+		for key in measures:
+			uids = key.split('_')
+			rmsd, seq_dist = measures[key]
+			file.write(uids[0]+'\t'+uids[1]+'\t'+rmsd+'\t'+seq_dist+'\n')
+
+	return None
 
 #####MAIN#####
 args = parser.parse_args()
 
 indir = args.indir[0]
+hgroup = args.hgroup[0]
 puzzle = args.puzzle[0]
 TMalign = args.TMalign[0]
 
 run_puzzle(indir, puzzle)
 measures = run_TMalign(indir, TMalign)
 measures = parse_puzzle(measures, indir)
+print_tsv(measures, hgroup)
 pdb.set_trace()
