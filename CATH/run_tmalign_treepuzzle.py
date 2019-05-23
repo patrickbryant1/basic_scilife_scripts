@@ -125,7 +125,7 @@ def print_tsv(measures, hgroup):
 		for key in measures:
 			uids = key.split('_')
 			rmsd, seq_dist = measures[key]
-			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\n')
+			file.write(uids[0]+'\t'+uids[1]+'\t'+str(seq_dist)+'\t'+str(rmsd)+'\n')
 
 	return None
 
@@ -141,4 +141,3 @@ run_puzzle(indir, puzzle)
 measures = run_TMalign(indir, TMalign)
 measures = parse_puzzle(measures, indir)
 print_tsv(measures, hgroup)
-pdb.set_trace()
