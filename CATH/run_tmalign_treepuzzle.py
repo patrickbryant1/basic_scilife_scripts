@@ -124,8 +124,9 @@ def print_tsv(measures, hgroup):
 		file.write('uid1\tuid2\tMLAAdist\tRMSD\n')
 		for key in measures:
 			uids = key.split('_')
-			rmsd, seq_dist = measures[key]
-			file.write(uids[0]+'\t'+uids[1]+'\t'+str(seq_dist)+'\t'+str(rmsd)+'\n')
+			info = measures[key]
+			rmsd, seq_dist = info[0], info[1]
+			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\n')
 
 	return None
 

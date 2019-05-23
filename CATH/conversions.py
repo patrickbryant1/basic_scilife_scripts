@@ -17,14 +17,14 @@ def pdb_to_fasta(uid, outdir):
 	'''Convert pdb file to fasta.
 	'''
 
-	inname = uid+'.pdb'
-	outname = uid+'.fa'
+	inname = outdir+uid+'.pdb'
+	outname = outdir+uid+'.fa'
 	#Path to pdb parser
 	command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + inname
 	outp = subprocess.check_output(command, shell = True)#Save AA sequence
 	sequence = outp.split('\n')[0]
 	#pdb.set_trace()
-	with open(outdir+outname, "w") as outfile:
+	with open(outname, "w") as outfile:
 		outfile.write('>'+uid+'\n')
 		i = 0 #index
 		while i<len(sequence):
