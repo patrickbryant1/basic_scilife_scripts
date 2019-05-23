@@ -11,7 +11,7 @@ import os
 import pdb
 
 #Custom imports
-from hh_suite import pdb_to_fasta, run_hhblits, seq_to_pdb
+from conversions import pdb_to_fasta, run_hhblits, seq_to_pdb, make_phylip
 from hh_reader import read_result
 
 #Arguments for argparse module:
