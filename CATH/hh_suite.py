@@ -23,7 +23,7 @@ def pdb_to_fasta(uid, outdir):
 	command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + inname
 	outp = subprocess.check_output(command, shell = True)#Save AA sequence
 	sequence = outp.split('\n')[0]
-	pdb.set_trace()
+	#pdb.set_trace()
 	with open(outdir+outname, "w") as outfile:
 		outfile.write('>'+uid+'\n')
 		i = 0 #index
@@ -57,19 +57,45 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	q_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + q_pdb
         q_out = subprocess.check_output(q_command, shell = True)#Save parsed pdb
 	q_out = q_out.split('\n')
+	q_seq = q_out[0]	
 	q_ca = q_out[1:-1] 
 	
 	#Get template CAs
         t_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + t_pdb
         t_out = subprocess.check_output(t_command, shell = True)#Save parsed pdb
         t_out = t_out.split('\n')
+	t_seq = t_out[0]
         t_ca = t_out[1:-1]   
 
 	#Match alignment and write to file
-	aligned_ca = [] #CAs that have been aligned
-	for i in range(start-1, end): #Go through aligned part of sequence
-		if aligned_seq[i] != '-' a§	nd ai >= (start-1) and ai < end: #If not a gap and end of alignment not reached
-			aligned_ca.append(ca_pdb[ai+start]) #Append matching ca coordinates
-			
-	pdb.set_trace()
+	q_file = open(uids[0]+'_aln.pdb', 'w')
+	t_file = open(uids[1]+'_aln.pdb', 'w')
+	q_start = start_pos[0]
+	t_start = start_pos[1]
+	
+ 
+	qi = q_start-2#residue to get
+	ti = t_start-2
+	for i in range(0, len(query_aln)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap
+		write_to_file = False #Keep track of if or not to write to at each position
+		if query_aln[i] != '-' and template_aln[i] != '-': #No gap in either query or template
+			qi+=1 #Increase indexes, since no gaps
+			ti+=1
+			write_to_file = True
+		if template_aln[i] == '-': #If a gap in template
+			qi+=1 #Increase query index
+		if query_aln[i] == '-': #If a gap in query
+                        ti+=1 #Increase template index
+		if write_to_file == True:
+			if q_seq[qi] == query_aln[i]:#Check AAs match
+				q_file.write(q_ca[qi]+'\n') #Write matching ca coordinates
+			else:
+				raise ValueError('query pos: ' + str(qi))
 
+			if t_seq[ti] == template_aln[i]:
+				t_file.write(t_ca[ti]+'\n')
+			else:
+				raise ValueError('template pos: ' + str(ti))
+
+	q_file.close()
+	t_file.close()

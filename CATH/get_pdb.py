@@ -185,17 +185,17 @@ def write_to_file(output_dir, H_group, parsed_output):
 	'''
 
 	for key in parsed_output:
-		#Write new pdb files based on alignment
+		#Get uids and saved aln info
 		uids = key.split('_')
 		query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos = parsed_output[key]
-		seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos) 
 		#Write alignment and info to file
 		with open(output_dir+key+'.aln', 'w') as f:
 			f.write('#'+'query:' + 'l=' + str(chain_lens[0]) + ' s=' + str(start_pos[0]) + ' e=' + str(end_pos[0]) + '|template: ' + 'l=' + str(chain_lens[1]) + ' s=' + str(start_pos[1]) + ' e=' + str(end_pos[1]) +  '|aligned_len: ' + str(aligned_len) + '|Identity: ' + str(identity) + '\n') 
 			f.write(query_aln+'\n') #write sequences
                         f.write(template_aln)
-
-
+		
+		#Write new pdb files based on alignment
+		seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos)
 
 
 	return None
