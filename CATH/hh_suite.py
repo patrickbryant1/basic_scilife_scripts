@@ -53,9 +53,9 @@ def seq_to_pdb(aligned_seq, start, end, uid):
 
 	pdb_file = uid + '.pdb'
 	command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + pdb_file
-        outp = subprocess.check_output(command, shell = True)#Save AA sequence
-	outp = outp.split('\n')[0]
+        outp = subprocess.check_output(command, shell = True)#Save parsed pdb
+	outp = outp.split('\n')
 	original_seq = outp[0]
-	ca_coord = outp[1:-1] 
+	ca_pdb = outp[1:-1] 
 	pdb.set_trace()
 

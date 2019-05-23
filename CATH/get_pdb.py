@@ -187,12 +187,13 @@ def write_to_file(output_dir, H_group, parsed_output):
 	for key in parsed_output:
 		#Write new pdb files based on alignment
 		uids = key.split('_')
-		seq_to_pdb(parsed_output[key][0],uids[0], parsed_output[key][5][0], parsed_output[key][6][0]) 
+		query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos = parsed_output[key]
+		seq_to_pdb(uids, ) 
 		#Write alignment and info to file
 		with open(output_dir+key+'.aln', 'w') as f:
-			f.write('#'+'query:' + 'l=' + str(parsed_output[key][2][0]) + ' s=' + str(parsed_output[key][5][0]) + ' e=' + str(parsed_output[key][6][0]) + '|template: ' + 'l=' + str(parsed_output[key][2][1]) + ' s=' + str(parsed_output[key][5][1]) + ' e=' + str(parsed_output[key][6][1]) +  '|aligned_len: ' + str(parsed_output[key][3]) + '|Identity: ' + str(parsed_output[key][4]) + '\n') 
-			f.write(parsed_output[key][0]+'\n') #write sequences
-                        f.write(parsed_output[key][1])
+			f.write('#'+'query:' + 'l=' + str(chain_lens[0]) + ' s=' + str(start_pos[0]) + ' e=' + str(end_pos[0]) + '|template: ' + 'l=' + str(chain_lens[1]) + ' s=' + str(start_pos[1]) + ' e=' + str(end_pos[1]) +  '|aligned_len: ' + str(aligned_len) + '|Identity: ' + str(identity) + '\n') 
+			f.write(query_aln+'\n') #write sequences
+                        f.write(template_aln)
 
 
 
