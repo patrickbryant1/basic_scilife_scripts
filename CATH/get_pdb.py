@@ -196,7 +196,8 @@ def write_to_file(output_dir, H_group, parsed_output):
 		
 		#Write new pdb files based on alignment
 		seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos)
-
+		#Write .phy file of alignment
+		make_phylip(uids, query_aln, template_aln)
 
 	return None
 

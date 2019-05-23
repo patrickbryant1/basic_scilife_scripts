@@ -99,3 +99,24 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 
 	q_file.close()
 	t_file.close()
+	return None
+
+def make_phylip(uids, query_aln, template_aln):
+        '''Print phylip format for tree-puzzle calculations
+        '''
+        #Create text in phylip format
+        text = (' 4  ' + str(len(query_aln)) + '\n'
+                        + uids[0] + '00|' + query_aln + '\n'
+                        + 'copy11111' + '|' + query_aln + '\n'
+                        + uids[1] + '00|' + template_aln + '\n'
+                        + 'copy22222' + '|' + template_aln + '\n')
+
+
+        #Define file name
+        file_name = uids[0] + '_' + uids[1] + '.phy'
+        #Open file and write text to it
+        with open(file_name, "w") as file:
+                file.write(text)
+
+        return None
+
