@@ -8,6 +8,7 @@ import subprocess
 import pexpect
 import random
 import os
+import glob
 import pdb
 
 #Custom imports
@@ -69,7 +70,7 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
 	random.Random(2).shuffle(uids)
 	
-	get_n = 2
+	get_n = 15 
 
 	#Go through uids and try to find get_n uids that match criteria
 	(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
