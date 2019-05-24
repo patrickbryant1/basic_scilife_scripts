@@ -13,7 +13,7 @@ import pdb
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that investigates the distribution of
-									 each H-group in CATH. And writes all uids for each H-group with over 2 entries 
+									 each H-group in CATH. And writes all uids for each H-group with at least x entries 
 									 into files(newline separated) in the output directory''')
  
 parser.add_argument('file_path', nargs=1, type= str,
@@ -21,6 +21,9 @@ parser.add_argument('file_path', nargs=1, type= str,
 
 parser.add_argument('outdir_path', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory.')
+
+parser.add_argument('x', nargs=1, type= str,
+                  default=sys.stdin, help = 'Minimum number of entries per H-group.')
 
 
 #Functions
