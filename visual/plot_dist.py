@@ -18,8 +18,8 @@ import pdb
 parser = argparse.ArgumentParser(description = '''A program that plots evolutionary distance according
 	to ML estimations against structural distance in RMSD.''')
  
-parser.add_argument('dist_file', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to distance file. Format: uid1	uid2	MLdist	RMSD')
+#parser.add_argument('dist_file', nargs=1, type= str,
+#                  default=sys.stdin, help = 'path to distance file. Format: uid1	uid2	MLdist	RMSD')
 
 
 
@@ -68,34 +68,11 @@ def read_tsv(tsv_file, threshold):
 
 
 #MAIN
-args = parser.parse_args()
-dist_file = args.dist_file[0]
+#args = parser.parse_args()
+#dist_file = args.dist_file[0]
 
 #Read tsv
-(ML_dists, rmsd_dists, Z) = read_tsv(dist_file, 6)
+#(ML_dists, rmsd_dists, Z) = read_tsv(dist_file, 6)
 
-print(len(ML_dists))
-#100 since 2 decimals?
-#E.g. 10*9 in z, means 90 bins --> can differ max 0.1 to be in the same bin (accuracy = 0.01)
-xedges, yedges = np.linspace(0, 9, 10*9), np.linspace(0, 8, 10*8)
-hist, xedges, yedges = np.histogram2d(ML_dists, rmsd_dists, (xedges, yedges))
 
-xidx = np.clip(np.digitize(ML_dists, xedges), 0, hist.shape[0]-1)
-yidx = np.clip(np.digitize(rmsd_dists, yedges), 0, hist.shape[1]-1)
-c = hist[xidx, yidx]
-plt.scatter(ML_dists, rmsd_dists, c=c)
-
-#Calculate line of best fit
-(slope, intercept, r_value, p_value, std_err) = stats.linregress(ML_dists, rmsd_dists)
-
-#Desciption
-plt.title('Sequence vs Structural distance' + '\n' + 'R-squared: ' + str((r_value**2).round(3)) +'|' + 'Slope: ' + str(slope.round(3)))
-plt.xlabel('ML AA sequence distance')
-plt.ylabel('RMSD')
-#Line of best fit
-plt.plot(ML_dists, intercept + slope*np.array(ML_dists), 'r')
-#Colorbar
-plt.colorbar()
-
-plt.show()
 
