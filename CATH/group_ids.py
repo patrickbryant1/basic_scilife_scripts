@@ -22,8 +22,8 @@ parser.add_argument('file_path', nargs=1, type= str,
 parser.add_argument('outdir_path', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory.')
 
-parser.add_argument('x', nargs=1, type= str,
-                  default=sys.stdin, help = 'Minimum number of entries per H-group.')
+parser.add_argument('x', nargs=1, type= int,
+                  default=sys.stdin, help = 'Minimum number of entries per H-group (integer).')
 
 
 #Functions
@@ -101,6 +101,7 @@ args = parser.parse_args()
 
 file_path = args.file_path[0]
 outdir_path = args.outdir_path[0]
+x = args.x[0]
 
 uids, H_groups = read_tsv(file_path)
 
@@ -109,7 +110,7 @@ uid_counts_all = [] #Store uid counts
 uid_counts_over = [] #Store uid counts over n
 over_n_H = [] #Store H_groups with uid counts over n
 over_n_uids = [] #Store uids with over n entries
-n = 2 #Cutoff
+n = x #Cutoff
 
 for i in range(0, len(uids)):
 	uid_counts_all.append(len(uids[i]))
@@ -120,6 +121,7 @@ for i in range(0, len(uids)):
 		uid_counts_over.append(len(uids[i]))
 
 pdb.set_trace()
+
 write_selected(over_n_H, over_n_uids, outdir_path)
 
 
