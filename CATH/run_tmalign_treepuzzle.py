@@ -45,16 +45,20 @@ def run_TMalign(indir, TMalign):
 	measures = {} #Save RMSD to add with MLAA distance from tree-puzzle
 	names = glob.glob(indir+"*_aln.pdb") #Use all _aln.pdb files
 	
-	for i in range(0, len(names)):
-		structure_i = names[i] #Get structure i
-		uid1 = structure_i.split('/')[-1].split('_')[0]
-		for j in range(i+1, len(names)):
-			structure_j =names[j] #Get structure j
-			uid2 = structure_j.split('/')[-1].split('_')[0]
-			tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
-			(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
-			measures[uid1+'_'+uid2] = rmsd
-	return measures
+	status = True #See if H-group has enough entries fulfilling criteria
+	if len(names) < 15:
+		status = False
+	if status == True:
+		for i in range(0, len(names)):
+			structure_i = names[i] #Get structure i
+			uid1 = structure_i.split('/')[-1].split('_')[0]
+			for j in range(i+1, len(names)):
+				structure_j =names[j] #Get structure j
+				uid2 = structure_j.split('/')[-1].split('_')[0]
+				tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
+				(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
+				measures[uid1+'_'+uid2] = rmsd
+	return measures, status
 
 def parse_tm(tmalign_out):
 	'''A function that gets the uids and the corresponding scores
@@ -139,6 +143,7 @@ puzzle = args.puzzle[0]
 TMalign = args.TMalign[0]
 
 run_puzzle(indir, puzzle)
-measures = run_TMalign(indir, TMalign)
-measures = parse_puzzle(measures, indir)
-print_tsv(measures, hgroup)
+(measures, status) = run_TMalign(indir, TMalign)
+if status == True: #Only if H-groups fulfills criteria
+	measures = parse_puzzle(measures, indir)
+	print_tsv(measures, hgroup)
