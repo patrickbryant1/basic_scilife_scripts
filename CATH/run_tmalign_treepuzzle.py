@@ -48,6 +48,7 @@ def run_TMalign(indir, TMalign):
 	status = True #See if H-group has enough entries fulfilling criteria
 	if len(names) < 15:
 		status = False
+		pdb.set_trace()
 	if status == True:
 		for i in range(0, len(names)):
 			structure_i = names[i] #Get structure i
