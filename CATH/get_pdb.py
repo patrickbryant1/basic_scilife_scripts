@@ -91,7 +91,7 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 	#The ones that failed the pdb filter
 	with open(output_dir+'failed_pdb_filter', 'w') as f:
                 for i in failed_pdb_filter:
-                        f.write(str(i)+'\n')
+                        f.write(str(key)+'\t'+str(i)+'\n')
 	#print(downloaded_uids)
         
 	return None
