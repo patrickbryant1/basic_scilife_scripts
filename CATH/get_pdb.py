@@ -40,6 +40,8 @@ parser.add_argument('hhalign', nargs=1, type= str,
                   default=sys.stdin, help = 'path to hhalign.')
 parser.add_argument('uniprot', nargs=1, type= str,
                   default=sys.stdin, help = 'path to uniprot database.')
+parser.add_argument('get_n', nargs=1, type= int,
+                  default=sys.stdin, help = 'Number of structures to use.')
 
 #FUNCTIONS
 def read_newline(file_name):
@@ -60,7 +62,7 @@ def read_newline(file_name):
 
 
 
-def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhalign, uniprot):
+def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhalign, uniprot, get_n):
 	'''Download .pdb structure, run TMalign and check sequence identity
 	'''
 
@@ -70,7 +72,6 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
 	random.Random(2).shuffle(uids)
 	
-	get_n = 15 
 
 	#Go through uids and try to find get_n uids that match criteria
 	(status, downloaded_uids, selected_uids, failed_pdb_filter) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
@@ -88,7 +89,9 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 		print('The H-group ' + H_group + ' does not fulfill the criteria.')
 	
 	#The ones that failed the pdb filter
-	print(failed_pdb_filter)
+	with open(output_dir+'failed_pdb_filter', 'w') as f:
+                for i in failed_pdb_filter:
+                        f.write(str(i)+'\n')
 	#print(downloaded_uids)
         
 	return None
@@ -128,6 +131,11 @@ def loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, down
 				
 		else:
 			failed_pdb_filter.append(uids[i])
+	
+	#Write identities to file
+	with open(output_dir+'identities', 'w') as f:
+		for key in identities:
+			f.write(str(identities[key])+'\n')
 
 	return(status, downloaded_uids, selected_uids, failed_pdb_filter)
 
@@ -221,7 +229,7 @@ output_dir = args.output_dir[0]
 hhblits = args.hhblits[0]
 hhalign = args.hhalign[0]
 uniprot = args.uniprot[0]
-
+get_n = args.get_n[0]
 #Get selected uids:
 H_group = uid_file.split('/')[-1] #Get H-group (last part of path)
 
@@ -230,7 +238,7 @@ uids = read_newline(uid_file)
 #Get pdb ids to filter on
 filter_ids = read_newline(filter_file)
 
-get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhalign, uniprot)
+get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhalign, uniprot, get_n)
 
 
 
