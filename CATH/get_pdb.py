@@ -73,7 +73,7 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 	get_n = 15 
 
 	#Go through uids and try to find get_n uids that match criteria
-	(status, downloaded_uids, selected_uids) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
+	(status, downloaded_uids, selected_uids, failed_pdb_filter) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
 	if status == True:
 	#Remove the uids not to be used for later steps
 		for duid in downloaded_uids:
@@ -86,8 +86,10 @@ def get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhal
 	#If you could not get at least x uids that fulfill criteria
 	if status == False:
 		print('The H-group ' + H_group + ' does not fulfill the criteria.')
-
-	print(downloaded_uids)
+	
+	#The ones that failed the pdb filter
+	print(failed_pdb_filter)
+	#print(downloaded_uids)
         
 	return None
 
@@ -97,12 +99,14 @@ def loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, down
 	'''
 	selected_uids = [] #Selected for hhsuite
 	status = False #Set original status
+	identities = {} #Save identities from hhalign
+	failed_pdb_filter = []
 
 	for i in range(0, len(uids)):
 		if len(selected_uids) == get_n:
 		#Make alignment of all of these
 
-			(status, latest_pos) = align(selected_uids, output_dir, H_group, hhalign)
+			(status, latest_pos, identities) = align(selected_uids, output_dir, H_group, hhalign, identities)
 			#If one fails, pop this and continue
 			if status == False: #If all have not passed
 				selected_uids.pop(latest_pos) #Pop this failed uid
@@ -123,11 +127,11 @@ def loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, down
 				run_hhblits(uids[i], output_dir, hhblits, uniprot)
 				
 		else:
-			print(uids[i] + ' did not pass filter')
+			failed_pdb_filter.append(uids[i])
 
-	return(status, downloaded_uids, selected_uids)
+	return(status, downloaded_uids, selected_uids, failed_pdb_filter)
 
-def align(selected_uids, output_dir, H_group, hhalign):
+def align(selected_uids, output_dir, H_group, hhalign, identities):
 	'''Run hhalign on file pair and extract sequence identity and
 	% aligned of shortest sequence.
 	Remove file2 if identity is 90 % or above or if less than 75 % has been aligned.
@@ -158,7 +162,12 @@ def align(selected_uids, output_dir, H_group, hhalign):
 			template_aln = result[0].template_ali
 			start_pos = result[0].start
                         end_pos = result[0].end
-			 
+			
+			#Save identities to see distributions
+			key = selected_uids[i]+'_'+selected_uids[j]
+			if key not in identities.keys():
+				identities[key] = identity
+
 			if (aligned_len < (0.75*min(chain_lens))) or (identity >= 0.90): #aligned lenght and sequence identity thresholds 
 				print(selected_uids[i], selected_uids[j])
 				print(aligned_len, identity)
@@ -176,7 +185,7 @@ def align(selected_uids, output_dir, H_group, hhalign):
 		write_to_file(output_dir, H_group, parsed_output)
 	
 	
-	return(status, i)
+	return(status, i, identities)
 
 
 def write_to_file(output_dir, H_group, parsed_output):
