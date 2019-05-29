@@ -55,17 +55,17 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	t_pdb = uids[1] + '.pdb'
 	#Get query CAs
 	q_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + q_pdb
-        q_out = subprocess.check_output(q_command, shell = True)#Save parsed pdb
+	q_out = subprocess.check_output(q_command, shell = True)#Save parsed pdb
 	q_out = q_out.split('\n')
 	q_seq = q_out[0]	
 	q_ca = q_out[1:-1] 
 	
 	#Get template CAs
-        t_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + t_pdb
-        t_out = subprocess.check_output(t_command, shell = True)#Save parsed pdb
-        t_out = t_out.split('\n')
+	t_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + t_pdb
+	t_out = subprocess.check_output(t_command, shell = True)#Save parsed pdb
+	t_out = t_out.split('\n')
 	t_seq = t_out[0]
-        t_ca = t_out[1:-1]   
+	t_ca = t_out[1:-1]   
 
 	#Match alignment and write to file
 	q_file = open(uids[0]+'_aln.pdb', 'w')

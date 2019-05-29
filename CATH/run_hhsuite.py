@@ -39,31 +39,9 @@ parser.add_argument('get_n', nargs=1, type= int,
 
 
 #FUNCTIONS
-def read_fasta(input_dir):
-	'''Read fasta sequences into dict
-	'''
-
-
-	fasta_dict = {} #Store fasta_sequence
-	fasta_files = = glob.glob(input_dir +'*.fa')
-	for file_name in fasta_files:
-		with open(file_name) as file:
-			for line in file:
-				line = line.rstrip() #remove \n
-				if line[0] == '>':
-					uid = line[1:]
-				else:
-					fasta_dict[uid] += line
-
-
-
-	return(fasta_dict)
-
 def read_newline(file_name):
 	'''Read newline separated file contents into list
 	'''
-
-
 	contents = [] #Store contents
 
 	with open(file_name) as file:
@@ -72,15 +50,45 @@ def read_newline(file_name):
 			line = line.rstrip() #remove \n
 			contents.append(line) #Add
 
-
 	return(contents)
 
-
-def get_structures(uids, filter_ids, H_group, output_dir, hhblits, hhalign, uniprot, get_n):
-	'''Download .pdb structure, run TMalign and check sequence identity
+def read_fasta(input_dir, filter_ids, output_dir):
+	'''Read fasta sequences into dict
 	'''
 
-	downloaded_uids = [] #Keep track of ids that have been downloaded
+
+	fasta_dict = {} #Store fasta_sequence
+	failed_pdb_filter = [] #Store failed
+	fasta_files = glob.glob(input_dir +'*.fa')
+
+
+	for file_name in fasta_files:
+		with open(file_name) as file:
+			sequence = ''
+			for line in file:
+				line = line.rstrip() #remove \n
+				if line[0] == '>':
+					uid = line[1:]
+				else:
+					sequence += line
+
+			if uid[0:4].upper() in filter_ids: #Make check on pdb search
+				fasta_dict[uid] = sequence
+			else:
+				failed_pdb_filter.append(uid)
+
+	with open(output_dir+'failed_pdb_filter', 'w') as f:
+	               for i in failed_pdb_filter:
+	                       f.write(str(key)+'\t'+str(i)+'\n')
+
+	return(fasta_dict)
+
+
+
+
+def get_structures(fasta_dict, uids, H_group, output_dir, hhblits, hhalign, uniprot, get_n):
+	'''Download .pdb structure, run TMalign and check sequence identity
+	'''
 
 	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
 	random.Random(2).shuffle(uids)
@@ -88,14 +96,6 @@ def get_structures(uids, filter_ids, H_group, output_dir, hhblits, hhalign, unip
 
 	#Go through uids and try to find get_n uids that match criteria
 	(status, downloaded_uids, selected_uids, failed_pdb_filter) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
-	if status == True:
-	#Remove the uids not to be used for later steps
-		for duid in downloaded_uids:
-			if duid not in selected_uids:
-				delete_files = glob.glob(output_dir +'*'+ duid +'*')
-				for dfile in delete_files:
-					os.remove(dfile) #Remove failed uid files
-
 
 	#If you could not get at least x uids that fulfill criteria
 	if status == False:
@@ -182,7 +182,7 @@ def align(selected_uids, output_dir, H_group, hhalign, identities):
 			query_aln = result[0].query_ali
 			template_aln = result[0].template_ali
 			start_pos = result[0].start
-                        end_pos = result[0].end
+			end_pos = result[0].end
 
 			#Save identities to see distributions
 			key = selected_uids[i]+'_'+selected_uids[j]
@@ -223,7 +223,7 @@ def write_to_file(output_dir, H_group, parsed_output):
 		with open(output_dir+key+'.aln', 'w') as f:
 			f.write('#'+'query:' + 'l=' + str(chain_lens[0]) + ' s=' + str(start_pos[0]) + ' e=' + str(end_pos[0]) + '|template: ' + 'l=' + str(chain_lens[1]) + ' s=' + str(start_pos[1]) + ' e=' + str(end_pos[1]) +  '|aligned_len: ' + str(aligned_len) + '|Identity: ' + str(identity) + '\n')
 			f.write(query_aln+'\n') #write sequences
-                        f.write(template_aln)
+			f.write(template_aln)
 
 		#Write new pdb files based on alignment
 		seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos)
@@ -245,9 +245,10 @@ get_n = args.get_n[0]
 
 H_group = input_dir.split('/')[-1] #Get H-group (last part of path)
 
-fasta_dict = read_fasta(input_dir) #Get fasta sequences
-uids = [*fasta_dict.keys()]
 #Get pdb ids to filter on
 filter_ids = read_newline(filter_file)
+fasta_dict = read_fasta(input_dir, filter_ids, output_dir) #Get fasta sequences - filter on filter_ids
+uids = [*fasta_dict.keys()] #Get uids
 
-get_structures(address, uids, filter_ids, H_group, output_dir, hhblits, hhalign, uniprot, get_n)
+pdb.set_trace()
+get_structures(fasta_dict, uids, H_group, output_dir, hhblits, hhalign, uniprot, get_n)
