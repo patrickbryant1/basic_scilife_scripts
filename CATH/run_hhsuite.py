@@ -12,7 +12,7 @@ import glob
 import pdb
 
 #Custom imports
-from conversions import pdb_to_fasta, run_hhblits, seq_to_pdb, make_phylip
+from conversions import run_hhblits, seq_to_pdb, make_phylip
 from hh_reader import read_result
 
 #Arguments for argparse module:
@@ -34,8 +34,10 @@ parser.add_argument('hhalign', nargs=1, type= str,
                   default=sys.stdin, help = 'path to hhalign.')
 parser.add_argument('uniprot', nargs=1, type= str,
                   default=sys.stdin, help = 'path to uniprot database.')
-parser.add_argument('get_n', nargs=1, type= int,
-                  default=sys.stdin, help = 'Number of structures to use.')
+parser.add_argument('get_min', nargs=1, type= int,
+                  default=sys.stdin, help = 'Minimum number of structures to use.')
+parser.add_argument('get_max', nargs=1, type= int,
+                  default=sys.stdin, help = 'Maximum number of structures to use.')
 
 
 #FUNCTIONS
@@ -86,81 +88,60 @@ def read_fasta(input_dir, filter_ids, output_dir):
 
 
 
-def get_structures(fasta_dict, uids, H_group, output_dir, hhblits, hhalign, uniprot, get_n):
-	'''Download .pdb structure, run TMalign and check sequence identity
+
+def loop_through_ids(fasta_dict, uids, H_group, output_dir, hhblits, hhalign, uniprot, get_min, get_max):
+	'''Loop through uids and try to make get_n alignments
+	that fulfill criteria.
 	'''
 
 	#Shuffle uids to make sure there is no selective order in comparisons within H-groups
 	random.Random(2).shuffle(uids)
 
 
-	#Go through uids and try to find get_n uids that match criteria
-	(status, downloaded_uids, selected_uids, failed_pdb_filter) = loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot)
-
-	#If you could not get at least x uids that fulfill criteria
-	if status == False:
-		print('The H-group ' + H_group + ' does not fulfill the criteria.')
-
-	#The ones that failed the pdb filter
-	with open(output_dir+'failed_pdb_filter', 'w') as f:
-                for i in failed_pdb_filter:
-                        f.write(str(key)+'\t'+str(i)+'\n')
-	#print(downloaded_uids)
-
-	return None
-
-def loop_through_ids(address, uids, filter_ids, H_group, output_dir, get_n, downloaded_uids, hhblits, hhalign, uniprot):
-	'''Loop through uids and try to make get_n alignments
-	that fulfill criteria.
-	'''
-	selected_uids = [] #Selected for hhsuite
+	converted_uids = [] #Those uids which .fa have been represented as a HMM
 	status = False #Set original status
 	identities = {} #Save identities from hhalign
-	failed_pdb_filter = []
 
-	for i in range(0, len(uids)):
-		if len(selected_uids) == get_n:
-		#Make alignment of all of these
+	for get_n in range(get_max, get_min-1, -1):
+		selected_uids = []#Selected for hhalign
+		for i in range(0, len(uids)):
+			if len(selected_uids) == get_n:
+				#Make alignment of all of these
 
-			(status, latest_pos, identities) = align(selected_uids, output_dir, H_group, hhalign, identities)
-			#If one fails, pop this and continue
-			if status == False: #If all have not passed
-				selected_uids.pop(latest_pos) #Pop this failed uid
-			else:
-				print(H_group + 'aligned!')
-				break
+				(status, latest_pos, identities) = align(selected_uids, output_dir, H_group, hhalign, identities)
+				#If one fails, pop this and continue
+				if status == False: #If all have not passed
+					selected_uids.pop(latest_pos) #Pop this failed uid
+				else:
+					print(H_group + 'aligned!')
+					break
 
 
-		if uids[i][0:4].upper() in filter_ids: #Make check on pdb search
-			selected_uids.append(uids[i])
-			if uids[i] not in downloaded_uids:
-				downloaded_uids.append(uids[i])
-				#Get pdb file
-				subprocess.call(["wget",address+uids[i]+'.pdb'])
-				#Make fasta
-				pdb_to_fasta(uids[i], output_dir)
-				#Make HMM
-				run_hhblits(uids[i], output_dir, hhblits, uniprot)
+					selected_uids.append(uids[i])
+					if uids[i] not in converted_uids:
+						converted_uids.append(uids[i])
+						#Make HMM
+						run_hhblits(uids[i], output_dir, hhblits, uniprot)
 
-		else:
-			failed_pdb_filter.append(uids[i])
+
+	if status == False:
+		print('The H-group ' + H_group + ' does not fulfill the criteria.')
 
 	#Write identities to file
 	with open(output_dir+'identities', 'w') as f:
 		for key in identities:
 			f.write(str(identities[key])+'\n')
 
-	return(status, downloaded_uids, selected_uids, failed_pdb_filter)
+	return None
 
 def align(selected_uids, output_dir, H_group, hhalign, identities):
 	'''Run hhalign on file pair and extract sequence identity and
 	% aligned of shortest sequence.
-	Remove file2 if identity is 90 % or above or if less than 75 % has been aligned.
+	Remove file2 if less than 75 % has been aligned of the shortest domain.
 	'''
 
 
 
-	count = 0 #Keep track of number of alignments made
 	end = len(selected_uids)
 	status = True #Keep track on if sequences are too similar
 		      #If True - no problem
@@ -189,12 +170,10 @@ def align(selected_uids, output_dir, H_group, hhalign, identities):
 			if key not in identities.keys():
 				identities[key] = identity
 
-			if (aligned_len < (0.75*min(chain_lens))) or (identity >= 0.90): #aligned lenght and sequence identity thresholds
-				print(selected_uids[i], selected_uids[j])
-				print(aligned_len, identity)
+			if (aligned_len < (0.75*min(chain_lens))): #aligned lenght and sequence identity thresholds
+				print('Less than 75 % aligned ' + selected_uids[i], selected_uids[j], str(aligned_len), str((0.75*min(chain_lens))))
 				status = False
-				break #Break out, since too similar seqs
-			count+=1
+				break #Break out, since too little aligned
 			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos] #Add info to parsed output
 
 		if status == False:
@@ -241,7 +220,8 @@ output_dir = args.output_dir[0]
 hhblits = args.hhblits[0]
 hhalign = args.hhalign[0]
 uniprot = args.uniprot[0]
-get_n = args.get_n[0]
+get_min = args.get_min[0]
+get_max = args.get_min[0]
 
 H_group = input_dir.split('/')[-1] #Get H-group (last part of path)
 
@@ -250,5 +230,4 @@ filter_ids = read_newline(filter_file)
 fasta_dict = read_fasta(input_dir, filter_ids, output_dir) #Get fasta sequences - filter on filter_ids
 uids = [*fasta_dict.keys()] #Get uids
 
-pdb.set_trace()
-get_structures(fasta_dict, uids, H_group, output_dir, hhblits, hhalign, uniprot, get_n)
+loop_through_ids(fasta_dict, uids, H_group, output_dir, hhblits, hhalign, uniprot, get_min, get_max)
