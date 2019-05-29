@@ -81,7 +81,7 @@ def read_fasta(input_dir, filter_ids, output_dir):
 
 	with open(output_dir+'failed_pdb_filter', 'w') as f:
 	               for i in failed_pdb_filter:
-	                       f.write(str(key)+'\t'+str(i)+'\n')
+	                       f.write(str(i)+'\n')
 
 	return(fasta_dict)
 
