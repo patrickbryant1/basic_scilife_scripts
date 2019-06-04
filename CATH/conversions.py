@@ -45,6 +45,26 @@ def run_hhblits(uid, indir, hhblits, uniprot):
 	outp = subprocess.check_output(statement, shell = True)
 	
 	return None
+def match_aln_pdb(pdb_seq, aln_seq, start, end):
+	'''Match fasta sequence to pdb residues
+	'''
+	
+	pdb_rep = '' #Save pdb representation
+	#Go through alignment and create pdb representation of the same alignment
+	pdb_i = start-1
+	for i in range(0, len(aln_seq)):
+		if aln_seq[0] == '-':#If gap - add gap
+			pdb_rep += '-'
+			pdb_i+=1
+		if aln_seq[i] == pdb_seq[pdb_i]: #If match - add
+			pdb_rep += aln_seq[i]
+			pdb_i+=1
+		if aln_seq[i] != pdb_seq[pdb_i]: #If differ - add gap
+                        pdb_rep += '-' 
+			pdb_i+=1
+	pdb.set_trace()
+	return pdb_rep
+
 
 def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	'''Extracts CAs from pdb file based on sequence.
@@ -70,9 +90,12 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	t_seq = t_out[0]
 	t_ca = t_out[1:-1]   
 
+	#Create representation of alignment due to pdb file
+	q_match = (q_seq, query_aln, start_pos[0], end_pos[0])
+
 	#Match alignment and write to file
-	q_file = open(uids[0]+'_aln.pdb', 'w')
-	t_file = open(uids[1]+'_aln.pdb', 'w')
+	q_file = open(uids[0]+'to'+uids[1]+'_aln.pdb', 'w')
+	t_file = open(uids[1]+'to'+uids[0]+'_aln.pdb', 'w')
 	q_start = start_pos[0]
 	t_start = start_pos[1]
 	
@@ -80,6 +103,8 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	qi = q_start-2#residue to get
 	ti = t_start-2
 	pdb.set_trace()
+
+	
 	for i in range(0, len(query_aln)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap
 		write_to_file = False #Keep track of if or not to write to at each position
 		if query_aln[i] != '-' and template_aln[i] != '-': #No gap in either query or template

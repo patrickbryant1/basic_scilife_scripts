@@ -195,7 +195,6 @@ def write_to_file(output_dir, H_group, parsed_output):
 	Also create new .pdb files based on the alignments.
 	'''
 	
-	converted_pdb = [] #Keep track of whi .pdb files that have been converted
 	for key in parsed_output:
 		#Get uids and saved aln info
 		uids = key.split('_')
@@ -207,17 +206,7 @@ def write_to_file(output_dir, H_group, parsed_output):
 			f.write(template_aln)
 
 		#Write new pdb files based on alignment
-		#Convert pdb to fasta
-		
-		if uids[0] not in converted_pdb:
-			pdb_to_fasta(uids[0], output_dir)
-			converted_pdb.append(uids[0])
-		if uids[1] not in converted_pdb:
-			pdb_to_fasta(uids[1], output_dir)
-			converted_pdb.append(uids[1])
-		#Convert fasta to hmm
-		
-
+		#Get matching alignment from .pdb sequence
 		seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos)
 		#Write .phy file of alignment
 		make_phylip(uids, query_aln, template_aln)
