@@ -58,7 +58,6 @@ def run_TMalign(indir, TMalign):
 				tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
 				(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 				measures[uid1+'_'+uid2] = rmsd
-	pdb.set_trace()
 	return measures, status
 
 def parse_tm(tmalign_out):

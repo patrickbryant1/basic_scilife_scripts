@@ -123,9 +123,9 @@ def loop_through_ids(fasta_dict, uids, H_group,  input_dir, output_dir, hhblits,
 			if uids[i] not in converted_uids:
 				converted_uids.append(uids[i])
 				#Make HMM
-				#run_hhblits(uids[i], input_dir, hhblits, uniprot)
+				run_hhblits(uids[i], input_dir, hhblits, uniprot)
 				#Get pdb file
-				#subprocess.call(["wget",address+uids[i]+'.pdb'])
+				subprocess.call(["wget",address+uids[i]+'.pdb'])
 
 
 	#Write identities to file
