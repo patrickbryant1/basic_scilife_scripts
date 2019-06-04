@@ -131,7 +131,7 @@ def loop_through_ids(fasta_dict, uids, H_group,  input_dir, output_dir, hhblits,
 	#Write identities to file
 	with open(output_dir+'identities', 'w') as f:
 		for key in identities:
-			f.write(str(identities[key])+'\n')
+			f.write(key+'\t'+str(identities[key])+'\n')
 
 	return status
 

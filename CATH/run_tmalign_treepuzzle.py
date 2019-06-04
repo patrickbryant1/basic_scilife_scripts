@@ -46,7 +46,7 @@ def run_TMalign(indir, TMalign):
 	names = glob.glob(indir+"*_aln.pdb") #Use all _aln.pdb files
 	
 	status = True #See if H-group has enough entries fulfilling criteria
-	if len(names) < 15:
+	if len(names) < 5:
 		status = False
 	if status == True:
 		for i in range(0, len(names)):
@@ -58,6 +58,7 @@ def run_TMalign(indir, TMalign):
 				tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
 				(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 				measures[uid1+'_'+uid2] = rmsd
+	pdb.set_trace()
 	return measures, status
 
 def parse_tm(tmalign_out):
