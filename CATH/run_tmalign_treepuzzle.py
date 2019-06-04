@@ -46,7 +46,7 @@ def run_TMalign(indir, TMalign):
 	names = glob.glob(indir+"*_aln.pdb") #Use all _aln.pdb files
 	
 	status = True #See if H-group has enough entries fulfilling criteria
-	if len(names) < 5:
+	if len(names) < (5*2):
 		status = False
 	if status == True:
 		for i in range(0, len(names)):
@@ -55,6 +55,7 @@ def run_TMalign(indir, TMalign):
 			for j in range(i+1, len(names)):
 				structure_j =names[j] #Get structure j
 				uid2 = structure_j.split('/')[-1].split('_')[0]
+				pdb.set_trace()
 				tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
 				(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 				measures[uid1+'_'+uid2] = rmsd
@@ -96,6 +97,7 @@ def parse_puzzle(measures, indir):
 	'''Parse output from tree-puzzle and write to dict
 	'''
 	keys = [*measures] #Make list of keys in dict
+	print(keys)
 	for key in keys:
 		uids = key.split('_')
 		rmsd = measures[key] #Get rmsd
