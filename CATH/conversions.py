@@ -18,10 +18,11 @@ def pdb_to_fasta(uid, outdir):
 	'''
 
 	inname = outdir+uid+'.pdb'
-	outname = outdir+uid+'.fa'
+	outname = inname+'.fa'
 	#Path to pdb parser
 	command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + inname
 	outp = subprocess.check_output(command, shell = True)#Save AA sequence
+	outp = outp.decode()
 	sequence = outp.split('\n')[0]
 	#pdb.set_trace()
 	with open(outname, "w") as outfile:
@@ -33,14 +34,14 @@ def pdb_to_fasta(uid, outdir):
 
 	return None
 
-def run_hhblits(uid, outdir, hhblits, uniprot):
+def run_hhblits(uid, indir, hhblits, uniprot):
 	'''A function that runs hhblits to create a HMM of an input sequence in fasta format
 	'''
 
 
-	inname = uid+'.fa'
+	inname = indir+uid+'.fa'
 	outname = uid+'.hhm'
-	statement = hhblits +' -i ' +outdir+inname + ' -d ' + uniprot + ' -ohhm ' + outname
+	statement = hhblits +' -i ' + inname + ' -d ' + uniprot + ' -ohhm ' + outname
 	outp = subprocess.check_output(statement, shell = True)
 	
 	return None
@@ -56,6 +57,7 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	#Get query CAs
 	q_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + q_pdb
 	q_out = subprocess.check_output(q_command, shell = True)#Save parsed pdb
+	q_out = q_out.decode() #Returns byte
 	q_out = q_out.split('\n')
 	q_seq = q_out[0]	
 	q_ca = q_out[1:-1] 
@@ -63,6 +65,7 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	#Get template CAs
 	t_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + t_pdb
 	t_out = subprocess.check_output(t_command, shell = True)#Save parsed pdb
+	t_out = t_out.decode()
 	t_out = t_out.split('\n')
 	t_seq = t_out[0]
 	t_ca = t_out[1:-1]   
@@ -76,6 +79,7 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
  
 	qi = q_start-2#residue to get
 	ti = t_start-2
+	pdb.set_trace()
 	for i in range(0, len(query_aln)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap
 		write_to_file = False #Keep track of if or not to write to at each position
 		if query_aln[i] != '-' and template_aln[i] != '-': #No gap in either query or template
