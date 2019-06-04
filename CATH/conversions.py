@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 
@@ -53,15 +53,13 @@ def match_aln_pdb(pdb_seq, aln_seq, start, end):
 	#Go through alignment and create pdb representation of the same alignment
 	pdb_i = start-1
 	for i in range(0, len(aln_seq)):
-		if aln_seq[0] == '-':#If gap - add gap
-			pdb_rep += '-'
-			pdb_i+=1
 		if aln_seq[i] == pdb_seq[pdb_i]: #If match - add
 			pdb_rep += aln_seq[i]
 			pdb_i+=1
-		if aln_seq[i] != pdb_seq[pdb_i]: #If differ - add gap
-                        pdb_rep += '-' 
-			pdb_i+=1
+		else:
+			pdb_rep += '-' #If no match - add gap
+ 
+		print(aln_seq[i], pdb_seq[pdb_i], pdb_rep)
 	pdb.set_trace()
 	return pdb_rep
 
@@ -89,9 +87,10 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	t_out = t_out.split('\n')
 	t_seq = t_out[0]
 	t_ca = t_out[1:-1]   
-
+	
+	pdb.set_trace()
 	#Create representation of alignment due to pdb file
-	q_match = (q_seq, query_aln, start_pos[0], end_pos[0])
+	q_match = match_aln_pdb(q_seq, query_aln, start_pos[0], end_pos[0])
 
 	#Match alignment and write to file
 	q_file = open(uids[0]+'to'+uids[1]+'_aln.pdb', 'w')

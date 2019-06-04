@@ -221,6 +221,8 @@ def get_res_dict(pdbfile, chain):
     lastresid=''
     resid=''
     i=-1
+    last_res_no = int
+
     if not chain:
         chain = get_first_chain(pdbfile)
         pdbfile.seek(0)
@@ -235,17 +237,17 @@ def get_res_dict(pdbfile, chain):
             continue
 
         resid = atm_record['resid']
-        
+ 
         atm = [float('inf'), float('inf'), float('inf')]
-
-        if atm_record['atm_name'] == 'CA':
-                i+=1
-                atm = [atm_record['x'], atm_record['y'], atm_record['z']]
-                res_dict[i].append(line)   
-                lastresid=resid
-        elif atm_record['atm_name'] == 'CB':
-                atm = [atm_record['x'], atm_record['y'], atm_record['z']]
-                res_dict[i].append(np.array(atm)) 
+        if atm_record['atm_name'] == 'CA' and last_res_no != atm_record['res_no']:
+               last_res_no = int(atm_record['res_no'])
+               i+=1
+               atm = [atm_record['x'], atm_record['y'], atm_record['z']]
+               res_dict[i].append(line)   
+               lastresid=resid
+        elif atm_record['atm_name'] == 'CB' and last_res_no != atm_record['res_no']:
+               atm = [atm_record['x'], atm_record['y'], atm_record['z']]
+               res_dict[i].append(np.array(atm)) 
         
     return res_dict
 
@@ -411,6 +413,8 @@ def get_atom_seq(pdbfile, chain='', model=1, return_lines=False):
     lastresid=''
     in_model = False
     atom_seq = ''
+    last_res_no = int
+
     if not chain:
         chain = get_first_chain(pdbfile)
         pdbfile.seek(0)
@@ -433,9 +437,10 @@ def get_atom_seq(pdbfile, chain='', model=1, return_lines=False):
         #    continue
         if atm_record['res_name'] in three_to_one:
             res_name = three_to_one[atm_record['res_name']]
+        if last_res_no != atm_record['res_no']:
             atom_seq += res_name
             lastresid=resid
-        
+            last_res_no = int(atm_record['res_no'])
     pdbfile.close()
     if return_lines:
         return atom_seq, ['', line_lst, 'END\n']
