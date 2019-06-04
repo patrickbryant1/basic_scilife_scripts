@@ -55,17 +55,20 @@ def match_aln_pdb(pdb_seq, alphas, aln_seq, start, end):
 	#Go through alignment and create pdb representation of the same alignment
 	pdb_i = start-1
 	for i in range(0, len(aln_seq)):
-		if aln_seq[i] == pdb_seq[pdb_i]: #If match - add
-			pdb_rep += pdb_seq[pdb_i]
-			alpha_rep.append(alphas[pdb_i])
-			pdb_i+=1
+		if pdb_i < len(pdb_seq):#If match - add
+			if aln_seq[i] == pdb_seq[pdb_i]:
+				pdb_rep += pdb_seq[pdb_i]
+				alpha_rep.append(alphas[pdb_i])
+				pdb_i+=1
+			else:
+                        	pdb_rep += '-' #If no match - add gap
+                        	alpha_rep.append('-')
+
 		else:
 			pdb_rep += '-' #If no match - add gap
 			alpha_rep.append('-')
 
-	pdb.set_trace()
 	return pdb_rep, alpha_rep
-
 
 def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	'''Extracts CAs from pdb file based on sequence.
@@ -95,30 +98,17 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	q_seq_match, q_ca_match = match_aln_pdb(q_seq, q_ca, query_aln, start_pos[0], end_pos[0])
 	t_seq_match, t_ca_match = match_aln_pdb(t_seq, t_ca, template_aln, start_pos[1], end_pos[1])	
 	#Match alignment and write to file
-	q_file = open(uids[0]+'to'+uids[1]+'_aln.pdb', 'w')
-	t_file = open(uids[1]+'to'+uids[0]+'_aln.pdb', 'w')
+	q_file = open(uids[0]+'_to_'+uids[1]+'_aln.pdb', 'w')
+	t_file = open(uids[1]+'_to_'+uids[0]+'_aln.pdb', 'w')
 	
 	
-	for i in range(0, len(query_aln)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap
+	for i in range(0, len(q_seq_match)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap in extracted pdb alignment
 		write_to_file = False #Keep track of if or not to write to at each position
-		if query_aln[i] != '-' and template_aln[i] != '-': #No gap in either query or template
-			qi+=1 #Increase indexes, since no gaps
-			ti+=1
+		if q_seq_match[i] != '-' and t_seq_match[i] != '-': #No gap in either query or template
 			write_to_file = True
-		if template_aln[i] == '-': #If a gap in template
-			qi+=1 #Increase query index
-		if query_aln[i] == '-': #If a gap in query
-                        ti+=1 #Increase template index
 		if write_to_file == True:
-			if q_seq[qi] == query_aln[i]:#Check AAs match
-				q_file.write(q_ca[qi]+'\n') #Write matching ca coordinates
-			else:
-				raise ValueError('query pos: ' + str(qi))
-
-			if t_seq[ti] == template_aln[i]:
-				t_file.write(t_ca[ti]+'\n')
-			else:
-				raise ValueError('template pos: ' + str(ti))
+			q_file.write(q_ca_match[i]+'\n') #Write matching ca coordinates
+			t_file.write(t_ca_match[i]+'\n')
 
 	q_file.close()
 	t_file.close()
