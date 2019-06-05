@@ -36,15 +36,19 @@ def read_tsv(tsv_file, threshold):
 
 	with open(tsv_file) as file:
 		for line in file:
-			line = line.rstrip() #Remove newlines
-			line = line.split("\t")
-			ML_dist = round(float(line[2]), 2)
-			if ML_dist <= threshold:
-				ML_dists.append(ML_dist)
-				rmsd_dists.append(float(line[3]))
-				Z.append((ML_dist,float(line[3])))
-			else:
-				continue
+            print(line)
+            pdb.set_trace()
+            if 'uid1' not in line:
+                ML_dist = round(float(line[2]), 2)
+                if ML_dist <= threshold:
+                    ML_dists.append(ML_dist)
+                    rmsd_dists.append(float(line[3]))
+                    Z.append((ML_dist,float(line[3])))
+                else:
+                    continue
+                
+            else:
+                continue
 
 	
 	return(ML_dists, rmsd_dists, Z)
