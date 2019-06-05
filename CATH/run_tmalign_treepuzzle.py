@@ -43,27 +43,28 @@ def run_TMalign(indir, TMalign):
 	'''
 	
 	measures = {} #Save RMSD to add with MLAA distance from tree-puzzle
-	names = glob.glob(indir+"*_aln.pdb") #Use all _aln.pdb files
-	done_uids = [] #Keep trackof the uids that are completed
+	names = glob.glob(indir+"*.aln") #Use all .aln files
 	status = True #See if H-group has enough entries fulfilling criteria
-	n = 5 #at least n structures compared
-	if len(names) < (n*2):
+	n = 1 #at least n structures compared
+	if len(names) < (n):
 		status = False
 	if status == True:
 		while names:#While names not empty
-			structure_i = names[0] #Get structure i
-			uid1 = structure_i.split('/')[-1].split('_')[0]
-			uid2 = structure_i.split('/')[-1].split('_')[2]
+			aln_i = names[0] #Get structure i
+			uids = aln_i.split('/')[-1].split('.')[0].split('_')
+			uid1 = uids[0]
+			uid2 = uids[1]
+			pdb.set_trace()
 			names.pop(0)
-			for j in range(0, len(names)):
-				structure_j =names[j] #Get structure j
-				if uid1 in structure_j and uid2 in structure_j: #If uid1 and uid2 is part of the file,
-										#it is the right pdb representation of the alignment
-					tmalign_out = subprocess.check_output([TMalign, structure_i , structure_j , '-a'])
-					(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
-					measures[uid1+'_'+uid2] = rmsd
-					break #Break, since match found
-					names.pop(j)
+			#Run TMalign and extract scores
+			str1 = indir+uid1+'.pdb'
+			str2 = indir+uid2+'.pdb'
+
+			tmalign_out = subprocess.check_output([TMalign, str1 , str2 , '-i', aln_i])
+			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
+			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
+			break #Break, since match found
+	pdb.set_trace()
 
 	return measures, status
 
@@ -74,7 +75,7 @@ def parse_tm(tmalign_out):
 	
 	tmalign_out = tmalign_out.decode("utf-8")
 	tmalign_out = tmalign_out.split('\n')
-	
+	tmscores = [] #Save TMscores
 	for i in range(0, len(tmalign_out)): #Step through all items in list
 			
 		if 'Aligned length' and 'RMSD' and 'Seq_ID' in tmalign_out[i]:
@@ -88,7 +89,8 @@ def parse_tm(tmalign_out):
 				
 		if 'Length of Chain_2:' in tmalign_out[i]:
                         len_2 = tmalign_out[i].split(':')[1].split()[0]
-
+		if 'TM-score=' in tmalign_out[i]:
+			tmscores.append(tmalign_out[i].split('(')[0].split('=')[1].strip())
 
 	#Get per residue sequence alignments from structural alignment
 	sequences = [tmalign_out[-5], tmalign_out[-3]]
@@ -96,7 +98,7 @@ def parse_tm(tmalign_out):
 	chain_lens = [int(len_1), int(len_2)]
 	
 			
-	return(aligned_len, rmsd, identity, chain_lens, sequences)
+	return(aligned_len, rmsd, tmscores, identity, chain_lens, sequences)
 
 
 def parse_puzzle(measures, indir):

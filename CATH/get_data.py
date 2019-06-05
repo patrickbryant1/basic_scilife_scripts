@@ -156,7 +156,7 @@ def align(selected_uids, output_dir, H_group, hhalign, identities):
 		for j in range(i+1, end):
 			structure_j =output_dir+selected_uids[j]+'.hhm' #Get structure j
 			#Run hhalign
-			outp = subprocess.check_output(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -glob', shell=True)
+			outp = subprocess.check_output(hhalign + ' -i '+ structure_i + ' -t ' + structure_j + ' -o ' + uids[i]+'_'+uids[j]+'.hhr' + ' -norealign', shell=True)
 			result = read_result(output_dir+uids[i]+'_'+uids[j]+'.hhr')
 			chain_lens = [result[0].query_length, result[0].template_length]
 			aligned_len = result[0].aligned_cols
@@ -201,13 +201,15 @@ def write_to_file(output_dir, H_group, parsed_output):
 		query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos = parsed_output[key]
 		#Write alignment and info to file
 		with open(output_dir+key+'.aln', 'w') as f:
-			f.write('#'+'query:' + 'l=' + str(chain_lens[0]) + ' s=' + str(start_pos[0]) + ' e=' + str(end_pos[0]) + '|template: ' + 'l=' + str(chain_lens[1]) + ' s=' + str(start_pos[1]) + ' e=' + str(end_pos[1]) +  '|aligned_len: ' + str(aligned_len) + '|Identity: ' + str(identity) + '\n')
+			#f.write('#'+'query:' + 'l=' + str(chain_lens[0]) + ' s=' + str(start_pos[0]) + ' e=' + str(end_pos[0]) + '|template: ' + 'l=' + str(chain_lens[1]) + ' s=' + str(start_pos[1]) + ' e=' + str(end_pos[1]) +  '|aligned_len: ' + str(aligned_len) + '|Identity: ' + str(identity) + '\n')
+			f.write('>'+uids[0]+'|l='+str(chain_lens[0]) + ' s=' + str(start_pos[0]) + ' e=' + str(end_pos[0])+'|aligned_len: ' + str(aligned_len) + '|Identity: ' + str(identity) + '\n')
 			f.write(query_aln+'\n') #write sequences
+			f.write('>'+uids[1]+'|'+'l=' + str(chain_lens[1]) + ' s=' + str(start_pos[1]) + ' e=' + str(end_pos[1])+'\n')
 			f.write(template_aln)
 
 		#Write new pdb files based on alignment
 		#Get matching alignment from .pdb sequence
-		seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos)
+		#seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos)
 		#Write .phy file of alignment
 		make_phylip(uids, query_aln, template_aln)
 
