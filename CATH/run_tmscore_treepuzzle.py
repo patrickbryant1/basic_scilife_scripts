@@ -59,9 +59,9 @@ def run_TMscore(indir, TMscore):
 				structure_j =names[j] #Get structure j
 				if uid1 in structure_j and uid2 in structure_j: #If uid1 and uid2 is part of the file,
 										#it is the right pdb representation of the alignment
-					tscore_out = subprocess.check_output([TMscore, structure_i , structure_j , '-a'])
-					(tm_aligned_len, rmsd, tm_identity, chain_lens, tm_sequences)= parse_tm(tmscore_out)	
-					measures[uid1+'_'+uid2] = rmsd
+					tmscore_out = subprocess.check_output([TMscore, structure_i , structure_j , '-a'])
+					(rmsd, score)= parse_tm(tmscore_out)	
+					measures[uid1+'_'+uid2] = [rmsd, score]
 					break #Break, since match found
 					names.pop(j)
 
@@ -78,16 +78,14 @@ def parse_tm(tmscore_out):
 	for i in range(0, len(tmscore_out)): #Step through all items in list
 		if 'TM-score    =' in tmscore_out[i]:
 			row = tmscore_out[i].split('=')
-                        score = row[1].split('(')[0].rstrip() 
-		if 'Superposition in the TM-score:' in tmalign_out[i]:
+			score = row[1].split('(')[0].strip()
+		if 'Superposition in the TM-score:' in tmscore_out[i]:
 			row = tmscore_out[i].split('=')
-			rmsd = row[-1].rstrip()	
+			rmsd = row[-1].strip()	
 				
 
-	pdb.set_trace()
-	
 			
-	return(score, rmsd)
+	return(rmsd, score)
 
 
 def parse_puzzle(measures, indir):
@@ -96,7 +94,7 @@ def parse_puzzle(measures, indir):
 	keys = [*measures] #Make list of keys in dict
 	for key in keys:
 		uids = key.split('_')
-		rmsd = measures[key] #Get rmsd
+		rmsd, tmscore =  measures[key]	
 		try:
 			dist_file = open(indir + key + '.phy.dist')
 		except:
@@ -112,10 +110,9 @@ def parse_puzzle(measures, indir):
 
 			if len(line)>2:
 				seq_dist = line[-1] #Get ML evolutionary distance between sequences
-				measures[key] = [rmsd, seq_dist] 
+				measures[key] = [seq_dist, rmsd, tmscore]
 				break
 		dist_file.close()
-
 	return measures
 
 
@@ -123,12 +120,12 @@ def print_tsv(measures, hgroup):
 	'''Print measures in tsv to file
 	'''
 	with open(hgroup+'.tsv', 'w') as file:
-		file.write('uid1\tuid2\tMLAAdist\tRMSD\n')
+		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore\n')
 		for key in measures:
 			uids = key.split('_')
 			info = measures[key]
-			rmsd, seq_dist = info[0], info[1]
-			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\n')
+			seq_dist, rmsd, tmscore = info[0], info[1], info[2]
+			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\t'+tmscore+'\n')
 
 	return None
 
