@@ -62,6 +62,7 @@ def run_TMscore(indir, TMscore):
 					tmscore_out = subprocess.check_output([TMscore, structure_i , structure_j , '-a'])
 					(rmsd, score)= parse_tm(tmscore_out)	
 					measures[uid1+'_'+uid2] = [rmsd, score]
+					pdb.set_trace()
 					break #Break, since match found
 					names.pop(j)
 
@@ -74,7 +75,7 @@ def parse_tm(tmscore_out):
 	
 	tmscore_out = tmscore_out.decode("utf-8")
 	tmscore_out = tmscore_out.split('\n')
-	
+	rmsd = ''	
 	for i in range(0, len(tmscore_out)): #Step through all items in list
 		if 'TM-score    =' in tmscore_out[i]:
 			row = tmscore_out[i].split('=')
@@ -82,9 +83,8 @@ def parse_tm(tmscore_out):
 		if 'Superposition in the TM-score:' in tmscore_out[i]:
 			row = tmscore_out[i].split('=')
 			rmsd = row[-1].strip()	
-				
-
-			
+	if not rmsd:
+		pdb.set_trace()				
 	return(rmsd, score)
 
 
