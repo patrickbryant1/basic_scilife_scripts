@@ -45,7 +45,7 @@ def run_TMalign(indir, TMalign):
 	measures = {} #Save RMSD to add with MLAA distance from tree-puzzle
 	names = glob.glob(indir+"*.aln") #Use all .aln files
 	status = True #See if H-group has enough entries fulfilling criteria
-	n = 1 #at least n structures compared
+	n = 10 #at least n structures compared
 	if len(names) < (n):
 		status = False
 	if status == True:
@@ -62,7 +62,7 @@ def run_TMalign(indir, TMalign):
 			tmalign_out = subprocess.check_output([TMalign, str1 , str2 , '-i', aln_i])
 			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
-			break #Break, since match found
+	
 
 	return measures, status
 
