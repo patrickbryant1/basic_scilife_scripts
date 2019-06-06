@@ -103,6 +103,7 @@ def loop_through_ids(fasta_dict, uids, H_group,  input_dir, output_dir, hhblits,
 	identities = {} #Save identities from hhalign
 
 	for get_n in range(get_max, get_min-1, -1):
+		print(get_n, status)
 		selected_uids = []#Selected for hhalign
 		if status == True:#Break out of loop
 			break
@@ -225,7 +226,7 @@ hhblits = args.hhblits[0]
 hhalign = args.hhalign[0]
 uniprot = args.uniprot[0]
 get_min = args.get_min[0]
-get_max = args.get_min[0]
+get_max = args.get_max[0]
 address = args.address[0]
 H_group = input_dir.split('/')[-1] #Get H-group (last part of path)
 
