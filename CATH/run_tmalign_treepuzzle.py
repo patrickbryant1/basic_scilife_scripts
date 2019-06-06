@@ -54,7 +54,6 @@ def run_TMalign(indir, TMalign):
 			uids = aln_i.split('/')[-1].split('.')[0].split('_')
 			uid1 = uids[0]
 			uid2 = uids[1]
-			pdb.set_trace()
 			names.pop(0)
 			#Run TMalign and extract scores
 			str1 = indir+uid1+'.pdb'
@@ -64,7 +63,6 @@ def run_TMalign(indir, TMalign):
 			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
 			break #Break, since match found
-	pdb.set_trace()
 
 	return measures, status
 
@@ -107,7 +105,7 @@ def parse_puzzle(measures, indir):
 	keys = [*measures] #Make list of keys in dict
 	for key in keys:
 		uids = key.split('_')
-		rmsd = measures[key] #Get rmsd
+		rmsd, tmscore1, tmscore2 = measures[key] #Get rmsd
 		try:
 			dist_file = open(indir + key + '.phy.dist')
 		except:
@@ -123,7 +121,7 @@ def parse_puzzle(measures, indir):
 
 			if len(line)>2:
 				seq_dist = line[-1] #Get ML evolutionary distance between sequences
-				measures[key] = [rmsd, seq_dist] 
+				measures[key] = [rmsd, tmscore1, tmscore2, seq_dist] 
 				break
 		dist_file.close()
 
@@ -134,12 +132,13 @@ def print_tsv(measures, hgroup):
 	'''Print measures in tsv to file
 	'''
 	with open(hgroup+'.tsv', 'w') as file:
-		file.write('uid1\tuid2\tMLAAdist\tRMSD\n')
+		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore_high\tTMscore_low\n')
 		for key in measures:
 			uids = key.split('_')
-			info = measures[key]
-			rmsd, seq_dist = info[0], info[1]
-			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\n')
+			rmsd, tmscore1, tmscore2, seq_dist = measures[key]
+			high_score = max(float(tmscore1), float(tmscore2))
+			low_score = min(float(tmscore1), float(tmscore2)) 
+			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\t'+str(high_score)+'\t'+str(low_score)+'\n')
 
 	return None
 
