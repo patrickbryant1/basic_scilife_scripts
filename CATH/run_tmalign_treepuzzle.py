@@ -59,7 +59,7 @@ def run_TMalign(indir, TMalign):
 			str1 = indir+uid1+'.pdb'
 			str2 = indir+uid2+'.pdb'
 
-			tmalign_out = subprocess.check_output([TMalign, str1 , str2 , '-i', aln_i])
+			tmalign_out = subprocess.check_output([TMalign, str1 , str2 , '-I', aln_i]) #2012/07/07: Add an option '-I align.txt' to allow user to STICK TO the inital alignment. 
 			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
 	
