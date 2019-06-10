@@ -78,6 +78,11 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	
 	q_pdb = uids[0] + '.pdb'
 	t_pdb = uids[1] + '.pdb'
+	
+	#Get the .pdb if they do not exist
+	for uid in uids:
+		if not os.path.isfile(uid+'.pdb'):
+			subprocess.call(["wget",'www.cathdb.info/version/v4_2_0/api/rest/id/'+uid+'.pdb'])
 	#Get query CAs
 	q_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + q_pdb
 	q_out = subprocess.check_output(q_command, shell = True)#Save parsed pdb
@@ -107,7 +112,7 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 		if q_seq_match[i] != '-' and t_seq_match[i] != '-': #No gap in either query or template
 			write_to_file = True
 		if write_to_file == True:
-			replace_str = ' '+str(i)+'       '
+			replace_str = ' '+str(i)+' '*(8-len(str(i)))
 			q_file.write(q_ca_match[i][0:22]+replace_str+q_ca_match[i][32:]+'\n') #Write matching ca coordinates
 			t_file.write(t_ca_match[i][0:22]+replace_str+t_ca_match[i][32:]+'\n')
 

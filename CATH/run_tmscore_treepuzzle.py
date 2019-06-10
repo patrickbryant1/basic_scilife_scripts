@@ -83,10 +83,9 @@ def run_TMscore(indir, TMscore):
 			seq_to_pdb(uids, sequences[uid1], sequences[uid2], start, end)
 			structure_1 = uid1+'_to_'+uid2+'_aln.pdb'
 			structure_2 = uid2+'_to_'+uid1+'_aln.pdb'
-			tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_1])
+			tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_2])
 			(rmsd, score)= parse_tm(tmscore_out)	
 			measures[uid1+'_'+uid2] = [rmsd, score]
-			pdb.set_trace()
 			
 			names.pop(0) #remove since done
 

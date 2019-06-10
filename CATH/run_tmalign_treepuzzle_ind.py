@@ -39,7 +39,7 @@ def run_puzzle(indir, puzzle):
 	return None
 
 def run_TMalign(indir, TMalign):
-	'''Run TMalign on extracted CAs from hhalign alignments
+	'''Run TMalign on .pdb files
 	'''
 	
 	measures = {} #Save RMSD to add with MLAA distance from tree-puzzle
