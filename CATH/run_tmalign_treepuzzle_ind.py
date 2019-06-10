@@ -10,7 +10,7 @@ import subprocess
 import pdb
 
 
-from conversions import seq_to_pdb
+
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that runs TMalign and tree-puzzle and
 						receives the resulting output.''')
@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(description = '''A program that runs TMalign an
 parser.add_argument('indir', nargs=1, type= str, default=sys.stdin, help = 'Path to input directory.')
 parser.add_argument('hgroup', nargs=1, type= str, default=sys.stdin, help = 'H-group.')
 parser.add_argument('puzzle', nargs=1, type= str, default=sys.stdin, help = 'Path to tree-puzzle.')
-parser.add_argument('TMscore', nargs=1, type= str, default=sys.stdin, help = 'Path to TMscore.')
+parser.add_argument('TMalign', nargs=1, type= str, default=sys.stdin, help = 'Path to TMalign.')
 
 
 #FUNCTIONS
@@ -38,78 +38,65 @@ def run_puzzle(indir, puzzle):
 
 	return None
 
-def read_fasta(aln_file):
-	'''Reads aligned sequences in fasta format
-	'''
-	
-	sequences = {} #Save sequences
-	start_pos = {}
-	end_pos = {}
-	with open(aln_file) as file:
-		for line in file:
-			line = line.rstrip()
-			if line[0] == '>':
-				uid = line[1:8]
-				line = line.split('|')
-				start = line[1].split("=")[2].strip('e').strip()
-				end = line[1].split("=")[3]
-			else:
-				sequences[uid] = line
-				start_pos[uid] = int(start)
-				end_pos[uid] = int(end)
-
-	return sequences, start_pos, end_pos
-
-def run_TMscore(indir, TMscore):
+def run_TMalign(indir, TMalign):
 	'''Run TMalign on extracted CAs from hhalign alignments
 	'''
 	
 	measures = {} #Save RMSD to add with MLAA distance from tree-puzzle
-	names = glob.glob(indir+"*.aln") #Use all _aln files
-	done_uids = [] #Keep trackof the uids that are completed
+	names = glob.glob(indir+"*.aln") #Use all .aln files
 	status = True #See if H-group has enough entries fulfilling criteria
-	n = 5 #at least n structures compared
-	if len(names) < (n*2):
+	n = 10 #at least n structures compared
+	if len(names) < (n):
 		status = False
 	if status == True:
 		while names:#While names not empty
 			aln_i = names[0] #Get structure i
-			uids = aln_i.split('/')[-1].split('.')[0].split('_') 
+			uids = aln_i.split('/')[-1].split('.')[0].split('_')
 			uid1 = uids[0]
 			uid2 = uids[1]
-			
-			sequences, start, end = read_fasta(aln_i)	
-			#Write new .pdb files matching alignment
-			seq_to_pdb(uids, sequences[uid1], sequences[uid2], start, end)
-			structure_1 = uid1+'_to_'+uid2+'_aln.pdb'
-			structure_2 = uid2+'_to_'+uid1+'_aln.pdb'
-			tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_1])
-			(rmsd, score)= parse_tm(tmscore_out)	
-			measures[uid1+'_'+uid2] = [rmsd, score]
-			pdb.set_trace()
-			
-			names.pop(0) #remove since done
+			names.pop(0)
+			#Run TMalign and extract scores
+			str1 = indir+uid1+'.pdb'
+			str2 = indir+uid2+'.pdb'
+
+			tmalign_out = subprocess.check_output([TMalign, str1 , str2]) #Performs optimal structural alignment 
+			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
+			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
+	
 
 	return measures, status
 
-def parse_tm(tmscore_out):
+def parse_tm(tmalign_out):
 	'''A function that gets the uids and the corresponding scores
 	and prints them in tsv.
 	'''
 	
-	tmscore_out = tmscore_out.decode("utf-8")
-	tmscore_out = tmscore_out.split('\n')
-	rmsd = ''	
-	for i in range(0, len(tmscore_out)): #Step through all items in list
-		if 'TM-score    =' in tmscore_out[i]:
-			row = tmscore_out[i].split('=')
-			score = row[1].split('(')[0].strip()
-		if 'Superposition in the TM-score:' in tmscore_out[i]:
-			row = tmscore_out[i].split('=')
-			rmsd = row[-1].strip()	
-	if not rmsd:
-		pdb.set_trace()				
-	return(rmsd, score)
+	tmalign_out = tmalign_out.decode("utf-8")
+	tmalign_out = tmalign_out.split('\n')
+	tmscores = [] #Save TMscores
+	for i in range(0, len(tmalign_out)): #Step through all items in list
+			
+		if 'Aligned length' and 'RMSD' and 'Seq_ID' in tmalign_out[i]:
+			row = tmalign_out[i].split(',')
+			aligned_len = row[0].split('=')[1].lstrip()
+			rmsd = row[1].split('=')[1].lstrip()
+			identity = row[2].split('=')[2].lstrip() 
+		
+		if 'Length of Chain_1:' in tmalign_out[i]:
+			len_1 = tmalign_out[i].split(':')[1].split()[0]
+				
+		if 'Length of Chain_2:' in tmalign_out[i]:
+                        len_2 = tmalign_out[i].split(':')[1].split()[0]
+		if 'TM-score=' in tmalign_out[i]:
+			tmscores.append(tmalign_out[i].split('(')[0].split('=')[1].strip())
+
+	#Get per residue sequence alignments from structural alignment
+	sequences = [tmalign_out[-5], tmalign_out[-3]]
+
+	chain_lens = [int(len_1), int(len_2)]
+	
+			
+	return(aligned_len, rmsd, tmscores, identity, chain_lens, sequences)
 
 
 def parse_puzzle(measures, indir):
@@ -118,7 +105,7 @@ def parse_puzzle(measures, indir):
 	keys = [*measures] #Make list of keys in dict
 	for key in keys:
 		uids = key.split('_')
-		rmsd, tmscore =  measures[key]	
+		rmsd, tmscore1, tmscore2 = measures[key] #Get rmsd
 		try:
 			dist_file = open(indir + key + '.phy.dist')
 		except:
@@ -134,9 +121,10 @@ def parse_puzzle(measures, indir):
 
 			if len(line)>2:
 				seq_dist = line[-1] #Get ML evolutionary distance between sequences
-				measures[key] = [seq_dist, rmsd, tmscore]
+				measures[key] = [rmsd, tmscore1, tmscore2, seq_dist] 
 				break
 		dist_file.close()
+
 	return measures
 
 
@@ -144,12 +132,13 @@ def print_tsv(measures, hgroup):
 	'''Print measures in tsv to file
 	'''
 	with open(hgroup+'.tsv', 'w') as file:
-		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore\n')
+		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore_high\tTMscore_low\n')
 		for key in measures:
 			uids = key.split('_')
-			info = measures[key]
-			seq_dist, rmsd, tmscore = info[0], info[1], info[2]
-			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\t'+tmscore+'\n')
+			rmsd, tmscore1, tmscore2, seq_dist = measures[key]
+			high_score = max(float(tmscore1), float(tmscore2))
+			low_score = min(float(tmscore1), float(tmscore2)) 
+			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\t'+str(high_score)+'\t'+str(low_score)+'\n')
 
 	return None
 
@@ -159,10 +148,10 @@ args = parser.parse_args()
 indir = args.indir[0]
 hgroup = args.hgroup[0]
 puzzle = args.puzzle[0]
-TMscore = args.TMscore[0]
+TMalign = args.TMalign[0]
 
 run_puzzle(indir, puzzle)
-(measures, status) = run_TMscore(indir, TMscore)
+(measures, status) = run_TMalign(indir, TMalign)
 if status == True: #Only if H-groups fulfills criteria
 	measures = parse_puzzle(measures, indir)
 	print_tsv(measures, hgroup)

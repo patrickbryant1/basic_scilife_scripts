@@ -95,8 +95,8 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	t_ca = t_out[1:-1]   
 	
 	#Create representation of alignment due to pdb file
-	q_seq_match, q_ca_match = match_aln_pdb(q_seq, q_ca, query_aln, start_pos[0], end_pos[0])
-	t_seq_match, t_ca_match = match_aln_pdb(t_seq, t_ca, template_aln, start_pos[1], end_pos[1])	
+	q_seq_match, q_ca_match = match_aln_pdb(q_seq, q_ca, query_aln, start_pos[uids[0]], end_pos[uids[0]])
+	t_seq_match, t_ca_match = match_aln_pdb(t_seq, t_ca, template_aln, start_pos[uids[1]], end_pos[uids[1]])	
 	#Match alignment and write to file
 	q_file = open(uids[0]+'_to_'+uids[1]+'_aln.pdb', 'w')
 	t_file = open(uids[1]+'_to_'+uids[0]+'_aln.pdb', 'w')
@@ -107,8 +107,9 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 		if q_seq_match[i] != '-' and t_seq_match[i] != '-': #No gap in either query or template
 			write_to_file = True
 		if write_to_file == True:
-			q_file.write(q_ca_match[i]+'\n') #Write matching ca coordinates
-			t_file.write(t_ca_match[i]+'\n')
+			replace_str = ' '+str(i)+'       '
+			q_file.write(q_ca_match[i][0:22]+replace_str+q_ca_match[i][32:]+'\n') #Write matching ca coordinates
+			t_file.write(t_ca_match[i][0:22]+replace_str+t_ca_match[i][32:]+'\n')
 
 	q_file.close()
 	t_file.close()
