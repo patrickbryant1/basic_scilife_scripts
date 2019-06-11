@@ -84,8 +84,11 @@ def run_TMscore(indir, TMscore):
 			structure_1 = indir+uid1+'_to_'+uid2+'_aln.pdb'
 			structure_2 = indir+uid2+'_to_'+uid1+'_aln.pdb'
 			tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_2])
-			(rmsd, score)= parse_tm(tmscore_out)	
-			measures[uid1+'_'+uid2] = [rmsd, score]
+			(rmsd, score)= parse_tm(tmscore_out)
+			if not rmsd:
+				print('No common residues btw ' + structure_1 + ' and ' + structure_2 + '\n')	
+			else:
+				measures[uid1+'_'+uid2] = [rmsd, score]
 			
 			names.pop(0) #remove since done
 
@@ -98,7 +101,8 @@ def parse_tm(tmscore_out):
 	
 	tmscore_out = tmscore_out.decode("utf-8")
 	tmscore_out = tmscore_out.split('\n')
-	rmsd = ''	
+	rmsd = ''
+	score = ''
 	for i in range(0, len(tmscore_out)): #Step through all items in list
 		if 'TM-score    =' in tmscore_out[i]:
 			row = tmscore_out[i].split('=')
@@ -106,8 +110,10 @@ def parse_tm(tmscore_out):
 		if 'Superposition in the TM-score:' in tmscore_out[i]:
 			row = tmscore_out[i].split('=')
 			rmsd = row[-1].strip()	
-	if not rmsd:
-		pdb.set_trace()				
+		if 'There is no common residues in the input structures' in tmscore_out[i]:
+			break
+			
+						
 	return(rmsd, score)
 
 
