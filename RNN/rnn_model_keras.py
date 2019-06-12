@@ -4,8 +4,9 @@
 
 import argparse
 import sys
-#import matplotlib.pyplot as plt
 import numpy as np
+from ast import literal_eval
+import pandas as pd
 import glob
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
@@ -28,24 +29,31 @@ from tensorflow.keras.callbacks import TensorBoard
 
 
 #import custom functions
-from rnn_input import read_labels, rmsd_hot, get_encodings, get_locations, encoding_distributions, get_labels, label_distr, split_on_h_group, pad_cut, read_net_params
 from lr_finder import LRFinder
 import pdb
+#FUNCTIONS
+def read_net_params(params_file):
+    '''Read and return net parameters
+    '''
+    net_params = {} #Save information for net
+
+    with open(params_file) as file:
+        for line in file:
+            line = line.rstrip() #Remove newlines
+            line = line.split("=") #Split on "="
+
+            net_params[line[0]] = line[1]
 
 
-
+    return net_params
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for predicting
                                                                 RMSD between structural alignments based on sequences from per-residue alignments,
                                                                 secondary structure and surface accessibility.''')
- 
-parser.add_argument('dist_file', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to distance file. Format: uid1        uid2    MLdist  TMinfo..')
 
-parser.add_argument('encode_locations', nargs=1, type= str,
-                  default=sys.stdin, help = '''Paths to files with encodings of alignments, secondary structure and surface acc.
-                  Include /in end''')
+parser.add_argument('dataframe', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to dataframe in .csv.')
 
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
@@ -56,90 +64,49 @@ parser.add_argument('params_file', nargs=1, type= str,
 
 #MAIN
 args = parser.parse_args()
-dist_file = args.dist_file[0]
-encode_locations = args.encode_locations[0]
+dataframe = args.dataframe[0]
 out_dir = args.out_dir[0]
 params_file = args.params_file[0]
-#Read tsv
-(distance_dict) = read_labels(dist_file)
-#Format rmsd_dists into one-hot encoding
-#rmsd_dists_hot = rmsd_hot(rmsd_dists_t)
-
-
-#Get macthing alignments, sendary structure and surface acc
-accessibilities = [] #list to save all accessibilities
-structures = [] #list to save all secondary structures
-letters = [] #List to save all amino acids
-seqlens = [] #list to save all sequence lengths
-
-encodings = {} #Save all encodings
-H_groups = {} #Save all H-groups for split
-threshold = 6 #ML seq distance threshold
-#Test, load only little data
-max_aln_len = 0 #maximum aln length
-
-#Get file locations
-locations = get_locations(encode_locations)
-
-for file_name in locations:
-  (encoding) = get_encodings(file_name)
-
-  file_name = file_name.split('/')
-  H_group = file_name[-2]
-  uid_pair = file_name[-1].split('.')[0]
-  encodings[uid_pair] = encoding
-  H_groups[uid_pair] = H_group
-
-
-#Get corresponding labels (rmsds) for the encoded sequences
-(uids, encoding_list, rmsd_dists, ML_dists, Chains, Align_lens, Identities, letters, structures, accessibilities, seqlens, H_group_list) = get_labels(encodings, distance_dict, threshold, H_groups)
-
-#Look at H-groups
-counted_groups = Counter(H_group_list)
-unique_groups, counts = zip(*counted_groups.items())
-#encoding_distributions('hist', values, 'Distribution of number of encoded pairs per H-group', 'Number of encoded pairs', 'log count', 10, out_dir, 'hgroups', True, [])
-
-#Look at data distributions
-#encoding_distributions('hist', accessibilities, 'Distribution of Normalized surface accessibilities', '% surface accessibility', 'log count', 101, out_dir, 'acc', True, [])
-#encoding_distributions('bar',structures, 'Distribution of secondary structure elements', 'secondary structure', 'log count', 10, out_dir, 'str', True, ['G', 'H', 'I', 'T', 'E', 'B', 'S', 'C', '-'])
-#encoding_distributions('bar', letters, 'Distribution of amino acids in sequences', 'amino acid', 'log count', 22, out_dir, 'aa', True, ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-'])
-#encoding_distributions('hist', seqlens, 'Distribution of sequence lengths', 'sequence length', 'count', 100, out_dir, 'seqlens', False, [])
- 
-#Look at info from TMalign and tree-puzzle
-#encoding_distributions('hist', Chains, 'Distribution of chain lengths', 'Chain length', 'count', 100, out_dir, 'chains', False, [] )
-#encoding_distributions('hist', Align_lens, 'Distribution of % aligned of shortest chain length' , '% aligned of shortest chain length', 'log count', 100, out_dir, 'aligned', True, [])
-#encoding_distributions('hist', Identities, 'Distribution of chain Identities', 'Identity (%)', 'count', 100, out_dir, 'id', False, [])
-#label_distr(ML_dists, rmsd_dists, 'seq_str', out_dir, 'ML AA distance', 'RMSD')
-
 
 #Assign data and labels
-y = rmsd_hot(rmsd_dists, [0,20,40,60,80,100]) #One-hot encode labels
-#pdb.set_trace()
+#Read df
+complete_df = pd.read_csv(dataframe)
+#Get encodings
+enc1 = []
+enc2 = []
+[enc1.append(np.asarray(literal_eval(x))) for x in complete_df['enc1']]
+[enc2.append(np.asarray(literal_eval(x))) for x in complete_df['enc2']]
 
-(X_train, y_train, X_valid, y_valid, X_test, y_test) = split_on_h_group(encoding_list, H_group_list, unique_groups, counted_groups, [0.8, 0.1, 0.1], y, out_dir)
+X = [np.asarray(enc1), np.asarray(enc2)]
 
-#Split train data to use 80% for training and 10% for validation and 10 % for testing. 
+#One-hot encode binned data
+#(Pdb) max(deviations)
+#2.7734303385517078
+#(Pdb) min(deviations)
+#-3.7769327831687929
+bins = np.arange(-3.8,2.7,0.1)
+binned_deviations = complete_df['binned_deviation']
+np.asarray(binned_deviations)
+y = np.eye(len(bins)+1)[binned_deviations] #deviations_hot
+
+#Split train data to use 80% for training and 10% for validation and 10 % for testing.
 #X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
 #Random state = 42 guarantees the split is the same every time. This can be both bad and good, depending on
 #the selction. It makes the split consistent across changes to the network though.
-
+#Get test data
 #X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
 
+#Pad data/cut to maxlen
+#maxlen = 300
+#X_train = pad_cut(X_train, 300)
+#X_valid = pad_cut(X_valid, 300)
+#X_test = pad_cut(X_test, 300)
 
 
-#Pad data/cut to maxlen     
-maxlen = 300
-X_train = pad_cut(X_train, 300)
-X_valid = pad_cut(X_valid, 300)
-X_test = pad_cut(X_test, 300)
-
-#Get all lengths for all sequences
-#trainlen = [len(i[0]) for i in X_train]
-#validlen = [len(i[0]) for i in X_valid]
-#testlen = [len(i[0]) for i in X_test]
 
 
 print('Train:',len(X_train[0]), 'Valid:',len(X_valid[0]), 'Test:',len(X_test[0]))
+
 
 
 #Plot distributions of labels and words- make sure split preserves variation in rmsd
@@ -170,15 +137,15 @@ find_lr = bool(int(net_params['find_lr']))
 
 
 #Fixed params
-num_classes = 6
-vocab_sizes = [22, 9, 101, 22, 9, 101] #needs to be num_unique+1 for Keras
+num_classes = len(bins)+1
+vocab_sizes = [22, 22]
 batch_size = 20 #Number of alignments
 num_epochs = base_epochs+finish_epochs
 
 
 lambda_recurrent = 0.01 #How much the model should be penalized #Lasso regression?
 recurrent_max_norm = 2.0
-    
+
 
 #LR schedule
 max_lr = 0.01
@@ -193,16 +160,9 @@ embed1_in = keras.Input(shape = [None])
 embed1 = Embedding(vocab_sizes[0] ,embedding_size, input_length = None)(embed1_in)#None indicates a variable input length
 embed2_in =  keras.Input(shape =  [None])
 embed2 = Embedding(vocab_sizes[1] ,embedding_size, input_length = None)(embed2_in)#None indicates a variable input length
-embed3_in =  keras.Input(shape =  [None])
-embed3 = Embedding(vocab_sizes[2] ,embedding_size, input_length = None)(embed3_in)#None indicates a variable input length
-embed4_in =  keras.Input(shape =  [None])
-embed4 = Embedding(vocab_sizes[3] ,embedding_size, input_length = None)(embed4_in)#None indicates a variable input length
-embed5_in =  keras.Input(shape =  [None])
-embed5 = Embedding(vocab_sizes[4] ,embedding_size, input_length = None)(embed5_in)#None indicates a variable input length
-embed6_in =  keras.Input(shape =  [None])
-embed6 = Embedding(vocab_sizes[5] ,embedding_size, input_length = None)(embed6_in)#None indicates a variable input length
 
-cat_embeddings = concatenate([(embed1), (embed2), (embed3), (embed4), (embed5), (embed6)])
+
+cat_embeddings = concatenate([(embed1), (embed2)])
 #cat_embeddings = BatchNormalization()(cat_embeddings) #Bacth normalize, focus on segment of input
 cat_embeddings = Dropout(rate = drop_rate, name = 'cat_embed_dropped')(cat_embeddings) #Dropout
 
@@ -210,7 +170,7 @@ cat_embeddings = Dropout(rate = drop_rate, name = 'cat_embed_dropped')(cat_embed
 def resnet(cat_embeddings, num_res_blocks, num_classes=num_classes):
 	"""Builds a resnet with bidirectinoal LSTMs of the defined depth.
 	"""
-	
+
 	x = cat_embeddings
 	# Instantiate the stack of residual units
 	for res_block in range(num_res_blocks):
@@ -225,7 +185,7 @@ def resnet(cat_embeddings, num_res_blocks, num_classes=num_classes):
 			lstm_out3 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm)))(lstm_add1)
 		else:
 			lstm_out3 = Bidirectional(CuDNNLSTM(num_nodes, recurrent_regularizer = regularizers.l2(lambda_recurrent),  kernel_constraint=max_norm(recurrent_max_norm), return_sequences=True))(lstm_add1)
-		lstm_out3 = Dropout(rate = drop_rate)(lstm_out3) #Dropout		
+		lstm_out3 = Dropout(rate = drop_rate)(lstm_out3) #Dropout
 		x = add([lstm_out2, lstm_out3])
 
 	return x
@@ -243,15 +203,15 @@ attention = Activation('softmax')(attention) #Softmax on all activations (normal
 attention = RepeatVector(num_nodes*2)(attention) #Repeats the input "num_nodes" times.
 attention = Permute([2, 1])(attention) #Permutes the dimensions of the input according to a given pattern. (permutes pos 2 and 1 of attention)
 
-sent_representation = multiply([x, attention]) #Multiply input to attention with normalized activations 
+sent_representation = multiply([x, attention]) #Multiply input to attention with normalized activations
 sent_representation = Lambda(lambda xin: keras.backend.sum(xin, axis=-2), output_shape=(num_nodes*2,))(sent_representation) #Sum all attentions
 
 #Dense final layer for classification
-probabilities = Dense(num_classes, activation='softmax')(sent_representation) 
+probabilities = Dense(num_classes, activation='softmax')(sent_representation)
 
 
 #Model: define inputs and outputs
-model = Model(inputs = [embed1_in, embed2_in, embed3_in, embed4_in, embed5_in, embed6_in], outputs = probabilities)
+model = Model(inputs = [embed1_in, embed2_in], outputs = probabilities)
 
 #Compile model
 model.compile(loss='categorical_crossentropy', #[categorical_focal_loss(alpha=.25, gamma=2)],
@@ -292,7 +252,7 @@ class CollectOutputAndTarget(Callback):
         report = classification_report(y_true, y_pred)
         with open(out_dir+'clf_report.txt', "a") as file:
                 file.write('epoch: '+str(epoch)+'\n')
-                file.write(report)	
+                file.write(report)
         self.targets = [] #reset
         self.outputs = []
 # initialize the variables and the `tf.assign` ops
@@ -306,7 +266,7 @@ model._function_kwargs = {'fetches': fetches}  # use `model._function_kwargs` if
 def lr_schedule(epochs):
   '''lr scheduel according to one-cycle policy.
   '''
-  
+
   #Increase lrate in beginning
   if epochs == 0:
     lrate = min_lr
@@ -336,7 +296,7 @@ if find_lr == True:
     y = lr_finder.losses
     with open(out_dir+params_file.split('/')[-1].split('.')[0]+'.lr', "w") as file:
         for i in range(min(len(x), len(y))):
-          	file.write(str(x[i]) + '\t' + str(y[i]) + '\n')    
+          	file.write(str(x[i]) + '\t' + str(y[i]) + '\n')
     #pdb.set_trace()
 else:
   lrate = LearningRateScheduler(lr_schedule)
@@ -348,7 +308,7 @@ else:
 
 
   #Fit model
-  model.fit(X_train, y_train, batch_size = batch_size,             
+  model.fit(X_train, y_train, batch_size = batch_size,
               epochs=num_epochs,
               validation_data=validation_data,
               shuffle=True, #Dont feed continuously
@@ -357,7 +317,7 @@ else:
 
   #Save model for future use
 
-  #from tensorflow.keras.models import model_from_json   
+  #from tensorflow.keras.models import model_from_json
   #serialize model to JSON
   model_json = model.to_json()
   with open(out_dir+"model.json", "w") as json_file:
