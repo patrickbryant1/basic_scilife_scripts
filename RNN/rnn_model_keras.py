@@ -47,6 +47,19 @@ def read_net_params(params_file):
 
     return net_params
 
+def pad_data(X, padlen):
+	'''Pads entries in each batch with zeros to have equal lengths
+	'''
+	
+	#Loop through X
+	X_pad = [] #save padded data
+	for i in range(0,len(X)):
+		if len(X[i])>padlen:
+			pdb.set_trace()
+		X_pad.append(np.pad(X[i], (0,padlen-len(X[i])), 'constant'))
+
+	return X_pad
+
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for predicting
                                                                 RMSD between structural alignments based on sequences from per-residue alignments,
@@ -74,11 +87,15 @@ complete_df = pd.read_csv(dataframe)
 #Get encodings
 enc1 = []
 enc2 = []
-[enc1.append(np.asarray(literal_eval(x))) for x in complete_df['enc1']]
-[enc2.append(np.asarray(literal_eval(x))) for x in complete_df['enc2']]
-
+[enc1.append(literal_eval(x)) for x in complete_df['enc1']]
+[enc2.append(literal_eval(x)) for x in complete_df['enc2']]
+#Get longest alignment
+enc_lens = []
+[enc_lens.append(len(x)) for x in enc1]
+#Convert to array
 X = [np.asarray(enc1), np.asarray(enc2)]
-
+X = np.asarray(X)#Convert to np array
+X = X.T #transpose
 #One-hot encode binned data
 #(Pdb) max(deviations)
 #2.7734303385517078
@@ -90,32 +107,40 @@ np.asarray(binned_deviations)
 y = np.eye(len(bins)+1)[binned_deviations] #deviations_hot
 
 #Split train data to use 80% for training and 10% for validation and 10 % for testing.
-#X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
 #Random state = 42 guarantees the split is the same every time. This can be both bad and good, depending on
 #the selction. It makes the split consistent across changes to the network though.
 #Get test data
-#X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
+X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
 
-#Pad data/cut to maxlen
+#Pad data in each batch
 #maxlen = 300
 #X_train = pad_cut(X_train, 300)
 #X_valid = pad_cut(X_valid, 300)
 #X_test = pad_cut(X_test, 300)
 
+#Transpose back
+X_train = X_train.T
+X_valid = X_valid.T
+X_test = X_test.T
+#Set as two separate arrays for encoding representation
+X_train = [X_train[0],X_train[1]]
+X_valid = [X_valid[0],X_valid[1]]
+X_test = [X_test[0],X_test[1]]
 
-
+#Pad data
+#Get longest alignment
+padlen = max(enc_lens)
+#Set as two separate arrays for encoding representation
+X_train_1 = pad_data(X_train[0], padlen)
+X_train_2 = pad_data(X_train[1], padlen)
+X_train = [np.asarray(X_train_1),np.asarray(X_train_2)]
+X_valid = [np.asarray(pad_data(X_valid[0], padlen)),np.asarray(pad_data(X_valid[1], padlen))]
+X_test = [pad_data(X_test[0], padlen),pad_data(X_test[1], padlen)]
 
 print('Train:',len(X_train[0]), 'Valid:',len(X_valid[0]), 'Test:',len(X_test[0]))
 
 
-
-#Plot distributions of labels and words- make sure split preserves variation in rmsd
-#labels = [y_train, y_valid, y_test]
-#data = (X_train, X_valid, X_test)
-#names = ['Train', 'Valid', 'Test']
-#for i in range(0,3):
-#       pdb.set_trace()
-#       (labels[i], names[i], out_dir)
 
 
 #Tensorboard for logging and visualization
@@ -309,10 +334,10 @@ else:
 
   #Fit model
   model.fit(X_train, y_train, batch_size = batch_size,
-              epochs=num_epochs,
-              validation_data=validation_data,
-              shuffle=True, #Dont feed continuously
-	            callbacks=callbacks)
+              epochs=num_epochs)
+              #validation_data=validation_data)
+              #shuffle=True) #Dont feed continuously
+	            #callbacks=callbacks)
 
 
   #Save model for future use
