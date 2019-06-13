@@ -101,10 +101,19 @@ X = X.T #transpose
 #2.7734303385517078
 #(Pdb) min(deviations)
 #-3.7769327831687929
-bins = np.arange(-3.8,2.7,0.1)
-binned_deviations = complete_df['binned_deviation']
+bins = np.arange(-1,1.1,0.1)
+bins = np.insert(bins,0, -3.8)
+bins = np.append(bins, 2.8)
+#Bin the TMscore deviations
+deviations = complete_df['deviation']
+#(Pdb) max(deviations)
+#2.7734303385517078
+#(Pdb) min(deviations)
+#-3.7769327831687929
+
+binned_deviations = np.digitize(deviations, bins)
 np.asarray(binned_deviations)
-y = np.eye(len(bins)+1)[binned_deviations] #deviations_hot
+y = np.eye(len(bins))[binned_deviations] #deviations_hot
 
 #Split train data to use 80% for training and 10% for validation and 10 % for testing.
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -113,11 +122,6 @@ X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, rando
 #Get test data
 X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
 
-#Pad data in each batch
-#maxlen = 300
-#X_train = pad_cut(X_train, 300)
-#X_valid = pad_cut(X_valid, 300)
-#X_test = pad_cut(X_test, 300)
 
 #Transpose back
 X_train = X_train.T
@@ -135,7 +139,9 @@ padlen = max(enc_lens)
 X_train_1 = pad_data(X_train[0], padlen)
 X_train_2 = pad_data(X_train[1], padlen)
 X_train = [np.asarray(X_train_1),np.asarray(X_train_2)]
-X_valid = [np.asarray(pad_data(X_valid[0], padlen)),np.asarray(pad_data(X_valid[1], padlen))]
+X_valid_1 = pad_data(X_valid[0], padlen)
+X_valid_2 = pad_data(X_valid[1], padlen)
+X_valid = [np.asarray(X_valid_1),np.asarray(X_valid_2)]
 X_test = [pad_data(X_test[0], padlen),pad_data(X_test[1], padlen)]
 
 print('Train:',len(X_train[0]), 'Valid:',len(X_valid[0]), 'Test:',len(X_test[0]))
@@ -162,7 +168,7 @@ find_lr = bool(int(net_params['find_lr']))
 
 
 #Fixed params
-num_classes = len(bins)+1
+num_classes = len(bins)
 vocab_sizes = [22, 22]
 batch_size = 20 #Number of alignments
 num_epochs = base_epochs+finish_epochs
@@ -334,10 +340,10 @@ else:
 
   #Fit model
   model.fit(X_train, y_train, batch_size = batch_size,
-              epochs=num_epochs)
-              #validation_data=validation_data)
-              #shuffle=True) #Dont feed continuously
-	            #callbacks=callbacks)
+              epochs=num_epochs,
+              validation_data=validation_data,
+              shuffle=True, #Dont feed continuously
+	      callbacks=callbacks)
 
 
   #Save model for future use
