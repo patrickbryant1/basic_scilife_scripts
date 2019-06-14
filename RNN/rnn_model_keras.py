@@ -50,7 +50,7 @@ def read_net_params(params_file):
 def pad_data(X, padlen):
 	'''Pads entries in each batch with zeros to have equal lengths
 	'''
-	
+
 	#Loop through X
 	X_pad = [] #save padded data
 	for i in range(0,len(X)):
@@ -92,24 +92,20 @@ enc2 = []
 #Get longest alignment
 enc_lens = []
 [enc_lens.append(len(x)) for x in enc1]
+#Get MLAAdist
+evdist = complete_df['MLAAdist_x']
 #Convert to array
-X = [np.asarray(enc1), np.asarray(enc2)]
+X = [np.asarray(enc1), np.asarray(enc2), np.asarray(evdist)]
 X = np.asarray(X)#Convert to np array
 X = X.T #transpose
 #One-hot encode binned data
-#(Pdb) max(deviations)
-#2.7734303385517078
-#(Pdb) min(deviations)
-#-3.7769327831687929
+#-4.2478745796221045 2.871030140344752
 bins = np.arange(-1,1.1,0.1)
-bins = np.insert(bins,0, -3.8)
-bins = np.append(bins, 2.8)
+bins = np.insert(bins,0, -4.3)
+bins = np.append(bins, 2.9)
 #Bin the TMscore deviations
 deviations = complete_df['deviation']
-#(Pdb) max(deviations)
-#2.7734303385517078
-#(Pdb) min(deviations)
-#-3.7769327831687929
+
 
 binned_deviations = np.digitize(deviations, bins)
 np.asarray(binned_deviations)
@@ -127,10 +123,6 @@ X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=
 X_train = X_train.T
 X_valid = X_valid.T
 X_test = X_test.T
-#Set as two separate arrays for encoding representation
-X_train = [X_train[0],X_train[1]]
-X_valid = [X_valid[0],X_valid[1]]
-X_test = [X_test[0],X_test[1]]
 
 #Pad data
 #Get longest alignment
@@ -138,14 +130,14 @@ padlen = max(enc_lens)
 #Set as two separate arrays for encoding representation
 X_train_1 = pad_data(X_train[0], padlen)
 X_train_2 = pad_data(X_train[1], padlen)
-X_train = [np.asarray(X_train_1),np.asarray(X_train_2)]
+X_train_3 = [np.repeat(x, padlen) for x in X_train[2]] #Repeat evdist to feed at each step in lstm
+X_train = [np.asarray(X_train_1),np.asarray(X_train_2), np.asarray(X_train_3)]
 X_valid_1 = pad_data(X_valid[0], padlen)
 X_valid_2 = pad_data(X_valid[1], padlen)
-X_valid = [np.asarray(X_valid_1),np.asarray(X_valid_2)]
-X_test = [pad_data(X_test[0], padlen),pad_data(X_test[1], padlen)]
+X_valid_3 = [np.repeat(x, padlen) for x in X_valid[2]]
+X_valid = [np.asarray(X_valid_1),np.asarray(X_valid_2),  np.asarray(X_valid_3)]
 
-print('Train:',len(X_train[0]), 'Valid:',len(X_valid[0]), 'Test:',len(X_test[0]))
-
+#X_test = [pad_data(X_test[0], padlen),pad_data(X_test[1], padlen)]
 
 
 
@@ -183,18 +175,21 @@ max_lr = 0.01
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
 
-
+pdb.set_trace()
 #####LAYERS#####
 
 #Define 6 different embeddings and cat
-embed1_in = keras.Input(shape = [None])
-embed1 = Embedding(vocab_sizes[0] ,embedding_size, input_length = None)(embed1_in)#None indicates a variable input length
-embed2_in =  keras.Input(shape =  [None])
-embed2 = Embedding(vocab_sizes[1] ,embedding_size, input_length = None)(embed2_in)#None indicates a variable input length
+embed1_in = keras.Input(shape = [padlen])
+embed1 = Embedding(vocab_sizes[0] ,embedding_size, input_length = padlen)(embed1_in)#None indicates a variable input length
+embed1 = Flatten()(embed1) #Has shape none,none,embedding_size - incompatible with evdist_in
+embed2_in = keras.Input(shape =  [padlen])
+embed2 = Embedding(vocab_sizes[1] ,embedding_size, input_length = padlen)(embed2_in)#None indicates a variable input length
+embed2 = Flatten()(embed2)
+evdist_in = keras.Input(shape = [padlen])
 
-
-cat_embeddings = concatenate([(embed1), (embed2)])
+cat_embeddings = concatenate([(embed1), (embed2), (evdist_in)])
 #cat_embeddings = BatchNormalization()(cat_embeddings) #Bacth normalize, focus on segment of input
+cat_embeddings = Reshape((padlen*embedding_size*2,1))(cat_embeddings)
 cat_embeddings = Dropout(rate = drop_rate, name = 'cat_embed_dropped')(cat_embeddings) #Dropout
 
 
@@ -242,7 +237,7 @@ probabilities = Dense(num_classes, activation='softmax')(sent_representation)
 
 
 #Model: define inputs and outputs
-model = Model(inputs = [embed1_in, embed2_in], outputs = probabilities)
+model = Model(inputs = [embed1_in, embed2_in, evdist_in], outputs = probabilities)
 
 #Compile model
 model.compile(loss='categorical_crossentropy', #[categorical_focal_loss(alpha=.25, gamma=2)],
