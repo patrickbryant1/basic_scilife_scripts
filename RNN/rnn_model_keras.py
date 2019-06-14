@@ -175,7 +175,6 @@ max_lr = 0.01
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
 
-pdb.set_trace()
 #####LAYERS#####
 
 #Define 6 different embeddings and cat
@@ -189,7 +188,7 @@ evdist_in = keras.Input(shape = [padlen])
 
 cat_embeddings = concatenate([(embed1), (embed2), (evdist_in)])
 #cat_embeddings = BatchNormalization()(cat_embeddings) #Bacth normalize, focus on segment of input
-cat_embeddings = Reshape((padlen*embedding_size*2,1))(cat_embeddings)
+cat_embeddings = Reshape((padlen*embedding_size*2+padlen,1))(cat_embeddings)
 cat_embeddings = Dropout(rate = drop_rate, name = 'cat_embed_dropped')(cat_embeddings) #Dropout
 
 
