@@ -62,8 +62,7 @@ def pad_data(X, padlen):
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for predicting
-                                                                RMSD between structural alignments based on sequences from per-residue alignments,
-                                                                secondary structure and surface accessibility.''')
+                                                MSD between structural alignments .''')
 
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to dataframe in .csv.')
