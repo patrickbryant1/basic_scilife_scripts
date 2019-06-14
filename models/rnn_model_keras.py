@@ -99,16 +99,16 @@ X = np.asarray(X)#Convert to np array
 X = X.T #transpose
 #One-hot encode binned data
 #-4.2478745796221045 2.871030140344752
-bins = np.arange(-1,1.1,0.1)
-bins = np.insert(bins,0, -4.3)
-bins = np.append(bins, 2.9)
-#Bin the TMscore deviations
-deviations = complete_df['deviation']
+bins = np.arange(0.5,2.5,0.25)
+bins = np.insert(bins,0, 0)
+bins = np.append(bins, 4.5)
+#Bin the TMscore RMSDs
+rmsds = complete_df['RMSD_x']
 
 
-binned_deviations = np.digitize(deviations, bins)
-np.asarray(binned_deviations)
-y = np.eye(len(bins))[binned_deviations] #deviations_hot
+binned_rmsds = np.digitize(rmsds, bins)
+np.asarray(binned_rmsds)
+y = np.eye(len(bins))[binned_rmsds] #deviations_hot
 
 #Split train data to use 80% for training and 10% for validation and 10 % for testing.
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -130,11 +130,11 @@ padlen = max(enc_lens)
 X_train_1 = pad_data(X_train[0], padlen)
 X_train_2 = pad_data(X_train[1], padlen)
 X_train_3 = [np.repeat(x, padlen) for x in X_train[2]] #Repeat evdist to feed at each step in lstm
-X_train = [np.asarray(X_train_1),np.asarray(X_train_2), np.asarray(X_train_3)]
+X_train = [np.asarray(X_train_1),np.asarray(X_train_2)] #, np.asarray(X_train_3)]
 X_valid_1 = pad_data(X_valid[0], padlen)
 X_valid_2 = pad_data(X_valid[1], padlen)
 X_valid_3 = [np.repeat(x, padlen) for x in X_valid[2]]
-X_valid = [np.asarray(X_valid_1),np.asarray(X_valid_2),  np.asarray(X_valid_3)]
+X_valid = [np.asarray(X_valid_1),np.asarray(X_valid_2)] #,  np.asarray(X_valid_3)]
 
 #X_test = [pad_data(X_test[0], padlen),pad_data(X_test[1], padlen)]
 
@@ -179,15 +179,15 @@ lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
 #Define 6 different embeddings and cat
 embed1_in = keras.Input(shape = [padlen])
 embed1 = Embedding(vocab_sizes[0] ,embedding_size, input_length = padlen)(embed1_in)#None indicates a variable input length
-embed1 = Flatten()(embed1) #Has shape none,none,embedding_size - incompatible with evdist_in
+#embed1 = Flatten()(embed1) #Has shape none,none,embedding_size - incompatible with evdist_in
 embed2_in = keras.Input(shape =  [padlen])
 embed2 = Embedding(vocab_sizes[1] ,embedding_size, input_length = padlen)(embed2_in)#None indicates a variable input length
-embed2 = Flatten()(embed2)
-evdist_in = keras.Input(shape = [padlen])
+#embed2 = Flatten()(embed2)
+#evdist_in = keras.Input(shape = [padlen])
 
-cat_embeddings = concatenate([(embed1), (embed2), (evdist_in)])
+cat_embeddings = concatenate([(embed1), (embed2)]) #, (evdist_in)])
 #cat_embeddings = BatchNormalization()(cat_embeddings) #Bacth normalize, focus on segment of input
-cat_embeddings = Reshape((padlen*embedding_size*2+padlen,1))(cat_embeddings)
+#cat_embeddings = Reshape((padlen*embedding_size*2+padlen,1))(cat_embeddings)
 cat_embeddings = Dropout(rate = drop_rate, name = 'cat_embed_dropped')(cat_embeddings) #Dropout
 
 
@@ -235,7 +235,7 @@ probabilities = Dense(num_classes, activation='softmax')(sent_representation)
 
 
 #Model: define inputs and outputs
-model = Model(inputs = [embed1_in, embed2_in, evdist_in], outputs = probabilities)
+model = Model(inputs = [embed1_in, embed2_in], outputs = probabilities)
 
 #Compile model
 model.compile(loss='categorical_crossentropy', #[categorical_focal_loss(alpha=.25, gamma=2)],
