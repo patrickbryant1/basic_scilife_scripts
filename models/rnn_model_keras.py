@@ -109,7 +109,7 @@ rmsds = complete_df['RMSD_x']
 binned_rmsds = np.digitize(rmsds, bins)
 np.asarray(binned_rmsds)
 y = np.eye(len(bins))[binned_rmsds] #deviations_hot
-
+#If you pass a df entry to split it will keep track of the index --> can backtrack
 #Split train data to use 80% for training and 10% for validation and 10 % for testing.
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
 #Random state = 42 guarantees the split is the same every time. This can be both bad and good, depending on

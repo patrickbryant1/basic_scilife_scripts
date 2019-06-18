@@ -13,6 +13,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.ensemble import RandomForestClassifier
 from collections import Counter
 
+import matplotlib.pyplot as plt
 import pdb
 
 #Arguments for argparse module:
@@ -57,15 +58,27 @@ enc1 = []
 enc2 = []
 [enc1.append(literal_eval(x)) for x in complete_df['enc1']]
 [enc2.append(literal_eval(x)) for x in complete_df['enc2']]
-#Get longest alignment
+#Get lengths
+l1 = complete_df['l1']
+l2 = complete_df['l2']
+aln_len = complete_df['aln_len']
 enc_feature = []
+
 for i in range(0, len(enc1)):
     enc_feature.append(count_aa(enc1[i]))
     enc_feature[i].extend(count_aa(enc2[i]))
+    enc_feature[i].append(l1[i])
+    enc_feature[i].append(l2[i])
+    enc_feature[i].append(aln_len[i])
+
+
+
 #Get RMSDs
 rmsds = complete_df['RMSD_x']
-bins = np.arange(0,4.5,0.125)
-
+bins = np.arange(0,4.5,0.1)
+#bins = np.arange(0.5,2.5,0.05)
+#bins = np.insert(bins,0, 0)
+#bins = np.append(bins, 4.5)
 #Bin the TMscore RMSDs
 binned_rmsds = np.digitize(rmsds, bins)
 
