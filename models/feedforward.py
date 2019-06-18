@@ -47,7 +47,7 @@ def pad_data(X, padlen):
 
 	return X_pad
 
-def create_features(df):
+def create_features(df, padlen):
     '''Get features
     '''
     #Get MLAAdist
@@ -67,14 +67,9 @@ def create_features(df):
     l2 = np.asarray(l2).reshape(len(l2),1)
     aln_len = np.asarray(aln_len).reshape(len(aln_len),1)
 
-    #Get longest alignment
-    enc_lens = []
-    [enc_lens.append(len(x)) for x in enc1]
-    #PAD encodings
-    padlen = max(enc_lens)
+
     enc1 = pad_data(enc1, padlen)
     enc2 = pad_data(enc2, padlen)
-
     #Concat all features
     enc_feature = np.concatenate((np.asarray(enc1), np.asarray(enc2), l1, l2, aln_len, evdist), axis = 1)
 
@@ -89,7 +84,7 @@ def create_features(df):
 
     #Data
     X = np.asarray(enc_feature)
-    y = np.asarray(binned_rmsds)
+    y = np.eye(len(bins))[binned_rmsds-1] #deviations_hot
 
     return(X, y)
 #MAIN
@@ -100,14 +95,17 @@ out_dir = args.out_dir[0]
 #Assign data and labels
 #Read df
 complete_df = pd.read_csv(dataframe)
-
+#Get longest alignment
+enc_lens = []
+[enc_lens.append(len(literal_eval(x))) for x in complete_df['enc1']]
+padlen = max(enc_lens)
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
 train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
-X_train,y_train = create_features(train_df)
-X_valid,y_valid = create_features(valid_df)
+X_train,y_train = create_features(train_df, padlen)
+X_valid,y_valid = create_features(valid_df, padlen)
 #MODEL PARAMETERS
 num_nodes = 300
 input_dim = len(X_train[0])

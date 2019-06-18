@@ -25,9 +25,11 @@ from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
 from tensorflow.keras.callbacks import TensorBoard
 
 import pdb
+
+from model_inputs import split_on_h_group
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that reads a keras model from a .json and a .h5 file''')
- 
+
 parser.add_argument('json_file', nargs=1, type= str,
                   default=sys.stdin, help = 'path to .json file with keras model to be opened')
 
@@ -121,7 +123,7 @@ X_train_2 = pad_data(X_train[1], padlen)
 X_train = [np.asarray(X_train_1),np.asarray(X_train_2)] #, np.asarray(X_train_3)]
 X_valid_1 = pad_data(X_valid[0], padlen)
 X_valid_2 = pad_data(X_valid[1], padlen)
-X_valid = [np.asarray(X_valid_1),np.asarray(X_valid_2)] 
+X_valid = [np.asarray(X_valid_1),np.asarray(X_valid_2)]
 
 #Load and run model
 model = load_model(json_file, weights)
@@ -136,5 +138,3 @@ argmax_valid = np.argmax(y_valid, axis = 1)
 average_error = np.average(np.absolute(called-argmax_valid))
 print(average_error)
 pdb.set_trace()
-
-
