@@ -13,6 +13,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.ensemble import RandomForestClassifier
 from collections import Counter
 
+from sklearn.linear_model import LinearRegression
+
 import matplotlib.pyplot as plt
 import pdb
 
@@ -99,6 +101,13 @@ model.fit(X_train, y_train)
 rf_predictions = model.predict(X_valid)
 #Average error
 average_error = np.average(np.absolute(rf_predictions-y_valid))
+print(average_error)
+
+#Compare with linear regression
+pdb.set_trace()
+reg = LinearRegression().fit(np.asarray(evdist).reshape(-1,1), rmsds)
+reg_predictions = reg.predict(np.asarray(evdist).reshape(-1,1))
+average_error = np.average(np.absolute(reg_predictions-rmsds))
 print(average_error)
 pdb.set_trace()
 #check = Counter(np.absolute(rf_predictions-y_valid))
