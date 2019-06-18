@@ -70,6 +70,7 @@ for i in range(0, len(enc1)):
     enc_feature[i].append(l1[i])
     enc_feature[i].append(l2[i])
     enc_feature[i].append(aln_len[i])
+    enc_feature[i].append(evdist[i])
 
 
 
@@ -100,3 +101,5 @@ rf_predictions = model.predict(X_valid)
 average_error = np.average(np.absolute(rf_predictions-y_valid))
 print(average_error)
 pdb.set_trace()
+#check = Counter(np.absolute(rf_predictions-y_valid))
+#plt.bar([*check.keys()], [*check.values()])
