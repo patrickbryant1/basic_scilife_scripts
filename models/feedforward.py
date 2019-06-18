@@ -21,6 +21,7 @@ from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Dropout, Activation
 from tensorflow.keras.callbacks import TensorBoard
 
+from model_inputs import split_on_h_group
 import pdb
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for predicting
@@ -46,6 +47,51 @@ def pad_data(X, padlen):
 
 	return X_pad
 
+def create_features(df):
+    '''Get features
+    '''
+    #Get MLAAdist
+    evdist = df['MLAAdist_x']
+    evdist = np.asarray(evdist).reshape(len(evdist),1)
+
+    #Get encodings
+    enc1 = []
+    enc2 = []
+    [enc1.append(literal_eval(x)) for x in df['enc1']]
+    [enc2.append(literal_eval(x)) for x in df['enc2']]
+    #Get lengths
+    l1 = df['l1']
+    l2 = df['l2']
+    aln_len =df['aln_len']
+    l1 = np.asarray(l1).reshape( len(l1),1)
+    l2 = np.asarray(l2).reshape(len(l2),1)
+    aln_len = np.asarray(aln_len).reshape(len(aln_len),1)
+
+    #Get longest alignment
+    enc_lens = []
+    [enc_lens.append(len(x)) for x in enc1]
+    #PAD encodings
+    padlen = max(enc_lens)
+    enc1 = pad_data(enc1, padlen)
+    enc2 = pad_data(enc2, padlen)
+
+    #Concat all features
+    enc_feature = np.concatenate((np.asarray(enc1), np.asarray(enc2), l1, l2, aln_len, evdist), axis = 1)
+
+    #Get RMSDs
+    rmsds = df['RMSD_x']
+    bins = np.arange(0,4.5,0.1)
+    #bins = np.arange(0.5,2.5,0.05)
+    #bins = np.insert(bins,0, 0)
+    #bins = np.append(bins, 4.5)
+    #Bin the TMscore RMSDs
+    binned_rmsds = np.digitize(rmsds, bins)
+
+    #Data
+    X = np.asarray(enc_feature)
+    y = np.asarray(binned_rmsds)
+
+    return(X, y)
 #MAIN
 args = parser.parse_args()
 dataframe = args.dataframe[0]
@@ -55,51 +101,13 @@ out_dir = args.out_dir[0]
 #Read df
 complete_df = pd.read_csv(dataframe)
 
-#Get MLAAdist
-evdist = complete_df['MLAAdist_x']
-evdist = np.asarray(evdist).reshape(len(evdist),1)
-#Get encodings
-enc1 = []
-enc2 = []
-[enc1.append(literal_eval(x)) for x in complete_df['enc1']]
-[enc2.append(literal_eval(x)) for x in complete_df['enc2']]
-#Get longest alignment
-enc_lens = []
-[enc_lens.append(len(x)) for x in enc1]
-#PAD encodings
-padlen = max(enc_lens)
-enc1 = pad_data(enc1, padlen)
-enc2 = pad_data(enc2, padlen)
-
-#Get lengths and reshape to 2D
-l1 = complete_df['l1']
-l2 = complete_df['l2']
-aln_len = complete_df['aln_len']
-l1 = np.asarray(l1).reshape(len(l1),1)
-l2 = np.asarray(l2).reshape(len(l2),1)
-aln_len = np.asarray(aln_len).reshape(len(aln_len),1)
-
-#Create input features
-#Concat all features
-enc_feature = np.concatenate((np.asarray(enc1), np.asarray(enc2), l1, l2, aln_len, evdist), axis = 1)
-
-
-#Get RMSDs
-rmsds = complete_df['RMSD_x']
-bins = np.arange(0,4.5,0.1)
-#bins = np.arange(0.5,2.5,0.05)
-#bins = np.insert(bins,0, 0)
-#bins = np.append(bins, 4.5)
-#Bin the TMscore RMSDs
-binned_rmsds = np.digitize(rmsds, bins)
-#Data
-X = np.asarray(enc_feature)
-y = np.eye(len(bins))[binned_rmsds-1] #deviations_hot (-1 since start should be 0)
-
 #Split
-X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
-
-
+train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
+valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
+test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
+X_train,y_train = create_features(train_df)
+X_valid,y_valid = create_features(valid_df)
 #MODEL PARAMETERS
 num_nodes = 300
 input_dim = len(X_train[0])

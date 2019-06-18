@@ -15,6 +15,7 @@ from collections import Counter
 
 from sklearn.linear_model import LinearRegression
 
+from model_inputs import split_on_h_group
 import matplotlib.pyplot as plt
 import pdb
 
@@ -49,48 +50,62 @@ def count_aa(encoding):
             aa_feature.append(0)
 
     return aa_feature
+
+
+def create_features(df):
+    '''Get features
+    '''
+    #Get MLAAdist
+    evdist = np.asarray(df['MLAAdist_x'])
+
+    #Get encodings
+    enc1 = []
+    enc2 = []
+    [enc1.append(literal_eval(x)) for x in df['enc1']]
+    [enc2.append(literal_eval(x)) for x in df['enc2']]
+    #Get lengths
+    l1 = np.asarray(df['l1'])
+    l2 = np.asarray(df['l2'])
+    aln_len = np.asarray(df['aln_len'])
+    enc_feature = []
+
+
+    for i in range(0, len(enc1)):
+        enc_feature.append(count_aa(enc1[i]))
+        enc_feature[i].extend(count_aa(enc2[i]))
+        enc_feature[i].append(l1[i])
+        enc_feature[i].append(l2[i])
+        enc_feature[i].append(aln_len[i])
+        enc_feature[i].append(evdist[i])
+
+
+
+    #Get RMSDs
+    rmsds = df['RMSD_x']
+    bins = np.arange(0,4.5,0.1)
+    #bins = np.arange(0.5,2.5,0.05)
+    #bins = np.insert(bins,0, 0)
+    #bins = np.append(bins, 4.5)
+    #Bin the TMscore RMSDs
+    binned_rmsds = np.digitize(rmsds, bins)
+
+    #Data
+    X = np.asarray(enc_feature)
+    y = np.asarray(binned_rmsds)
+
+    return(X, y)
 #Assign data and labels
 #Read df
 complete_df = pd.read_csv(dataframe)
-#Get MLAAdist
-evdist = complete_df['MLAAdist_x']
-
-#Get encodings
-enc1 = []
-enc2 = []
-[enc1.append(literal_eval(x)) for x in complete_df['enc1']]
-[enc2.append(literal_eval(x)) for x in complete_df['enc2']]
-#Get lengths
-l1 = complete_df['l1']
-l2 = complete_df['l2']
-aln_len = complete_df['aln_len']
-enc_feature = []
-
-for i in range(0, len(enc1)):
-    enc_feature.append(count_aa(enc1[i]))
-    enc_feature[i].extend(count_aa(enc2[i]))
-    enc_feature[i].append(l1[i])
-    enc_feature[i].append(l2[i])
-    enc_feature[i].append(aln_len[i])
-    enc_feature[i].append(evdist[i])
-
-
-
-#Get RMSDs
-rmsds = complete_df['RMSD_x']
-bins = np.arange(0,4.5,0.1)
-#bins = np.arange(0.5,2.5,0.05)
-#bins = np.insert(bins,0, 0)
-#bins = np.append(bins, 4.5)
-#Bin the TMscore RMSDs
-binned_rmsds = np.digitize(rmsds, bins)
-
-#Data
-X = np.asarray(enc_feature)
-y = np.asarray(binned_rmsds)
 
 #Split
-X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
+valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
+test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
+X_train,y_train = create_features(train_df)
+X_valid,y_valid = create_features(valid_df)
+
 
 #RandomForestClassifier
 model = RandomForestClassifier(n_estimators=100, bootstrap = True, max_features = 'sqrt')
@@ -104,10 +119,9 @@ average_error = np.average(np.absolute(rf_predictions-y_valid))
 print(average_error)
 
 #Compare with linear regression
-pdb.set_trace()
-reg = LinearRegression().fit(np.asarray(evdist).reshape(-1,1), rmsds)
-reg_predictions = reg.predict(np.asarray(evdist).reshape(-1,1))
-average_error = np.average(np.absolute(reg_predictions-rmsds))
+reg = LinearRegression().fit(np.asarray(complete_df['MLAAdist_x']).reshape(-1,1), complete_df['RMSD_x'])
+reg_predictions = reg.predict(np.asarray(complete_df['MLAAdist_x']).reshape(-1,1))
+average_error = np.average(np.absolute(reg_predictions-complete_df['RMSD_x']))
 print(average_error)
 pdb.set_trace()
 #check = Counter(np.absolute(rf_predictions-y_valid))

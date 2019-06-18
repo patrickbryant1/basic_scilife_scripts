@@ -3,6 +3,7 @@
 
 from collections import Counter
 import random
+import numpy as np
 
 def split_on_h_group(complete_df, percentage):
     '''Split data into train, valid and test
