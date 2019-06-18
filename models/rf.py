@@ -58,10 +58,32 @@ enc2 = []
 [enc1.append(literal_eval(x)) for x in complete_df['enc1']]
 [enc2.append(literal_eval(x)) for x in complete_df['enc2']]
 #Get longest alignment
-enc1_feature = []
-enc2_feature = []
+enc_feature = []
 for i in range(0, len(enc1)):
-    enc1_feature.append(count_aa(enc1[i]))
-    enc2_feature.append(count_aa(enc2[i]))
+    enc_feature.append(count_aa(enc1[i]))
+    enc_feature[i].extend(count_aa(enc2[i]))
+#Get RMSDs
+rmsds = complete_df['RMSD_x']
+bins = np.arange(0,4.5,0.125)
 
+#Bin the TMscore RMSDs
+binned_rmsds = np.digitize(rmsds, bins)
+
+#Data
+X = np.asarray(enc_feature)
+y = np.asarray(binned_rmsds)
+
+#Split
+X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+
+#RandomForestClassifier
+model = RandomForestClassifier(n_estimators=100, bootstrap = True, max_features = 'sqrt')
+# Fit on training data
+model.fit(X_train, y_train)
+
+#predict
+rf_predictions = model.predict(X_valid)
+#Average error
+average_error = np.average(np.absolute(rf_predictions-y_valid))
+print(average_error)
 pdb.set_trace()
