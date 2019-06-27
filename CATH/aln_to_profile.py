@@ -26,7 +26,8 @@ def match_hh(indir):
 	'''Match alignments to original HMMs and parse output to csv'''
 	
 	#Save matched hmms
-	matched_hmms =  pd.DataFrame(columns = ['uid1','uid2','hmm_list1', 'hmm_list2', 'transition_freq1', 'transition_freq2', 'local_div1', 'local_div2'])
+	columns = ['uid1','uid2','hmm_list1', 'hmm_list2', 'transition_freq1', 'transition_freq2', 'local_div1', 'local_div2']
+	matched_hmms = []
 
 	#Get .aln files
 	aln_files = glob.glob(indir +'*.aln')
@@ -48,7 +49,11 @@ def match_hh(indir):
 
 		m_hmm_list1, m_transition_freq1, m_local_div1 = match_seq_hmm(seq1, s1, hmm_list1, transition_freq1, local_div1)
 		m_hmm_list2, m_transition_freq2, m_local_div2 = match_seq_hmm(seq2, s2, hmm_list2, transition_freq2, local_div2)
-		pdb.set_trace()
+		matched_hmms.append([uids[0], uids[1],m_hmm_list1, m_hmm_list2, m_transition_freq1, m_transition_freq2, m_local_div1, m_local_div2])
+	
+	df = pd.DataFrame(matched_hmms, columns = columns)
+	df.to_csv('hmm_df.csv',index=False)
+
 	return None
 
 
@@ -84,9 +89,9 @@ def match_seq_hmm(seq, start, hmm_list, transition_freq, local_div):
 			if seq[i] != hmm_list[hmm_i][0]: #If the aa don't match
 				raise IOError("aa don't mtach!")
 
-			m_hmm_list.append(hmm_list[hmm_i])
-			m_transition_freq.append(transition_freq[hmm_i])
-			m_local_div.append(local_div[hmm_i])
+			m_hmm_list.append(hmm_list[hmm_i][1])
+			m_transition_freq.append(transition_freq[hmm_i+2])#Two first entries are that of the null model
+			m_local_div.append(local_div[hmm_i+2])#Two first entries are that of the null model
 			hmm_i +=1
 
 		else:#Gap: append zeros
@@ -102,7 +107,5 @@ def match_seq_hmm(seq, start, hmm_list, transition_freq, local_div):
 args = parser.parse_args()
 indir = args.indir[0]
 
-#Convert alignments to HMMs and run hhblits on them
+#Match alignments to HMMs 
 match_hh(indir)
-#Parse HMMs
-parse_hh(indir)
