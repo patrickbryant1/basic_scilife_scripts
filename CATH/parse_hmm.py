@@ -2,7 +2,7 @@ import sys
 import pdb
 
 def read_hmm(afile):
-
+    afile = open(afile, 'r')
     hmm_list = []
     null_model = []
     transition_freq = []
@@ -29,13 +29,14 @@ def read_hmm(afile):
 	        aa = line_arr[0]
                 freq = line_arr[2:22]
                 hmm_list.append((aa, freq))
-            
+    
+    afile.close()
     return hmm_list, null_model, transition_freq, local_div
 
 
 if __name__ == "__main__":
 
-    afile = open(sys.argv[1], 'r')
+    afile = sys.argv[1]
     hmm_list, null_model, transition_freq, local_div = read_hmm(afile) #The two first entries of the transition_freq and local_div will belong to the null model
     afile.close()
     pdb.set_trace()

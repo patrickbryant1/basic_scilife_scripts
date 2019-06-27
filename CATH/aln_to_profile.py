@@ -5,10 +5,11 @@
 import argparse
 import sys
 import glob
-
+import pandas as pd
 #Custom import
 from parse_hmm import read_hmm
-
+#Debugging
+import pdb
 
 
 #Arguments for argparse module:
@@ -44,17 +45,27 @@ def run_hh(indir, hhmake, hhblits, uniprot):
 		#Run hhblits on new HMM representation of aln
 		call_hhblits = hhblits +' -i ' + name + '.hhm -d ' + uniprot + ' -ohhm ' + name + '.re.hhm'
 		outp = subprocess.check_output(call_hhblits, shell = True)
+		pdb.set_trace()
+	return None
 
-
-def parsr_hh(indir):
+def parse_hh(indir):
 	'''Parse HMMs
 	'''
-
+	#Pandas df
+	df = pd.DataFrame(columns = ['uid1','uid2','hmm_list', 'null_model', 'transition_freq', 'local_div'])
 	#Get aligned hmm files blitsed against uiprot
         files = glob.glob(input_dir +'*re.hhm')
+	
 
 	for file in files:
-		read_hmm
+		hmm_list, null_model, transition_freq, local_div = read_hmm(file)
+		new_df = pd.DataFrame([hmm_list, null_model, transition_freq[1:], local_div[1:]], columns = ['uid1','uid2','hmm_list', 'null_model', 'transition_freq', 'local_div'])
+		df.append([hmm_list, null_model, transition_freq[1:], local_div[1:]], ignore_index = True)
+
+
+	df.to_csv('hmm_df.csv',index=False)
+
+	return None
 		
 #####MAIN#####
 args = parser.parse_args()
@@ -64,5 +75,7 @@ hhmake = args.hhmake[0]
 hhblits = args.hhblits[0]
 uniprot = args.uniprot[0]
 
-#Convert alignments to HMMs
+#Convert alignments to HMMs and run hhblits on them
 run_hh(indir, hhmake, hhblits, uniprot)
+#Parse HMMs
+parse_hh(indir)
