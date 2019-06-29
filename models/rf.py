@@ -10,7 +10,7 @@ import pandas as pd
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from collections import Counter
 
 from sklearn.linear_model import LinearRegression
@@ -91,7 +91,7 @@ def create_features(df):
 
     #Data
     X = np.asarray(enc_feature)
-    y = np.asarray(binned_rmsds)
+    y = np.asarray(rmsds) #binned_rmsds
 
     return(X, y)
 #Assign data and labels
@@ -108,16 +108,19 @@ X_valid,y_valid = create_features(valid_df)
 
 
 #RandomForestClassifier
-model = RandomForestClassifier(n_estimators=100, bootstrap = True, max_features = 'sqrt')
+clf = RandomForestClassifier(n_estimators=100, bootstrap = True, max_features = 'sqrt')
+rfreg = RandomForestRegressor(n_estimators=100, bootstrap = True, max_features = 'sqrt')
 # Fit on training data
-model.fit(X_train, y_train)
-
+clf.fit(X_train, y_train)
+rfreg.fit(X_train, y_train)
 #predict
-rf_predictions = model.predict(X_valid)
+clf_predictions = clf.predict(X_valid)
+rfreg_predictions = rfreg.predict(X_valid)
 #Average error
-average_error = np.average(np.absolute(rf_predictions-y_valid))
+average_error = np.average(np.absolute(clf_predictions-y_valid))
 print(average_error)
-
+average_error = np.average(np.absolute(rfreg_predictions-y_valid))
+print(average_error)
 #Compare with linear regression
 reg = LinearRegression().fit(np.asarray(complete_df['MLAAdist_x']).reshape(-1,1), complete_df['RMSD_x'])
 reg_predictions = reg.predict(np.asarray(complete_df['MLAAdist_x']).reshape(-1,1))
