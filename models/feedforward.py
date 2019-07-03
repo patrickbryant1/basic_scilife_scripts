@@ -13,7 +13,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from collections import Counter
 import math
 import time
-
+import tables
 
 from tensorflow.keras import regularizers
 from tensorflow.keras.constraints import max_norm
@@ -21,7 +21,7 @@ from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Dropout, Activation
 from tensorflow.keras.callbacks import TensorBoard
 
-from model_inputs import split_on_h_group
+from model_inputs import split_on_h_group, pad_cut
 import pdb
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
@@ -30,94 +30,125 @@ parser = argparse.ArgumentParser(description = '''A Neural Network for predictin
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to dataframe in .csv.')
 
-parser.add_argument('h5', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to .h5 file with profiles.')                 
+parser.add_argument('h5_path', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to .h5 file with profiles.')
 
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
 
 #FUNCTIONS
-def pad_data(X, padlen):
-	'''Pads entries in each batch with zeros to have equal lengths
-	'''
+def pad_cut(ar, x):
+    '''Pads or cuts a 1D array to len x
+    '''
 
-	#Loop through X
-	X_pad = [] #save padded data
-	for i in range(0,len(X)):
-		if len(X[i])>padlen:
-			pdb.set_trace()
-		X_pad.append(np.pad(X[i], (0,padlen-len(X[i])), 'constant'))
+    if len(ar) < x:
+        ar = np.pad(ar, (0,x-len(ar)), 'constant')
+    else:
+        ar = ar[0:x]
 
-	return X_pad
+    return ar
 
-def create_features(df, padlen):
+def create_features(df, h5_path):
     '''Get features
     '''
+    #Open h5
+    h5 = tables.open_file(h5_path)
+    #Get H_groups
+    groups = [*Counter(df['H_group_x']).keys()]
     #Get MLAAdist
-    evdist = df['MLAAdist_x']
-    evdist = np.asarray(evdist).reshape(len(evdist),1)
-
-    #Get encodings
-    enc1 = []
-    enc2 = []
-    [enc1.append(literal_eval(x)) for x in df['enc1']]
-    [enc2.append(literal_eval(x)) for x in df['enc2']]
-    #Get lengths
-    l1 = df['l1']
-    l2 = df['l2']
-    aln_len =df['aln_len']
-    l1 = np.asarray(l1).reshape( len(l1),1)
-    l2 = np.asarray(l2).reshape(len(l2),1)
-    aln_len = np.asarray(aln_len).reshape(len(aln_len),1)
+    evdist = np.asarray(df['MLAAdist_x'])
 
 
-    enc1 = pad_data(enc1, padlen)
-    enc2 = pad_data(enc2, padlen)
-    #Concat all features
-    enc_feature = np.concatenate((np.asarray(enc1), np.asarray(enc2), l1, l2, aln_len, evdist), axis = 1)
+    #Save features
+    enc_feature = []
 
-    #Get RMSDs
+    #Get hmms
+    for hgroup in groups:
+        group_data = df[df['H_group_x']==hgroup]
+        uid1 = [*group_data['uid1']]
+        uid2 = [*group_data['uid2']]
+
+        #Get lengths
+        l1 = np.asarray(group_data['l1'])
+        l2 = np.asarray(group_data['l2'])
+        aln_len = np.asarray(group_data['aln_len'])
+        #Get starts and ends
+        s1 = np.asarray(group_data['s1'])
+        s2 = np.asarray(group_data['s2'])
+        e1 = np.asarray(group_data['e1'])
+        e2 = np.asarray(group_data['e2'])
+
+        hgroup_s = hgroup.split('.')
+        group_name = 'h_'+hgroup_s[0]+'_'+hgroup_s[1]+'_'+hgroup_s[2]+'_'+hgroup_s[3]
+        for i in range(0,len(uid1)):
+            uids = uid1[i]+'_'+uid2[i]
+            hmm1 = pad_cut(np.concatenate(h5.root[group_name]['hmm1_'+uids][:]), 300*20)
+            hmm2 = pad_cut(np.concatenate(h5.root[group_name]['hmm2_'+uids][:]), 300*20)
+            tf1 = pad_cut(np.concatenate(h5.root[group_name]['tf1_'+uids][:]), 300*7)
+            tf2 = pad_cut(np.concatenate(h5.root[group_name]['tf2_'+uids][:]), 300*7)
+            ld1 = pad_cut(np.concatenate(h5.root[group_name]['ld1_'+uids][:]), 300*3)
+            ld2 = pad_cut(np.concatenate(h5.root[group_name]['ld2_'+uids][:]), 300*3)
+
+            #Cat all
+            cat = np.concatenate((hmm1, hmm2, tf1, tf2, ld1, ld2), axis = 0)
+
+            np.append(cat, l1[i])
+            np.append(cat, l2[i])
+            np.append(cat, aln_len[i])
+            np.append(cat, evdist[i])
+            np.append(cat, s1[i])
+            np.append(cat, s2[i])
+            np.append(cat, e1[i])
+            np.append(cat, e2[i])
+
+            enc_feature.append(cat) #Append to list
+
+    #Get RMSDs - should probably normalize with value 4,5 ?
     rmsds = df['RMSD_x']
     bins = np.arange(0,4.5,0.1)
-    #bins = np.arange(0.5,2.5,0.05)
-    #bins = np.insert(bins,0, 0)
-    #bins = np.append(bins, 4.5)
     #Bin the TMscore RMSDs
     binned_rmsds = np.digitize(rmsds, bins)
 
     #Data
     X = np.asarray(enc_feature)
-    y = np.eye(len(bins))[binned_rmsds-1] #deviations_hot
 
-    return(X, y)
+    y_binned = np.asarray(binned_rmsds)
+    y_binned = y_binned-1 #Needs to start at 0 for keras
+    y_hot = np.eye(len(bins))[y_binned]
+    #Close h5 file
+    h5.close()
+    return(X, y_hot)
+
+
 #MAIN
 args = parser.parse_args()
 dataframe = args.dataframe[0]
+h5_path = args.h5_path[0]
 out_dir = args.out_dir[0]
 
+#Open h5
+h5 = tables.open_file(h5_path)
 #Assign data and labels
 #Read df
 complete_df = pd.read_csv(dataframe)
-#Get longest alignment
-enc_lens = []
-[enc_lens.append(len(literal_eval(x))) for x in complete_df['enc1']]
-padlen = max(enc_lens)
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
 train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
-X_train,y_train = create_features(train_df, padlen)
-X_valid,y_valid = create_features(valid_df, padlen)
+
+X_train,y_train = create_features(train_df, h5_path)
+X_valid,y_valid = create_features(valid_df, h5_path)
 #MODEL PARAMETERS
 num_nodes = 300
-input_dim = len(X_train[0])
-num_labels = len(y_train[0])
-num_epochs = 20
+input_dim = max(X_train[0].shape)
+num_labels = max(y_train[0].shape)
+num_epochs = 2
 batch_size = 20
+
 #MODEL
 model = Sequential()
-model.add(Dense(num_nodes, input_dim=input_dim, activation="relu"))
+model.add(Dense(num_nodes, activation="relu"))
 model.add(Dense(num_nodes/2, activation="relu", kernel_initializer="uniform"))
 model.add(Dense(num_labels))
 model.add(Activation("softmax"))
@@ -136,4 +167,5 @@ pred = np.argmax(model.predict(X_valid), axis = 1)
 labels = np.argmax(y_valid, axis = 1)
 average_error = np.average(np.absolute(pred-labels))
 print(average_error)
-pdb.set_trace()
+#Close h5
+h5.close()
