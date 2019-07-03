@@ -24,11 +24,14 @@ from tensorflow.keras.callbacks import TensorBoard
 from model_inputs import split_on_h_group
 import pdb
 #Arguments for argparse module:
-parser = argparse.ArgumentParser(description = '''A Recurrent Neural Network for predicting
-                                                MSD between structural alignments .''')
+parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
+                                                RMSD between structural alignments .''')
 
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to dataframe in .csv.')
+
+parser.add_argument('h5', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to .h5 file with profiles.')                 
 
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')

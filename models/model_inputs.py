@@ -38,3 +38,15 @@ def split_on_h_group(complete_df, percentage):
 
 
     return train_groups, valid_groups, test_groups
+
+
+def pad_cut(ar, x):
+    '''Pads or cuts a 1D array to len x
+    '''
+    
+    if len(ar) < x:
+        ar = np.pad(ar, (0,x-len(ar)), 'constant')
+    else:
+        ar = ar[0:x]
+
+    return ar
