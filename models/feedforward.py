@@ -18,7 +18,7 @@ import tables
 from tensorflow.keras import regularizers
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Dropout, Activation
+from tensorflow.keras.layers import Dense, Dropout, Activation, Conv2D, Reshape
 from tensorflow.keras.callbacks import TensorBoard
 
 from model_inputs import split_on_h_group, pad_cut
@@ -90,17 +90,12 @@ def create_features(df, h5_path):
             ld2 = pad_cut(np.concatenate(h5.root[group_name]['ld2_'+uids][:]), 300*3)
 
             #Cat all
-            cat = np.concatenate((hmm1, hmm2, tf1, tf2, ld1, ld2), axis = 0)
+            cat1 = np.concatenate((hmm1, tf1, ld1), axis = 0)
+            cat2 = np.concatenate((hmm2, tf2, ld2), axis = 0)
 
-            np.append(cat, l1[i])
-            np.append(cat, l2[i])
-            np.append(cat, aln_len[i])
-            np.append(cat, evdist[i])
-            np.append(cat, s1[i])
-            np.append(cat, s2[i])
-            np.append(cat, e1[i])
-            np.append(cat, e2[i])
-
+            cat = np.asarray([cat1,cat2])
+            np.append(cat[0], evdist[i])
+            np.append(cat[1], evdist[i])
             enc_feature.append(cat) #Append to list
 
     #Get RMSDs - should probably normalize with value 4,5 ?
@@ -138,16 +133,19 @@ valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
 X_train,y_train = create_features(train_df, h5_path)
+X_train = X_train.reshape(len(X_train),9000,2,1)
 X_valid,y_valid = create_features(valid_df, h5_path)
+X_valid = X_valid.reshape(len(X_valid),9000,2,1)
 #MODEL PARAMETERS
 num_nodes = 300
-input_dim = max(X_train[0].shape)
+input_dim = X_train[0].shape
 num_labels = max(y_train[0].shape)
 num_epochs = 2
 batch_size = 20
-
+pdb.set_trace()
 #MODEL
 model = Sequential()
+model.add(Conv2D(64, kernel_size=3, activation='relu', input_shape = input_dim)) #3x3 filter matrix
 model.add(Dense(num_nodes, activation="relu"))
 model.add(Dense(num_nodes/2, activation="relu", kernel_initializer="uniform"))
 model.add(Dense(num_labels))
@@ -169,3 +167,4 @@ average_error = np.average(np.absolute(pred-labels))
 print(average_error)
 #Close h5
 h5.close()
+pdb.set_trace()
