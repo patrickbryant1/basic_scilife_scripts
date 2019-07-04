@@ -89,21 +89,22 @@ def create_features(df, h5_path):
             cat = np.append(cat, dist, axis = 0)
             enc_feature.append(cat) #Append to list
 
+
     #Get RMSDs - should probably normalize with value 4,5 ?
     rmsds = df['RMSD_x']
-    bins = np.arange(0,4.5,0.1)
+    #bins = np.arange(0,4.5,0.1)
     #Bin the TMscore RMSDs
-    binned_rmsds = np.digitize(rmsds, bins)
+    #binned_rmsds = np.digitize(rmsds, bins)
 
     #Data
     X = np.asarray(enc_feature)
-
-    y_binned = np.asarray(binned_rmsds)
-    y_binned = y_binned-1 #Needs to start at 0 for keras
-    y_hot = np.eye(len(bins))[y_binned]
+    y = np.asarray(rmsds)
+    #y_binned = np.asarray(binned_rmsds)
+    #y_binned = y_binned-1 #Needs to start at 0 for keras
+    #y_hot = np.eye(len(bins))[y_binned]
     #Close h5 file
     h5.close()
-    return(X, y_hot)
+    return(X, y)
 
 
 #MAIN
@@ -124,24 +125,25 @@ valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
 X_train,y_train = create_features(train_df, h5_path)
-X_train = X_train.reshape(len(X_train),9000,2,1)
+X_train = X_train.reshape(len(X_train),301,40,1)
 X_valid,y_valid = create_features(valid_df, h5_path)
-X_valid = X_valid.reshape(len(X_valid),9000,2,1)
+X_valid.reshape(len(X_valid),301,40,1)
+
 #MODEL PARAMETERS
 num_nodes = 300
 input_dim = X_train[0].shape
-num_labels = max(y_train[0].shape)
 num_epochs = 2
 batch_size = 20
 pdb.set_trace()
 #MODEL
 model = Sequential()
+#Should do a resnet with convolutions of 40xsome_number - capture
 model.add(Conv2D(64, kernel_size=3, activation='relu', input_shape = input_dim)) #3x3 filter matrix
 model.add(Dense(num_nodes, activation="relu"))
 model.add(Dense(num_nodes/2, activation="relu", kernel_initializer="uniform"))
-model.add(Dense(num_labels))
-model.add(Activation("softmax"))
-model.compile(loss='categorical_crossentropy', #[categorical_focal_loss(alpha=.25, gamma=2)],
+
+
+model.compile(loss='mean_squared_error', #[categorical_focal_loss(alpha=.25, gamma=2)],
               optimizer='adam',
               metrics=['accuracy'])
 
