@@ -40,9 +40,12 @@ parser.add_argument('out_dir', nargs=1, type= str,
 def pad_cut(ar, x):
     '''Pads or cuts a 1D array to len x
     '''
+    shape = ar.shape
 
-    if len(ar) < x:
-        ar = np.pad(ar, (0,x-len(ar)), 'constant')
+    if max(shape) < x:
+        empty = np.zeros((x,20))
+        empty[0:len(ar)]=ar
+        ar = empty
     else:
         ar = ar[0:x]
 
@@ -68,34 +71,22 @@ def create_features(df, h5_path):
         uid1 = [*group_data['uid1']]
         uid2 = [*group_data['uid2']]
 
-        #Get lengths
-        l1 = np.asarray(group_data['l1'])
-        l2 = np.asarray(group_data['l2'])
-        aln_len = np.asarray(group_data['aln_len'])
-        #Get starts and ends
-        s1 = np.asarray(group_data['s1'])
-        s2 = np.asarray(group_data['s2'])
-        e1 = np.asarray(group_data['e1'])
-        e2 = np.asarray(group_data['e2'])
 
         hgroup_s = hgroup.split('.')
         group_name = 'h_'+hgroup_s[0]+'_'+hgroup_s[1]+'_'+hgroup_s[2]+'_'+hgroup_s[3]
         for i in range(0,len(uid1)):
             uids = uid1[i]+'_'+uid2[i]
-            hmm1 = pad_cut(np.concatenate(h5.root[group_name]['hmm1_'+uids][:]), 300*20)
-            hmm2 = pad_cut(np.concatenate(h5.root[group_name]['hmm2_'+uids][:]), 300*20)
-            tf1 = pad_cut(np.concatenate(h5.root[group_name]['tf1_'+uids][:]), 300*7)
-            tf2 = pad_cut(np.concatenate(h5.root[group_name]['tf2_'+uids][:]), 300*7)
-            ld1 = pad_cut(np.concatenate(h5.root[group_name]['ld1_'+uids][:]), 300*3)
-            ld2 = pad_cut(np.concatenate(h5.root[group_name]['ld2_'+uids][:]), 300*3)
+            hmm1 = pad_cut(h5.root[group_name]['hmm1_'+uids][:], 300)
+            hmm2 = pad_cut(h5.root[group_name]['hmm2_'+uids][:], 300)
+            #tf1 = pad_cut(np.concatenate(h5.root[group_name]['tf1_'+uids][:]), 300*7)
+            #tf2 = pad_cut(np.concatenate(h5.root[group_name]['tf2_'+uids][:]), 300*7)
+            #ld1 = pad_cut(np.concatenate(h5.root[group_name]['ld1_'+uids][:]), 300*3)
+            #ld2 = pad_cut(np.concatenate(h5.root[group_name]['ld2_'+uids][:]), 300*3)
 
-            #Cat all
-            cat1 = np.concatenate((hmm1, tf1, ld1), axis = 0)
-            cat2 = np.concatenate((hmm2, tf2, ld2), axis = 0)
-
-            cat = np.asarray([cat1,cat2])
-            np.append(cat[0], evdist[i])
-            np.append(cat[1], evdist[i])
+            cat = np.concatenate((hmm1,hmm2), axis = 1)
+            dist = np.asarray([evdist[i]]*40)
+            dist = np.expand_dims(dist, axis=0)
+            cat = np.append(cat, dist, axis = 0)
             enc_feature.append(cat) #Append to list
 
     #Get RMSDs - should probably normalize with value 4,5 ?
