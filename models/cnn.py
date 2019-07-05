@@ -113,15 +113,16 @@ def create_features(df, h5_path, max_rmsd):
     #Bin the TMscore RMSDs
     #binned_rmsds = np.digitize(rmsds, bins)
     deviations = [*df['deviation']]
-    binned_deviations = []
-    t= 0.2
-    for i in range(0, len(deviations)):
-        if deviations[i] > t:
-            binned_deviations.append(2)
-        if deviations[i] < -t:
-            binned_deviations.append(0)
-        if np.absolute(deviations[i]) <= t:
-            binned_deviations.append(1)
+    bins = np.arange(min(deviations),max(deviations),0.2)
+    binned_deviations = np.digitize(deviations, bins)
+    #t= 0.15 #Maybe I should bin the deviations more than just +/- t: likely those deviating more are more different
+    #for i in range(0, len(deviations)):
+    #    if deviations[i] > t:
+    #        binned_deviations.append(2)
+    #    if deviations[i] < -t:
+    #        binned_deviations.append(0)
+    #    if np.absolute(deviations[i]) <= t:
+    #        binned_deviations.append(1)
     deviations_hot = np.eye(3)[binned_deviations]
 
 
@@ -161,7 +162,6 @@ X_valid,y_valid = create_features(valid_df, h5_path, max_rmsd)
 #X_valid = X_valid.reshape(len(X_valid),301,40,1)
 
 #MODEL PARAMETERS
-num_nodes = 301
 num_features = 84 #Perhaps add a one if not gap for each reisude = 42 features
 input_dim = X_train[0].shape
 num_epochs = 10
@@ -170,6 +170,8 @@ num_classes = 3
 seq_length = 301
 kernel_size = 1 #they usd 6 and 10 in paper: https://arxiv.org/pdf/1706.01010.pdf
 drop_rate = 0.5
+num_nodes = 301
+
 #MODEL
 in_params = keras.Input(shape = input_dim)
 
