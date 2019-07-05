@@ -18,7 +18,7 @@ import tables
 from tensorflow.keras import regularizers
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Dropout, Activation, Conv2D, Reshape
+from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D, GlobalAveragePooling1D
 from tensorflow.keras.callbacks import TensorBoard
 
 from model_inputs import split_on_h_group, pad_cut
@@ -51,7 +51,7 @@ def pad_cut(ar, x):
 
     return ar
 
-def create_features(df, h5_path):
+def create_features(df, h5_path, max_rmsd):
     '''Get features
     '''
     #Open h5
@@ -98,7 +98,7 @@ def create_features(df, h5_path):
 
     #Data
     X = np.asarray(enc_feature)
-    y = np.asarray(rmsds)
+    y = np.asarray(rmsds/max_rmsd)
     #y_binned = np.asarray(binned_rmsds)
     #y_binned = y_binned-1 #Needs to start at 0 for keras
     #y_hot = np.eye(len(bins))[y_binned]
@@ -124,26 +124,37 @@ train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
-X_train,y_train = create_features(train_df, h5_path)
-X_train = X_train.reshape(len(X_train),301,40,1)
-X_valid,y_valid = create_features(valid_df, h5_path)
-X_valid.reshape(len(X_valid),301,40,1)
+#Max rmsd for normalization
+max_rmsd = max(complete_df['RMSD_x'])
+X_train,y_train = create_features(train_df, h5_path, max_rmsd)
+#X_train = X_train.reshape(len(X_train),301,40,1) #Need 3 dim for 2d conv
+X_valid,y_valid = create_features(valid_df, h5_path, max_rmsd)
+#X_valid = X_valid.reshape(len(X_valid),301,40,1)
 
 #MODEL PARAMETERS
 num_nodes = 300
+num_features = 40
 input_dim = X_train[0].shape
 num_epochs = 2
-batch_size = 20
-pdb.set_trace()
+batch_size = 5
+
+seq_length = 301
+kernel_size = 6 #they usd 6 and 10 in paper: https://arxiv.org/pdf/1706.01010.pdf
 #MODEL
 model = Sequential()
 #Should do a resnet with convolutions of 40xsome_number - capture
-model.add(Conv2D(64, kernel_size=3, activation='relu', input_shape = input_dim)) #3x3 filter matrix
-model.add(Dense(num_nodes, activation="relu"))
-model.add(Dense(num_nodes/2, activation="relu", kernel_initializer="uniform"))
+model.add(Conv1D(seq_length, kernel_size, activation='relu', input_shape=(seq_length, num_features))) #1 filter per residue pair: keras.layers.Conv1D(filters, kernel_size,
+model.add(Conv1D(seq_length, kernel_size, activation='relu'))
+model.add(MaxPooling1D(3)) #Will be seq_length/pool size outp (they selected 30 numbers in paper --> pool_size = 10)
+model.add(Conv1D(128, 3, activation='relu'))
+model.add(Conv1D(128, 3, activation='relu'))
+model.add(GlobalAveragePooling1D())
+model.add(Dropout(0.5))
+model.add(Dense(1, kernel_initializer='normal')) #Dense implements the operation: output = activation(dot(input, kernel) + bias)
 
 
-model.compile(loss='mean_squared_error', #[categorical_focal_loss(alpha=.25, gamma=2)],
+print(model.summary())
+model.compile(loss='mean_absolute_error', #[categorical_focal_loss(alpha=.25, gamma=2)],
               optimizer='adam',
               metrics=['accuracy'])
 
@@ -153,10 +164,9 @@ model.fit(X_train, y_train, batch_size = batch_size,
              validation_data = [X_valid, y_valid],
              shuffle=True) #Dont feed continuously
 
-
-pred = np.argmax(model.predict(X_valid), axis = 1)
-labels = np.argmax(y_valid, axis = 1)
-average_error = np.average(np.absolute(pred-labels))
+pdb.set_trace()
+pred = model.predict(X_valid)
+average_error = np.average(np.absolute(pred-y_valid))
 print(average_error)
 #Close h5
 h5.close()
