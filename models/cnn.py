@@ -26,7 +26,7 @@ from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape,
 from tensorflow.keras.layers import Activation, RepeatVector, Permute, multiply, Lambda, GlobalAveragePooling1D
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten
 from tensorflow.keras.callbacks import TensorBoard
-
+from tensorflow.keras.backend import transpose
 #visualization
 from tensorflow.keras.callbacks import TensorBoard
 from model_inputs import split_on_h_group, pad_cut
@@ -59,7 +59,7 @@ def pad_cut(ar, x, y):
 
     return ar
 
-def create_features(df, h5_path, max_rmsd):
+def create_features(df, h5_path, min_val, max_val):
     '''Get features
     '''
     #Open h5
@@ -104,7 +104,7 @@ def create_features(df, h5_path, max_rmsd):
             dist = np.asarray([evdist[i]]*84)
             dist = np.expand_dims(dist, axis=0)
             cat = np.append(cat, dist, axis = 0)
-            enc_feature.append(cat) #Append to list
+            enc_feature.append(cat.T) #Append to list
 
 
     #Get RMSDs
@@ -113,7 +113,7 @@ def create_features(df, h5_path, max_rmsd):
     #Bin the TMscore RMSDs
     #binned_rmsds = np.digitize(rmsds, bins)
     deviations = [*df['deviation']]
-    bins = np.arange(min(deviations),max(deviations),0.2)
+    bins = np.arange(min_val,max_val,0.2)
     binned_deviations = np.digitize(deviations, bins)
     #t= 0.15 #Maybe I should bin the deviations more than just +/- t: likely those deviating more are more different
     #for i in range(0, len(deviations)):
@@ -123,8 +123,7 @@ def create_features(df, h5_path, max_rmsd):
     #        binned_deviations.append(0)
     #    if np.absolute(deviations[i]) <= t:
     #        binned_deviations.append(1)
-    deviations_hot = np.eye(3)[binned_deviations]
-
+    deviations_hot = np.eye(len(bins)+1)[binned_deviations]
 
     #Data
     X = np.asarray(enc_feature)
@@ -155,56 +154,64 @@ valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
 #Max rmsd for normalization
-max_rmsd = max(complete_df['RMSD_x'])
-X_train,y_train = create_features(train_df, h5_path, max_rmsd)
+max_val = max(complete_df['deviation'])
+min_val = min(complete_df['deviation'])
+X_train,y_train = create_features(train_df, h5_path, min_val, max_val)
 #X_train = X_train.reshape(len(X_train),301,40,1) #Need 3 dim for 2d conv
-X_valid,y_valid = create_features(valid_df, h5_path, max_rmsd)
+X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
 #X_valid = X_valid.reshape(len(X_valid),301,40,1)
 
 #MODEL PARAMETERS
 num_features = 84 #Perhaps add a one if not gap for each reisude = 42 features
 input_dim = X_train[0].shape
 num_epochs = 10
-batch_size = 5
-num_classes = 3
+batch_size = 10
+num_classes = max(y_train[0].shape)
 seq_length = 301
-kernel_size = 1 #they usd 6 and 10 in paper: https://arxiv.org/pdf/1706.01010.pdf
+kernel_size = 1 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.01010.pdf - but then no dilated conv
+filters = 100
 drop_rate = 0.5
 num_nodes = 301
+
+
+
 
 #MODEL
 in_params = keras.Input(shape = input_dim)
 
-def resnet(x, num_res_blocks, num_classes=num_classes):
+def resnet(x, num_res_blocks):
 	"""Builds a resnet with 1D convolutions of the defined depth.
 	"""
 
 # Instantiate the stack of residual units
+#Similar to ProtCNN, but they used batch_size = 64, 2000 filters and kernel size of 21
 	for res_block in range(num_res_blocks):
-		conv_out1 = Conv1D(seq_length, kernel_size, activation='relu', input_shape=(seq_length, num_features))(x)
-		conv_out1 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
-		conv_out1 = Dropout(rate = drop_rate)(conv_out1) #Dropout
-		conv_out2 = Conv1D(seq_length, kernel_size, activation='relu', input_shape=(seq_length, num_features))(conv_out1)
-		conv_out2 = BatchNormalization()(conv_out2) #Bacth normalize, focus on segment
-		conv_out2 = Dropout(rate = drop_rate)(conv_out2) #Dropout
+		batch_out1 = BatchNormalization()(x) #Bacth normalize, focus on segment
+		relu_out1 = Dense(num_nodes, activation='relu')(batch_out1)
+        #input_shape=(10, 128) for time series sequences of 10 time steps with 128 features per step
+		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, activation='relu', dilation_rate = 9, input_shape=input_dim)(relu_out1)
+		#conv_out1 = Dropout(rate = drop_rate)(conv_out1) #Dropout
+		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
+		relu_out2 = Dense(filters, activation='relu')(batch_out2)
+        #Filters to match input dim
+		conv_out2 = Conv1D(filters = 301, kernel_size = kernel_size, activation='relu', input_shape=input_dim)(relu_out2)
 
-		conv_add1 = add([conv_out1, conv_out2]) #Skip connection, add before or after dropout?
 
-		conv_out3 = Conv1D(seq_length, kernel_size, activation='relu', input_shape=(seq_length, num_features))(conv_add1)
-		conv_out3 = BatchNormalization()(conv_out3) #Bacth normalize, focus on segment
-		conv_out3 = Dropout(rate = drop_rate)(conv_out3) #Dropout
-		x = add([conv_out2, conv_out3])
+		conv_add1 = add([x, conv_out2]) #Skip connection
 
-	return x
+		x = conv_add1
+
+	return conv_add1
 #Create resnet and get outputs
-x = resnet(in_params, 1, num_classes)
+x = resnet(in_params, 1)
 
-
+#Average pool along sequence axis
+x = GlobalAveragePooling1D()(x) #data_format='channels_first'
 #Attention layer - information will be redistributed in the backwards pass
 attention = Dense(1, activation='tanh')(x) #Normalize and extract info with tanh activated weight matrix (hidden attention weights)
 attention = Flatten()(attention) #Make 1D
 attention = Activation('softmax')(attention) #Softmax on all activations (normalize activations)
-attention = RepeatVector(num_nodes)(attention) #Repeats the input "num_nodes" times.
+attention = RepeatVector(num_features)(attention) #Repeats the input "num_nodes" times.
 attention = Permute([2, 1])(attention) #Permutes the dimensions of the input according to a given pattern. (permutes pos 2 and 1 of attention)
 
 sent_representation = multiply([x, attention]) #Multiply input to attention with normalized activations
@@ -230,7 +237,7 @@ model.fit(X_train, y_train, batch_size = batch_size,
 
 
 pred = model.predict(X_valid)
-average_error = np.average(np.absolute(pred-y_valid))*max_rmsd
+average_error = np.average(np.absolute(pred-y_valid))*0.2
 print(average_error)
 #Close h5
 h5.close()
