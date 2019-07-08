@@ -166,7 +166,8 @@ X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
 #MODEL PARAMETERS
 num_features = min(X_train[0].shape) #Perhaps add a one if not gap for each reisude = 42 features
 input_dim = X_train[0].shape
-num_epochs = 10
+base_epochs = 10
+finish_epochs = 2
 batch_size = 10
 num_classes = max(y_train[0].shape)
 seq_length = 301
@@ -177,7 +178,14 @@ num_nodes = 301
 num_res_blocks = 1
 
 #lr opt
-find_lr = True
+find_lr = False
+#LR schedule
+
+num_epochs = base_epochs+finish_epochs
+max_lr = 0.01
+min_lr = max_lr/10
+lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
+
 #MODEL
 in_params = keras.Input(shape = input_dim)
 
@@ -259,7 +267,7 @@ if find_lr == True:
 
 else:
   lrate = LearningRateScheduler(lr_schedule)
-  callbacks=[tensorboard, checkpoint, lrate, cbk]
+  callbacks=[lrate]
   validation_data=(X_valid, y_valid)
 
 
@@ -270,8 +278,8 @@ print(model.summary())
 model.fit(X_train, y_train, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
-             shuffle=True) #Dont feed continuously
-             #callbacks=callbacks)
+             shuffle=True, #Dont feed continuously
+             callbacks=callbacks)
 
 pred = np.argmax(model.predict(X_valid), axis = 1)
 y_valid = np.argmax(y_valid, axis = 1)
