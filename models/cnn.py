@@ -26,7 +26,7 @@ from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D
 from tensorflow.keras.layers import Activation, RepeatVector, Permute, multiply, Lambda, GlobalAveragePooling1D
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten
-from tensorflow.keras.backend import epsilon, clip, sum, log, pow, mean
+from tensorflow.keras.backend import epsilon, clip, sum, log, pow, mean, get_value, set_value
 from tensorflow.layers import AveragePooling1D
 #visualization
 from tensorflow.keras.callbacks import TensorBoard
@@ -166,7 +166,7 @@ X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
 #MODEL PARAMETERS
 num_features = min(X_train[0].shape) #Perhaps add a one if not gap for each reisude = 42 features
 input_dim = X_train[0].shape
-base_epochs = 10
+base_epochs = 20
 finish_epochs = 2
 batch_size = 10
 num_classes = max(y_train[0].shape)
@@ -175,14 +175,15 @@ kernel_size = 1 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.010
 filters = 200
 drop_rate = 0.5
 num_nodes = 301
-num_res_blocks = 1
+num_res_blocks = 2
+dilation_rate = 3
 
 #lr opt
 find_lr = False
 #LR schedule
 
 num_epochs = base_epochs+finish_epochs
-max_lr = 0.01
+max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
 
@@ -199,7 +200,7 @@ def resnet(x, num_res_blocks):
 		batch_out1 = BatchNormalization()(x) #Bacth normalize, focus on segment
 		relu_out1 = Dense(num_nodes, activation='relu')(batch_out1)
         #input_shape=(10, 128) for time series sequences of 10 time steps with 128 features per step
-		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, activation='relu', dilation_rate = 3, input_shape=input_dim)(relu_out1)
+		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, activation='relu', dilation_rate = dilation_rate, input_shape=input_dim)(relu_out1)
 		#conv_out1 = Dropout(rate = drop_rate)(conv_out1) #Dropout
 		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
 		relu_out2 = Dense(filters, activation='relu')(batch_out2)
@@ -250,21 +251,22 @@ def lr_schedule(epochs):
 
 
 if find_lr == True:
-    # model is a Keras model
-    lr_finder = LRFinder(model)
+    num_epochs = 1
+    batch = 0
+    class LossHistory(Callback):
+        def on_train_begin(self, logs={}):
+            self.losses = []
+            self.lrs = []
 
-    # Train a model with batch size 20 for 5 epochs
-    # with learning rate growing exponentially from 0.000001 to 1
-    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=batch_size, epochs=1)
-    # Print lr and loss
+        def on_batch_end(self, batch, logs={}):
+            batch +=1
+            self.losses.append(logs.get('loss'))
+            set_value(model.optimizer.lr, 0.000001+(batch*((1-0.000001)/(len(X_train)/batch_size))))
+            lr = get_value(self.model.optimizer.lr)
+            self.lrs.append(lr)
 
-    x  = lr_finder.lrs
-    y = lr_finder.losses
-    pdb.set_trace()
-    with open(out_dir+'test.lr', "w") as file:
-        for i in range(min(len(x), len(y))):
-          	file.write(str(x[i]) + '\t' + str(y[i]) + '\n')
-
+    history = LossHistory()
+    callbacks=[history]
 else:
   lrate = LearningRateScheduler(lr_schedule)
   callbacks=[lrate]
@@ -275,16 +277,25 @@ else:
 print(model.summary())
 
  #Fit model
+
 model.fit(X_train, y_train, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
-             callbacks=callbacks)
+             callbacks=callbacks,
+             class_weight = [])
+
+#Get history: print(history.losses)
+if find_lr == True:
+    lrs = history.lrs
+    losses = history.losses
+    with open('lr_plot.tsv', 'w') as file:
+        for i in range(0, len(lrs)):
+            file.write(str(lrs[i])+'\t'+str(losses[i])+'\n')
 
 pred = np.argmax(model.predict(X_valid), axis = 1)
 y_valid = np.argmax(y_valid, axis = 1)
 average_error = np.average(np.absolute(pred-y_valid))
 print(average_error)
-#Close h5
-h5.close()
+
 pdb.set_trace()

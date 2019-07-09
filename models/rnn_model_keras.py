@@ -161,7 +161,7 @@ find_lr = bool(int(net_params['find_lr']))
 #Fixed params
 num_classes = len(bins)
 vocab_sizes = [22, 22]
-batch_size = 20 #Number of alignments
+batch_size = 1 #Number of alignments
 num_epochs = base_epochs+finish_epochs
 
 
@@ -313,11 +313,12 @@ if find_lr == True:
 
     # Train a model with batch size 20 for 5 epochs
     # with learning rate growing exponentially from 0.000001 to 1
-    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=20, epochs=1)
+    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=1, epochs=1)
     # Print lr and loss
 
     x  = lr_finder.lrs
     y = lr_finder.losses
+    pdb.set_trace()
     with open(out_dir+params_file.split('/')[-1].split('.')[0]+'.lr', "w") as file:
         for i in range(min(len(x), len(y))):
           	file.write(str(x[i]) + '\t' + str(y[i]) + '\n')
