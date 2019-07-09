@@ -18,18 +18,21 @@ import tables
 from ast import literal_eval
 
 #Keras
-from tensorflow.keras import regularizers
+from tensorflow.keras import regularizers,optimizers
 import tensorflow.keras as keras
 from tensorflow.keras.constraints import max_norm
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, Callback
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D
 from tensorflow.keras.layers import Activation, RepeatVector, Permute, multiply, Lambda, GlobalAveragePooling1D
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten
-from tensorflow.keras.callbacks import TensorBoard
-from tensorflow.keras.backend import transpose
+from tensorflow.keras.backend import epsilon, clip, sum, log, pow, mean
+from tensorflow.layers import AveragePooling1D
 #visualization
 from tensorflow.keras.callbacks import TensorBoard
+#Custom
 from model_inputs import split_on_h_group, pad_cut
+from lr_finder import LRFinder
 import pdb
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
@@ -92,16 +95,16 @@ def create_features(df, h5_path, min_val, max_val):
         group_name = 'h_'+hgroup_s[0]+'_'+hgroup_s[1]+'_'+hgroup_s[2]+'_'+hgroup_s[3]
         for i in range(0,len(uid1)):
             uids = uid1[i]+'_'+uid2[i]
-            hmm1 = pad_cut(h5.root[group_name]['hmm1_'+uids][:], 300, 20)
-            hmm2 = pad_cut(h5.root[group_name]['hmm2_'+uids][:], 300, 20)
+            #hmm1 = pad_cut(h5.root[group_name]['hmm1_'+uids][:], 300, 20)
+            #hmm2 = pad_cut(h5.root[group_name]['hmm2_'+uids][:], 300, 20)
             #tf1 = pad_cut(np.concatenate(h5.root[group_name]['tf1_'+uids][:]), 300*7)
             #tf2 = pad_cut(np.concatenate(h5.root[group_name]['tf2_'+uids][:]), 300*7)
             #ld1 = pad_cut(np.concatenate(h5.root[group_name]['ld1_'+uids][:]), 300*3)
             #ld2 = pad_cut(np.concatenate(h5.root[group_name]['ld2_'+uids][:]), 300*3)
             enc1_i = pad_cut(enc1[i], 300, 22)
             enc2_i = pad_cut(enc2[i], 300, 22)
-            cat = np.concatenate((hmm1,hmm2, enc1_i, enc2_i), axis = 1)
-            dist = np.asarray([evdist[i]]*84)
+            cat = np.concatenate((enc1_i, enc2_i), axis = 1)
+            dist = np.asarray([evdist[i]]*min(cat[0].shape))
             dist = np.expand_dims(dist, axis=0)
             cat = np.append(cat, dist, axis = 0)
             enc_feature.append(cat.T) #Append to list
@@ -113,18 +116,17 @@ def create_features(df, h5_path, min_val, max_val):
     #Bin the TMscore RMSDs
     #binned_rmsds = np.digitize(rmsds, bins)
     deviations = [*df['deviation']]
-    bins = np.arange(min_val,max_val,0.2)
-    binned_deviations = np.digitize(deviations, bins)
-    #t= 0.15 #Maybe I should bin the deviations more than just +/- t: likely those deviating more are more different
-    #for i in range(0, len(deviations)):
-    #    if deviations[i] > t:
-    #        binned_deviations.append(2)
-    #    if deviations[i] < -t:
-    #        binned_deviations.append(0)
-    #    if np.absolute(deviations[i]) <= t:
-    #        binned_deviations.append(1)
-    deviations_hot = np.eye(len(bins)+1)[binned_deviations]
-
+    binned_deviations = []
+    t= 0.15 #Maybe I should bin the deviations more than just +/- t: likely those deviating more are more different
+    for i in range(0, len(deviations)):
+        if deviations[i] > t:
+            binned_deviations.append(2)
+        if deviations[i] < -t:
+            binned_deviations.append(0)
+        if np.absolute(deviations[i]) <= t:
+            binned_deviations.append(1)
+    deviations_hot = np.eye(3)[binned_deviations]
+    #Counter({0: 13099, 1: 12521, 2: 11575})
     #Data
     X = np.asarray(enc_feature)
     y = deviations_hot
@@ -162,19 +164,27 @@ X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
 #X_valid = X_valid.reshape(len(X_valid),301,40,1)
 
 #MODEL PARAMETERS
-num_features = 84 #Perhaps add a one if not gap for each reisude = 42 features
+num_features = min(X_train[0].shape) #Perhaps add a one if not gap for each reisude = 42 features
 input_dim = X_train[0].shape
-num_epochs = 10
+base_epochs = 10
+finish_epochs = 2
 batch_size = 10
 num_classes = max(y_train[0].shape)
 seq_length = 301
 kernel_size = 1 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.01010.pdf - but then no dilated conv
-filters = 100
+filters = 200
 drop_rate = 0.5
 num_nodes = 301
+num_res_blocks = 1
 
+#lr opt
+find_lr = False
+#LR schedule
 
-
+num_epochs = base_epochs+finish_epochs
+max_lr = 0.01
+min_lr = max_lr/10
+lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
 
 #MODEL
 in_params = keras.Input(shape = input_dim)
@@ -189,7 +199,7 @@ def resnet(x, num_res_blocks):
 		batch_out1 = BatchNormalization()(x) #Bacth normalize, focus on segment
 		relu_out1 = Dense(num_nodes, activation='relu')(batch_out1)
         #input_shape=(10, 128) for time series sequences of 10 time steps with 128 features per step
-		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, activation='relu', dilation_rate = 9, input_shape=input_dim)(relu_out1)
+		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, activation='relu', dilation_rate = 3, input_shape=input_dim)(relu_out1)
 		#conv_out1 = Dropout(rate = drop_rate)(conv_out1) #Dropout
 		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
 		relu_out2 = Dense(filters, activation='relu')(batch_out2)
@@ -203,29 +213,64 @@ def resnet(x, num_res_blocks):
 
 	return conv_add1
 #Create resnet and get outputs
-x = resnet(in_params, 1)
+x = resnet(in_params, num_res_blocks)
 
 #Average pool along sequence axis
-x = GlobalAveragePooling1D()(x) #data_format='channels_first'
-#Attention layer - information will be redistributed in the backwards pass
-attention = Dense(1, activation='tanh')(x) #Normalize and extract info with tanh activated weight matrix (hidden attention weights)
-attention = Flatten()(attention) #Make 1D
-attention = Activation('softmax')(attention) #Softmax on all activations (normalize activations)
-attention = RepeatVector(num_features)(attention) #Repeats the input "num_nodes" times.
-attention = Permute([2, 1])(attention) #Permutes the dimensions of the input according to a given pattern. (permutes pos 2 and 1 of attention)
-
-sent_representation = multiply([x, attention]) #Multiply input to attention with normalized activations
-sent_representation = Lambda(lambda xin: keras.backend.sum(xin, axis=-2), output_shape=(num_nodes*2,))(sent_representation) #Sum all attentions
-
+#x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
+avgpool = Lambda(lambda x: mean(x, axis=2))(x)
 #Dense final layer for classification
-probabilities = Dense(num_classes, activation='softmax')(sent_representation)
+probabilities = Dense(num_classes, activation='softmax')(avgpool)
 
 #Model: define inputs and outputs
 model = Model(inputs = in_params, outputs = probabilities)
-
-model.compile(loss='categorical_crossentropy', #[categorical_focal_loss(alpha=.25, gamma=2)],
-              optimizer='adam',
+#sgd = optimizers.SGD(lr=0.01, clipvalue=0.5)
+model.compile(loss='categorical_crossentropy',
+              optimizer='SGD',
               metrics=['accuracy'])
+
+#LR schedule
+def lr_schedule(epochs):
+  '''lr scheduel according to one-cycle policy.
+  '''
+
+  #Increase lrate in beginning
+  if epochs == 0:
+    lrate = min_lr
+  elif (epochs <(base_epochs/2) and epochs > 0):
+    lrate = min_lr+(epochs*lr_change)
+  #Decrease further below min_lr last three epochs
+  elif epochs >= base_epochs:
+    lrate = min_lr/(2*(epochs+1-base_epochs))
+  #After the max lrate is reached, decrease it back to the min
+  else:
+    lrate = max_lr-((epochs-(base_epochs/2))*lr_change)
+
+  print(epochs,lrate)
+  return lrate
+
+
+if find_lr == True:
+    # model is a Keras model
+    lr_finder = LRFinder(model)
+
+    # Train a model with batch size 20 for 5 epochs
+    # with learning rate growing exponentially from 0.000001 to 1
+    lr_finder.find(X_train, y_train, start_lr=0.000001, end_lr=1, batch_size=batch_size, epochs=1)
+    # Print lr and loss
+
+    x  = lr_finder.lrs
+    y = lr_finder.losses
+    pdb.set_trace()
+    with open(out_dir+'test.lr', "w") as file:
+        for i in range(min(len(x), len(y))):
+          	file.write(str(x[i]) + '\t' + str(y[i]) + '\n')
+
+else:
+  lrate = LearningRateScheduler(lr_schedule)
+  callbacks=[lrate]
+  validation_data=(X_valid, y_valid)
+
+
 #Summary of model
 print(model.summary())
 
@@ -233,11 +278,12 @@ print(model.summary())
 model.fit(X_train, y_train, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
-             shuffle=True) #Dont feed continuously
+             shuffle=True, #Dont feed continuously
+             callbacks=callbacks)
 
-
-pred = model.predict(X_valid)
-average_error = np.average(np.absolute(pred-y_valid))*0.2
+pred = np.argmax(model.predict(X_valid), axis = 1)
+y_valid = np.argmax(y_valid, axis = 1)
+average_error = np.average(np.absolute(pred-y_valid))
 print(average_error)
 #Close h5
 h5.close()
