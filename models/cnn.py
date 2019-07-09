@@ -166,7 +166,7 @@ X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
 #MODEL PARAMETERS
 num_features = min(X_train[0].shape) #Perhaps add a one if not gap for each reisude = 42 features
 input_dim = X_train[0].shape
-base_epochs = 20
+base_epochs = 10
 finish_epochs = 2
 batch_size = 10
 num_classes = max(y_train[0].shape)
@@ -218,13 +218,14 @@ x = resnet(in_params, num_res_blocks)
 
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
-avgpool = Lambda(lambda x: mean(x, axis=2))(x)
+avgpool = Lambda(lambda x: keras.backend.max(x, axis=2))(x)
 #Dense final layer for classification
+#flat = Flatten()(x)
 probabilities = Dense(num_classes, activation='softmax')(avgpool)
 
 #Model: define inputs and outputs
 model = Model(inputs = in_params, outputs = probabilities)
-#sgd = optimizers.SGD(lr=0.01, clipvalue=0.5)
+sgd = optimizers.SGD(clipnorm=1.)
 model.compile(loss='categorical_crossentropy',
               optimizer='SGD',
               metrics=['accuracy'])
@@ -276,14 +277,17 @@ else:
 #Summary of model
 print(model.summary())
 
- #Fit model
-
+#Class weights - weight harder classes more
+class_weight = {0: 1.,
+                1: 1.3,
+                2: 1.5}
+#Fit model
 model.fit(X_train, y_train, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
              callbacks=callbacks,
-             class_weight = [])
+             class_weight = class_weight)
 
 #Get history: print(history.losses)
 if find_lr == True:
@@ -297,5 +301,8 @@ pred = np.argmax(model.predict(X_valid), axis = 1)
 y_valid = np.argmax(y_valid, axis = 1)
 average_error = np.average(np.absolute(pred-y_valid))
 print(average_error)
-
+#Prind validation predictions to file
+with open('validation.tsv', 'w') as file:
+    for i in range(0, len(pred)):
+        file.write(str(pred[i])+'\t'+str(y_valid[i])+'\n')
 pdb.set_trace()
