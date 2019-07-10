@@ -26,7 +26,7 @@ from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D
 from tensorflow.keras.layers import Activation, RepeatVector, Permute, multiply, Lambda, GlobalAveragePooling1D
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten
-from tensorflow.keras.backend import epsilon, clip, sum, log, pow, mean, get_value, set_value
+from tensorflow.keras.backend import epsilon, clip, sum, log, pow, mean, get_value, set_value, transpose
 from tensorflow.layers import AveragePooling1D
 #visualization
 from tensorflow.keras.callbacks import TensorBoard
@@ -101,14 +101,19 @@ def create_features(df, h5_path, min_val, max_val):
             #tf2 = pad_cut(np.concatenate(h5.root[group_name]['tf2_'+uids][:]), 300*7)
             #ld1 = pad_cut(np.concatenate(h5.root[group_name]['ld1_'+uids][:]), 300*3)
             #ld2 = pad_cut(np.concatenate(h5.root[group_name]['ld2_'+uids][:]), 300*3)
-            enc1_i = pad_cut(enc1[i], 300, 22)
-            enc2_i = pad_cut(enc2[i], 300, 22)
-            cat = np.concatenate((enc1_i, enc2_i), axis = 1)
-            dist = np.asarray([evdist[i]]*min(cat[0].shape))
+            #enc1_i = pad_cut(enc1[i], 300, 22)
+            #enc2_i = pad_cut(enc2[i], 300, 22)
+            cat = np.concatenate((enc1[i], enc2[i]), axis = 1)
+            if max(cat.shape) < 45:
+                dist = np.asarray([evdist[i]]*min(cat.shape)) #Dont want to lose this due to conv
+            else:
+                dist = np.asarray([evdist[i]]*max(cat.shape)) #Dont want to lose this due to conv
             dist = np.expand_dims(dist, axis=0)
-            cat = np.append(cat, dist, axis = 0)
-            enc_feature.append(cat.T) #Append to list
-
+            try:
+                cat = np.append(cat, dist.T, axis = 1)
+            except:
+                pdb.set_trace()
+            enc_feature.append(cat) #Append to list.
 
     #Get RMSDs
     #rmsds = df['RMSD_x'] #rmsds/max_rmsd
@@ -151,8 +156,8 @@ h5 = tables.open_file(h5_path)
 complete_df = pd.read_csv(dataframe)
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
-train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
-valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups[0:100])]
+valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups[0:100])]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
 #Max rmsd for normalization
@@ -165,7 +170,6 @@ X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
 
 #MODEL PARAMETERS
 num_features = min(X_train[0].shape) #Perhaps add a one if not gap for each reisude = 42 features
-input_dim = X_train[0].shape
 base_epochs = 20
 finish_epochs = 2
 batch_size = 10
@@ -174,7 +178,7 @@ seq_length = 301
 kernel_size = 1 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.01010.pdf - but then no dilated conv
 filters = 100
 drop_rate = 0.5
-num_nodes = 301
+num_nodes = 300
 num_res_blocks = 2
 dilation_rate = 3
 
@@ -186,10 +190,9 @@ num_epochs = base_epochs+finish_epochs
 max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
-
+pdb.set_trace()
 #MODEL
-in_params = keras.Input(shape = input_dim)
-
+in_params = keras.Input(shape = (None,45))
 def resnet(x, num_res_blocks):
 	"""Builds a resnet with 1D convolutions of the defined depth.
 	"""
@@ -198,14 +201,20 @@ def resnet(x, num_res_blocks):
 #Similar to ProtCNN, but they used batch_size = 64, 2000 filters and kernel size of 21
 	for res_block in range(num_res_blocks):
 		batch_out1 = BatchNormalization()(x) #Bacth normalize, focus on segment
-		relu_out1 = Dense(num_nodes, activation='relu')(batch_out1)
+		relu_out1 = Dense(num_nodes, activation='relu')(x)
         #input_shape=(10, 128) for time series sequences of 10 time steps with 128 features per step
-		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, activation='relu', dilation_rate = dilation_rate, input_shape=input_dim)(relu_out1)
-		#conv_out1 = Dropout(rate = drop_rate)(conv_out1) #Dropout
-		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
-		relu_out2 = Dense(filters, activation='relu')(batch_out2)
+        #Captures aa differences
+		conv_out1_aa = Conv1D(filters = 45, kernel_size = 6, activation='relu', dilation_rate = 1, input_shape=(None,None))(relu_out1)
+        #Captures sequence differences (convolves different parts of the sequence, channels_first)
+		conv_out1_seq = Conv1D(data_format = "channels_first", filters = filters, kernel_size = kernel_size, activation='relu', dilation_rate = 3, input_shape=input_dim)(relu_out1)
+        #conv_out1 = Dropout(rate = drop_rate)(conv_out1) #Dropout
+		batch_out2_aa = BatchNormalization()(conv_out1_aa) #Bacth normalize, focus on segment
+		batch_out2_seq = BatchNormalization()(conv_out1_seq) #Bacth normalize, focus on segment
+		reshape1 = Reshape((300, filters))(batch_out2_seq)
+		cat1 = concatenate([(batch_out2_aa), (reshape1)])
+		relu_out2 = Dense(filters, activation='relu')(cat1)
         #Filters to match input dim
-		conv_out2 = Conv1D(filters = 301, kernel_size = kernel_size, activation='relu', input_shape=input_dim)(relu_out2)
+		conv_out2 = Conv1D(filters = 300, kernel_size = kernel_size, activation='relu', input_shape=(None, None))(relu_out2)
 
 
 		conv_add1 = add([x, conv_out2]) #Skip connection
@@ -214,7 +223,8 @@ def resnet(x, num_res_blocks):
 
 	return conv_add1
 #Create resnet and get outputs
-x = resnet(in_params, num_res_blocks)
+initial_conv = Conv1D(filters = 45, kernel_size = kernel_size, activation='relu', dilation_rate = 1, input_shape=(None,None))(in_params)
+x = resnet(initial_conv, num_res_blocks)
 
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
