@@ -166,13 +166,13 @@ X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
 #MODEL PARAMETERS
 num_features = min(X_train[0].shape) #Perhaps add a one if not gap for each reisude = 42 features
 input_dim = X_train[0].shape
-base_epochs = 10
+base_epochs = 20
 finish_epochs = 2
 batch_size = 10
 num_classes = max(y_train[0].shape)
 seq_length = 301
 kernel_size = 1 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.01010.pdf - but then no dilated conv
-filters = 200
+filters = 100
 drop_rate = 0.5
 num_nodes = 301
 num_res_blocks = 2
