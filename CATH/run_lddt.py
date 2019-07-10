@@ -33,11 +33,13 @@ def run_lddt(indir):
 			if uid1 in pdb_files[i] and uid2 in pdb_files[i]:
 				break
 		pdb_name2 = pdb_files[i].split('/')[1]
-		command = 'singularity run --app lDDT /home/p/pbryant/pfs/singularity/ost.img -c -x -t ' + pdb_name1 + ' '+pdb_name2
-		try:
-			out = subprocess.check_output(command, shell = True)#Save parsed pdb
-		except:
-			continue
+		#Fix pdb files
+		move_res_number(pdb_name1)
+		move_res_number(pdb_name2)
+		#Run lddt on fixed pdb files
+		command = 'singularity run --app lDDT /home/p/pbryant/pfs/singularity/ost.img -c -x -t ' + 'rf_'+pdb_name1 + ' rf_'+pdb_name2
+		out = subprocess.check_output(command, shell = True)#Save parsed pdb
+		
 		#Write to file
 		write_lddt(indir, out, uid1, uid2)
 
@@ -48,16 +50,45 @@ def run_lddt(indir):
 
 	return None
 
+def move_res_number(pdb_name):
+	'''Reformat pdb file so the residue number in column 23-26 is right ordered.
+	'''
+
+	command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + pdb_name
+	out = subprocess.check_output(command, shell = True)#Save parsed pdb
+	out = out.decode() #Returns byte
+	out = out.split('\n')
+	seq = out[0]	
+	ca = out[1:-1] 
+
+	reformatted_ca = [] #Save reformatted version
+
+	for line in ca:
+		res_number = str(int(line[22:25]))
+		new_line = line[0:23]+' '*(3-len(res_number))+res_number+line[26:]
+		reformatted_ca.append(new_line)
+
+	#Write to new file
+	with open('rf_'+pdb_name, 'w') as file:
+		for line in reformatted_ca:
+			file.write(line+'\n')
+
+	return None
+
+
+
 def write_lddt(indir, out, uid1, uid2):
 	'''Writes lddt output to file
 	'''
-	aln_files = glob.glob(indir +'.aln')
+	aln_files = glob.glob(indir +'*.aln')
 	for name in aln_files:
 		if uid1 in name and uid2 in name:
+			pdb_name = name
 			break
 	#write to file
-	lddt_name = name.split('/')[-1].split('.')[0]+'.lddt'
+	lddt_name = pdb_name.split('/')[-1].split('.')[0]+'.lddt'
 	with open(lddt_name, 'w') as file:
+		out = out.decode() #Returns byte
 		file.write(out)
 
 	return None
