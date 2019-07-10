@@ -25,14 +25,14 @@ def run_lddt(indir):
 	
 	#Run LDDT
 	while pdb_files:
-		pdb_name1 = pdb_files[0].split('/')[1]
+		pdb_name1 = pdb_files[0].split('/')[-1]
 		uid1 = pdb_name1.split('_')[0]
 		uid2 = pdb_name1.split('_')[2]
 		
 		for i in range(1, len(pdb_files)):
 			if uid1 in pdb_files[i] and uid2 in pdb_files[i]:
 				break
-		pdb_name2 = pdb_files[i].split('/')[1]
+		pdb_name2 = pdb_files[i].split('/')[-1]
 		#Fix pdb files
 		move_res_number(pdb_name1)
 		move_res_number(pdb_name2)
