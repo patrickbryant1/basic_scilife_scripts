@@ -113,6 +113,7 @@ def create_features(df, h5_path, min_val, max_val):
                 cat = np.append(cat, dist.T, axis = 1)
             except:
                 pdb.set_trace()
+            cat = cat.reshape(1,len(cat),45)
             enc_feature.append(cat) #Append to list.
 
     #Get RMSDs
@@ -133,7 +134,8 @@ def create_features(df, h5_path, min_val, max_val):
     deviations_hot = np.eye(3)[binned_deviations]
     #Counter({0: 13099, 1: 12521, 2: 11575})
     #Data
-    X = np.asarray(enc_feature)
+
+    X = enc_feature
     y = deviations_hot
     #y_binned = np.asarray(binned_rmsds)
     #y_binned = y_binned-1 #Needs to start at 0 for keras
@@ -167,9 +169,8 @@ X_train,y_train = create_features(train_df, h5_path, min_val, max_val)
 #X_train = X_train.reshape(len(X_train),301,40,1) #Need 3 dim for 2d conv
 X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
 #X_valid = X_valid.reshape(len(X_valid),301,40,1)
-
+pdb.set_trace()
 #MODEL PARAMETERS
-num_features = min(X_train[0].shape) #Perhaps add a one if not gap for each reisude = 42 features
 base_epochs = 20
 finish_epochs = 2
 batch_size = 10
@@ -185,14 +186,12 @@ dilation_rate = 3
 #lr opt
 find_lr = False
 #LR schedule
-
 num_epochs = base_epochs+finish_epochs
 max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
-pdb.set_trace()
 #MODEL
-in_params = keras.Input(shape = (None,45))
+feed_in = keras.Input(shape = (None,45))
 def resnet(x, num_res_blocks):
 	"""Builds a resnet with 1D convolutions of the defined depth.
 	"""
@@ -200,21 +199,18 @@ def resnet(x, num_res_blocks):
 # Instantiate the stack of residual units
 #Similar to ProtCNN, but they used batch_size = 64, 2000 filters and kernel size of 21
 	for res_block in range(num_res_blocks):
-		batch_out1 = BatchNormalization()(x) #Bacth normalize, focus on segment
-		relu_out1 = Dense(num_nodes, activation='relu')(x)
+		conv_out1 = Conv1D(filters = 45, kernel_size = 6, activation='relu', dilation_rate = 1, input_shape=(None,None))(x)
+		batch_out1 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
+
         #input_shape=(10, 128) for time series sequences of 10 time steps with 128 features per step
         #Captures aa differences
-		conv_out1_aa = Conv1D(filters = 45, kernel_size = 6, activation='relu', dilation_rate = 1, input_shape=(None,None))(relu_out1)
+		conv_out1 = Conv1D(filters = 45, kernel_size = 6, activation='relu', dilation_rate = 1, input_shape=(None,None))(batch_out1)
         #Captures sequence differences (convolves different parts of the sequence, channels_first)
-		conv_out1_seq = Conv1D(data_format = "channels_first", filters = filters, kernel_size = kernel_size, activation='relu', dilation_rate = 3, input_shape=input_dim)(relu_out1)
         #conv_out1 = Dropout(rate = drop_rate)(conv_out1) #Dropout
-		batch_out2_aa = BatchNormalization()(conv_out1_aa) #Bacth normalize, focus on segment
-		batch_out2_seq = BatchNormalization()(conv_out1_seq) #Bacth normalize, focus on segment
-		reshape1 = Reshape((300, filters))(batch_out2_seq)
-		cat1 = concatenate([(batch_out2_aa), (reshape1)])
-		relu_out2 = Dense(filters, activation='relu')(cat1)
+		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
+
         #Filters to match input dim
-		conv_out2 = Conv1D(filters = 300, kernel_size = kernel_size, activation='relu', input_shape=(None, None))(relu_out2)
+		conv_out2 = Conv1D(filters = 45, kernel_size = kernel_size, activation='relu', input_shape=(None, None))(batch_out2)
 
 
 		conv_add1 = add([x, conv_out2]) #Skip connection
@@ -222,16 +218,16 @@ def resnet(x, num_res_blocks):
 		x = conv_add1
 
 	return conv_add1
-#Create resnet and get outputs
-initial_conv = Conv1D(filters = 45, kernel_size = kernel_size, activation='relu', dilation_rate = 1, input_shape=(None,None))(in_params)
-x = resnet(initial_conv, num_res_blocks)
+
+#Output (batch, steps(len), filters), filters = channels in next
+x = resnet(feed_in, num_res_blocks)
 
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
 avgpool = Lambda(lambda x: keras.backend.max(x, axis=2))(x)
 #Dense final layer for classification
-#flat = Flatten()(x)
-probabilities = Dense(num_classes, activation='softmax')(avgpool)
+flat = Flatten()(avgpool)
+probabilities = Dense(num_classes, activation='softmax')(flat)
 
 #Model: define inputs and outputs
 model = Model(inputs = in_params, outputs = probabilities)
@@ -292,7 +288,7 @@ class_weight = {0: 1.,
                 1: 1.3,
                 2: 1.5}
 #Fit model
-model.fit(X_train, y_train, batch_size = batch_size,
+model.fit([X_train], y_train, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
