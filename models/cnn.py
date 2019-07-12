@@ -59,14 +59,11 @@ def pad_cut(ar, x, y):
         ar = empty
     else:
         ar = ar[0:x]
-
     return ar
 
-def create_features(df, h5_path, min_val, max_val):
+def create_features(df, min_val, max_val):
     '''Get features
     '''
-    #Open h5
-    h5 = tables.open_file(h5_path)
     #Get H_groups
     groups = [*Counter(df['H_group_x']).keys()]
     #Get MLAAdist
@@ -82,7 +79,8 @@ def create_features(df, h5_path, min_val, max_val):
     #enc2_hot = np.eye(len(enc1[0]))[enc2]
 
     #Save features
-    enc_feature = []
+    enc_feature1 = []
+    enc_feature2 = []
 
     #Get hmms
     for hgroup in groups:
@@ -95,53 +93,30 @@ def create_features(df, h5_path, min_val, max_val):
         group_name = 'h_'+hgroup_s[0]+'_'+hgroup_s[1]+'_'+hgroup_s[2]+'_'+hgroup_s[3]
         for i in range(0,len(uid1)):
             uids = uid1[i]+'_'+uid2[i]
-            #hmm1 = pad_cut(h5.root[group_name]['hmm1_'+uids][:], 300, 20)
-            #hmm2 = pad_cut(h5.root[group_name]['hmm2_'+uids][:], 300, 20)
-            #tf1 = pad_cut(np.concatenate(h5.root[group_name]['tf1_'+uids][:]), 300*7)
-            #tf2 = pad_cut(np.concatenate(h5.root[group_name]['tf2_'+uids][:]), 300*7)
-            #ld1 = pad_cut(np.concatenate(h5.root[group_name]['ld1_'+uids][:]), 300*3)
-            #ld2 = pad_cut(np.concatenate(h5.root[group_name]['ld2_'+uids][:]), 300*3)
-            #enc1_i = pad_cut(enc1[i], 300, 22)
-            #enc2_i = pad_cut(enc2[i], 300, 22)
-            cat = np.concatenate((enc1[i], enc2[i]), axis = 1)
-            if max(cat.shape) < 45:
-                dist = np.asarray([evdist[i]]*min(cat.shape)) #Dont want to lose this due to conv
-            else:
-                dist = np.asarray([evdist[i]]*max(cat.shape)) #Dont want to lose this due to conv
+            enc1_i = pad_cut(enc1[i], 300, 22)
+            enc2_i = pad_cut(enc2[i], 300, 22)
+            dist = np.asarray([evdist[i]]*22) #Dont want to lose this due to conv
             dist = np.expand_dims(dist, axis=0)
-            try:
-                cat = np.append(cat, dist.T, axis = 1)
-            except:
-                pdb.set_trace()
-            cat = cat.reshape(1,len(cat),45)
-            enc_feature.append(cat) #Append to list.
+            enc1_i = np.append(enc1_i, dist, axis = 0)
+            enc2_i = np.append(enc2_i, dist, axis = 0)
+
+
+            enc_feature1.append(enc1_i) #Append to list.
+            enc_feature2.append(enc2_i) #Append to list.
 
     #Get RMSDs
     #rmsds = df['RMSD_x'] #rmsds/max_rmsd
-    #bins = np.arange(0,4.5,0.1)
     #Bin the TMscore RMSDs
-    #binned_rmsds = np.digitize(rmsds, bins)
-    deviations = [*df['deviation']]
-    binned_deviations = []
-    t= 0.15 #Maybe I should bin the deviations more than just +/- t: likely those deviating more are more different
-    for i in range(0, len(deviations)):
-        if deviations[i] > t:
-            binned_deviations.append(2)
-        if deviations[i] < -t:
-            binned_deviations.append(0)
-        if np.absolute(deviations[i]) <= t:
-            binned_deviations.append(1)
-    deviations_hot = np.eye(3)[binned_deviations]
-    #Counter({0: 13099, 1: 12521, 2: 11575})
-    #Data
+    rmsds = df["RMSD_x"]
+    bins = np.arange(min_val, max_val, 0.1)
+    binned_rmsd = np.digitize(rmsds, bins)
 
-    X = enc_feature
-    y = deviations_hot
+    X = [np.asarray(enc_feature1),np.asarray(enc_feature2)]
+    y = np.eye(45)[binned_rmsd-1] #-1 to start at 0 : Keras needs this (uses indexing)
     #y_binned = np.asarray(binned_rmsds)
     #y_binned = y_binned-1 #Needs to start at 0 for keras
     #y_hot = np.eye(len(bins))[y_binned]
-    #Close h5 file
-    h5.close()
+
     return(X, y)
 
 
@@ -158,22 +133,34 @@ h5 = tables.open_file(h5_path)
 complete_df = pd.read_csv(dataframe)
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
-train_df = complete_df[complete_df['H_group_x'].isin(train_groups[0:100])]
-valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups[0:100])]
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
+valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
 #Max rmsd for normalization
-max_val = max(complete_df['deviation'])
-min_val = min(complete_df['deviation'])
-X_train,y_train = create_features(train_df, h5_path, min_val, max_val)
-#X_train = X_train.reshape(len(X_train),301,40,1) #Need 3 dim for 2d conv
-X_valid,y_valid = create_features(valid_df, h5_path, min_val, max_val)
+max_val = max(complete_df["RMSD_x"])
+min_val = min(complete_df["RMSD_x"])
+X_train,y_train = create_features(train_df, min_val, max_val)
+#Take 500 first points in train
+X_train_500 = [[],[]]
+y_train_500 = []
+count_500 = np.zeros(45)
+for i in range(0, len(y_train)):
+    pos = np.argmax(y_train[i])
+    if count_500[pos] <= 500:
+        X_train_500[0].append(X_train[0][i])
+        X_train_500[1].append(X_train[1][i])
+        y_train_500.append(y_train[i])
+        count_500[pos]+=1
+X_train_500 = [np.asarray(X_train[0]), np.asarray(X_train[1])] #convert to arrays
+X_valid,y_valid = create_features(valid_df, min_val, max_val)
 #X_valid = X_valid.reshape(len(X_valid),301,40,1)
 pdb.set_trace()
 #MODEL PARAMETERS
 base_epochs = 20
 finish_epochs = 2
 batch_size = 10
+input_dim = X_train[0].shape
 num_classes = max(y_train[0].shape)
 seq_length = 301
 kernel_size = 1 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.01010.pdf - but then no dilated conv
@@ -191,7 +178,8 @@ max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
 #MODEL
-feed_in = keras.Input(shape = (None,45))
+in_1 = keras.Input(shape = [input_dim])
+in_2 = keras.Input(shape = [input_dim])
 def resnet(x, num_res_blocks):
 	"""Builds a resnet with 1D convolutions of the defined depth.
 	"""
@@ -199,7 +187,7 @@ def resnet(x, num_res_blocks):
 # Instantiate the stack of residual units
 #Similar to ProtCNN, but they used batch_size = 64, 2000 filters and kernel size of 21
 	for res_block in range(num_res_blocks):
-		conv_out1 = Conv1D(filters = 45, kernel_size = 6, activation='relu', dilation_rate = 1, input_shape=(None,None))(x)
+		conv_out1 = Conv1D(filters = 45, kernel_size = 6, activation='relu', dilation_rate = 1, input_shape=input_dim)(x)
 		batch_out1 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
 
         #input_shape=(10, 128) for time series sequences of 10 time steps with 128 features per step
@@ -220,20 +208,20 @@ def resnet(x, num_res_blocks):
 	return conv_add1
 
 #Output (batch, steps(len), filters), filters = channels in next
-x = resnet(feed_in, num_res_blocks)
+x1 = resnet(in_1, num_res_blocks)
+x2 = resnet(in_2, num_res_blocks)
 
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
-avgpool = Lambda(lambda x: keras.backend.max(x, axis=2))(x)
+maxpool1 = Lambda(lambda x: keras.backend.max(x1, axis=2))(x1)
 #Dense final layer for classification
-flat = Flatten()(avgpool)
-probabilities = Dense(num_classes, activation='softmax')(flat)
+probabilities = Dense(num_classes, activation='softmax')(maxpool1)
 
 #Model: define inputs and outputs
-model = Model(inputs = in_params, outputs = probabilities)
+model = Model(inputs = [in_1, in_2], outputs = probabilities)
 sgd = optimizers.SGD(clipnorm=1.)
 model.compile(loss='categorical_crossentropy',
-              optimizer='SGD',
+              optimizer=sgd,
               metrics=['accuracy'])
 
 #LR schedule
@@ -283,12 +271,8 @@ else:
 #Summary of model
 print(model.summary())
 
-#Class weights - weight harder classes more
-class_weight = {0: 1.,
-                1: 1.3,
-                2: 1.5}
 #Fit model
-model.fit([X_train], y_train, batch_size = batch_size,
+model.fit(X_train_500, y_train_500, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
