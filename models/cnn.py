@@ -152,18 +152,20 @@ for i in range(0, len(y_train)):
         X_train_500[1].append(X_train[1][i])
         y_train_500.append(y_train[i])
         count_500[pos]+=1
-X_train_500 = [np.asarray(X_train[0]), np.asarray(X_train[1])] #convert to arrays
+
+X_train_500 = [np.asarray(X_train_500[0]), np.asarray(X_train_500[1])] #convert to arrays
+y_train_500 = np.asarray(y_train_500)
 X_valid,y_valid = create_features(valid_df, min_val, max_val)
 #X_valid = X_valid.reshape(len(X_valid),301,40,1)
-pdb.set_trace()
+
 #MODEL PARAMETERS
 base_epochs = 20
 finish_epochs = 2
 batch_size = 10
-input_dim = X_train[0].shape
+input_dim = X_train_500[0][0].shape
 num_classes = max(y_train[0].shape)
 seq_length = 301
-kernel_size = 1 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.01010.pdf - but then no dilated conv
+kernel_size = 6 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.01010.pdf - should do different and cat
 filters = 100
 drop_rate = 0.5
 num_nodes = 300
@@ -178,34 +180,27 @@ max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further lst three epochs
 #MODEL
-in_1 = keras.Input(shape = [input_dim])
-in_2 = keras.Input(shape = [input_dim])
+in_1 = keras.Input(shape = input_dim)
+in_2 = keras.Input(shape = input_dim)
 def resnet(x, num_res_blocks):
 	"""Builds a resnet with 1D convolutions of the defined depth.
 	"""
 
-# Instantiate the stack of residual units
-#Similar to ProtCNN, but they used batch_size = 64, 2000 filters and kernel size of 21
+
+    	# Instantiate the stack of residual units
+    	#Similar to ProtCNN, but they used batch_size = 64, 2000 filters and kernel size of 21
 	for res_block in range(num_res_blocks):
-		conv_out1 = Conv1D(filters = 45, kernel_size = 6, activation='relu', dilation_rate = 1, input_shape=input_dim)(x)
-		batch_out1 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
-
-        #input_shape=(10, 128) for time series sequences of 10 time steps with 128 features per step
-        #Captures aa differences
-		conv_out1 = Conv1D(filters = 45, kernel_size = 6, activation='relu', dilation_rate = 1, input_shape=(None,None))(batch_out1)
-        #Captures sequence differences (convolves different parts of the sequence, channels_first)
-        #conv_out1 = Dropout(rate = drop_rate)(conv_out1) #Dropout
+		batch_out1 = BatchNormalization()(x) #Bacth normalize, focus on segment
+		activation1 = Activation('relu')(batch_out1)
+		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation1)
 		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
+		activation2 = Activation('relu')(batch_out2)
+		conv_out2 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation2)
+		x = add([x, conv_out2]) #Skip connection
 
-        #Filters to match input dim
-		conv_out2 = Conv1D(filters = 45, kernel_size = kernel_size, activation='relu', input_shape=(None, None))(batch_out2)
 
 
-		conv_add1 = add([x, conv_out2]) #Skip connection
-
-		x = conv_add1
-
-	return conv_add1
+	return x
 
 #Output (batch, steps(len), filters), filters = channels in next
 x1 = resnet(in_1, num_res_blocks)
@@ -276,8 +271,7 @@ model.fit(X_train_500, y_train_500, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
-             callbacks=callbacks,
-             class_weight = class_weight)
+             callbacks=callbacks)
 
 #Get history: print(history.losses)
 if find_lr == True:
