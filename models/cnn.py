@@ -161,12 +161,12 @@ X_valid,y_valid = create_features(valid_df, min_val, max_val)
 #MODEL PARAMETERS
 base_epochs = 20
 finish_epochs = 2
-batch_size = 10
+batch_size = 64
 input_dim = X_train_500[0][0].shape
 num_classes = max(y_train[0].shape)
 seq_length = 301
-kernel_size = 6 #they usd 6 and 10 in this paper: https://arxiv.org/pdf/1706.01010.pdf - should do different and cat
-filters = 100
+kernel_size = 21 #google uses 21
+filters = 2000
 drop_rate = 0.5
 num_nodes = 300
 num_res_blocks = 2
@@ -202,15 +202,21 @@ def resnet(x, num_res_blocks):
 
 	return x
 
+#Initial convolution
+in_1_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(in_1)
+in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(in_2)
 #Output (batch, steps(len), filters), filters = channels in next
-x1 = resnet(in_1, num_res_blocks)
-x2 = resnet(in_2, num_res_blocks)
+x1 = resnet(in_1_conv, num_res_blocks)
+x2 = resnet(in_2_conv, num_res_blocks)
 
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
-maxpool1 = Lambda(lambda x: keras.backend.max(x1, axis=2))(x1)
+maxpool1 = MaxPooling1D()(x1)
+maxpool2 = MaxPooling1D()(x2)
+cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
+flat = Flatten()(cat) #Flatten for dense layer
 #Dense final layer for classification
-probabilities = Dense(num_classes, activation='softmax')(maxpool1)
+probabilities = Dense(num_classes, activation='softmax')(flat)
 
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = probabilities)
