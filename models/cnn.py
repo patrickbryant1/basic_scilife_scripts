@@ -93,12 +93,12 @@ def create_features(df, min_val, max_val):
         group_name = 'h_'+hgroup_s[0]+'_'+hgroup_s[1]+'_'+hgroup_s[2]+'_'+hgroup_s[3]
         for i in range(0,len(uid1)):
             uids = uid1[i]+'_'+uid2[i]
-            enc1_i = pad_cut(enc1[i], 300, 22)
-            enc2_i = pad_cut(enc2[i], 300, 22)
-            dist = np.asarray([evdist[i]]*22) #Dont want to lose this due to conv
-            dist = np.expand_dims(dist, axis=0)
-            enc1_i = np.append(enc1_i, dist, axis = 0)
-            enc2_i = np.append(enc2_i, dist, axis = 0)
+            enc1_i = pad_cut(enc1[i], 200, 22)
+            enc2_i = pad_cut(enc2[i], 200, 22)
+            #dist = np.asarray([evdist[i]]*22) #Dont want to lose this due to conv
+            #dist = np.expand_dims(dist, axis=0)
+            #enc1_i = np.append(enc1_i, dist, axis = 0)
+            #enc2_i = np.append(enc2_i, dist, axis = 0)
 
 
             enc_feature1.append(enc1_i) #Append to list.
@@ -161,12 +161,12 @@ X_valid,y_valid = create_features(valid_df, min_val, max_val)
 #MODEL PARAMETERS
 base_epochs = 20
 finish_epochs = 2
-batch_size = 2
+batch_size = 1
 input_dim = X_train_500[0][0].shape
 num_classes = max(y_train[0].shape)
-seq_length = 301
+seq_length = 200
 kernel_size = 21 #google uses 21
-filters = 1100
+filters = 300
 drop_rate = 0.5
 num_nodes = 300
 num_res_blocks = 2
@@ -245,28 +245,10 @@ def lr_schedule(epochs):
   print(epochs,lrate)
   return lrate
 
+#Lrate
+lrate = LearningRateScheduler(lr_schedule)
+callbacks=[lrate]
 
-if find_lr == True:
-    num_epochs = 1
-    batch = 0
-    class LossHistory(Callback):
-        def on_train_begin(self, logs={}):
-            self.losses = []
-            self.lrs = []
-
-        def on_batch_end(self, batch, logs={}):
-            batch +=1
-            self.losses.append(logs.get('loss'))
-            set_value(model.optimizer.lr, 0.000001+(batch*((1-0.000001)/(len(X_train)/batch_size))))
-            lr = get_value(self.model.optimizer.lr)
-            self.lrs.append(lr)
-
-    history = LossHistory()
-    callbacks=[history]
-else:
-  lrate = LearningRateScheduler(lr_schedule)
-  callbacks=[lrate]
-  validation_data=(X_valid, y_valid)
 
 
 #Summary of model
