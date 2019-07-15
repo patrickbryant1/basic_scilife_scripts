@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/share/python
 # -*- coding: utf-8 -*-
 
 
@@ -10,11 +10,11 @@ import pandas as pd
 import glob
 
 #Preprocessing
-from sklearn.metrics import classification_report, confusion_matrix
+#from sklearn.metrics import classification_report, confusion_matrix
 from collections import Counter
 import math
 import time
-import tables
+#import tables
 from ast import literal_eval
 
 #Keras
@@ -40,9 +40,6 @@ parser = argparse.ArgumentParser(description = '''A Neural Network for predictin
 
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to dataframe in .csv.')
-
-parser.add_argument('h5_path', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to .h5 file with profiles.')
 
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
@@ -93,8 +90,8 @@ def create_features(df, min_val, max_val):
         group_name = 'h_'+hgroup_s[0]+'_'+hgroup_s[1]+'_'+hgroup_s[2]+'_'+hgroup_s[3]
         for i in range(0,len(uid1)):
             uids = uid1[i]+'_'+uid2[i]
-            enc1_i = pad_cut(enc1[i], 200, 22)
-            enc2_i = pad_cut(enc2[i], 200, 22)
+            enc1_i = pad_cut(enc1[i], 300, 22)
+            enc2_i = pad_cut(enc2[i], 300, 22)
             #dist = np.asarray([evdist[i]]*22) #Dont want to lose this due to conv
             #dist = np.expand_dims(dist, axis=0)
             #enc1_i = np.append(enc1_i, dist, axis = 0)
@@ -123,11 +120,8 @@ def create_features(df, min_val, max_val):
 #MAIN
 args = parser.parse_args()
 dataframe = args.dataframe[0]
-h5_path = args.h5_path[0]
 out_dir = args.out_dir[0]
 
-#Open h5
-h5 = tables.open_file(h5_path)
 #Assign data and labels
 #Read df
 complete_df = pd.read_csv(dataframe)
@@ -136,6 +130,11 @@ train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
 train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
+
+
+#Tensorboard for logging and visualization
+log_name = str(time.time())
+tensorboard = TensorBoard(log_dir=out_dir+log_name)
 
 #Max rmsd for normalization
 max_val = max(complete_df["RMSD_x"])
@@ -159,14 +158,14 @@ X_valid,y_valid = create_features(valid_df, min_val, max_val)
 #X_valid = X_valid.reshape(len(X_valid),301,40,1)
 
 #MODEL PARAMETERS
-base_epochs = 20
+base_epochs = 40
 finish_epochs = 2
-batch_size = 1
+batch_size = 32
 input_dim = X_train_500[0][0].shape
 num_classes = max(y_train[0].shape)
-seq_length = 200
+seq_length = 300
 kernel_size = 21 #google uses 21
-filters = 300
+filters = 1100
 drop_rate = 0.5
 num_nodes = 300
 num_res_blocks = 2
@@ -195,7 +194,9 @@ def resnet(x, num_res_blocks):
 		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation1)
 		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
 		activation2 = Activation('relu')(batch_out2)
-		conv_out2 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation2)
+		#Bottleneck convolution: downsample to reduce channels
+		conv_out2 = Conv1D(filters = int(filters/2), kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation2)
+		x = Conv1D(filters = int(filters/2), kernel_size = kernel_size, dilation_rate = 1, input_shape=input_dim, padding ="same")(x)
 		x = add([x, conv_out2]) #Skip connection
 
 
@@ -211,8 +212,8 @@ x2 = resnet(in_2_conv, num_res_blocks)
 
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
-maxpool1 = MaxPooling1D()(x1)
-maxpool2 = MaxPooling1D()(x2)
+maxpool1 = MaxPooling1D(pool_size=seq_length)(x1)
+maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
 cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
 flat = Flatten()(cat) #Flatten for dense layer
 #Dense final layer for classification
@@ -247,7 +248,7 @@ def lr_schedule(epochs):
 
 #Lrate
 lrate = LearningRateScheduler(lr_schedule)
-callbacks=[lrate]
+callbacks=[lrate, tensorboard]
 
 
 
@@ -261,20 +262,12 @@ model.fit(X_train_500, y_train_500, batch_size = batch_size,
              shuffle=True, #Dont feed continuously
              callbacks=callbacks)
 
-#Get history: print(history.losses)
-if find_lr == True:
-    lrs = history.lrs
-    losses = history.losses
-    with open('lr_plot.tsv', 'w') as file:
-        for i in range(0, len(lrs)):
-            file.write(str(lrs[i])+'\t'+str(losses[i])+'\n')
 
 pred = np.argmax(model.predict(X_valid), axis = 1)
 y_valid = np.argmax(y_valid, axis = 1)
 average_error = np.average(np.absolute(pred-y_valid))
 print(average_error)
 #Prind validation predictions to file
-with open('validation.tsv', 'w') as file:
+with open(out_dir+'validation.tsv', 'w') as file:
     for i in range(0, len(pred)):
         file.write(str(pred[i])+'\t'+str(y_valid[i])+'\n')
-pdb.set_trace()
