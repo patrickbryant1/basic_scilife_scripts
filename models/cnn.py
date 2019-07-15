@@ -161,12 +161,12 @@ X_valid,y_valid = create_features(valid_df, min_val, max_val)
 #MODEL PARAMETERS
 base_epochs = 20
 finish_epochs = 2
-batch_size = 64
+batch_size = 2
 input_dim = X_train_500[0][0].shape
 num_classes = max(y_train[0].shape)
 seq_length = 301
 kernel_size = 21 #google uses 21
-filters = 2000
+filters = 1100
 drop_rate = 0.5
 num_nodes = 300
 num_res_blocks = 2
@@ -202,9 +202,9 @@ def resnet(x, num_res_blocks):
 
 	return x
 
-#Initial convolution
-in_1_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(in_1)
-in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(in_2)
+#Initial convolution - to make shapes match
+in_1_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_1)
+in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_2)
 #Output (batch, steps(len), filters), filters = channels in next
 x1 = resnet(in_1_conv, num_res_blocks)
 x2 = resnet(in_2_conv, num_res_blocks)
