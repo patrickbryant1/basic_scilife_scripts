@@ -136,8 +136,8 @@ valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
 #Max rmsd for normalization
-max_val = max(complete_df["RMSD_x"])
-min_val = min(complete_df["RMSD_x"])
+max_val = max(complete_df["global_lddt"])
+min_val = min(complete_df["global_lddt"])
 bins = np.arange(min_val, max_val, 0.1)
 bins = np.expand_dims(bins, axis=0)
 
@@ -232,21 +232,21 @@ flat2 = Flatten()(maxpool2)  #Flatten
 L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
 L1_distance = L1_layer([flat1, flat2])
 #Dense final layer for classification
-probabilities = Dense(1, activation='softmax')(L1_distance)
+probabilities = Dense(num_classes, activation='softmax')(L1_distance)
 
-# #Custom loss
-#def bin_loss(y_true, y_pred):
-#     bins_K = variable(value=bins)
-#     pred_rmsds = dot([y_pred, bins_K], axes = 1)
-#     mean_squared_error(y_true, pred_rmsds)
-#     loss = mean_absolute_error(y_true, pred_rmsds)
-#     return loss
-#
+#Custom loss
+def bin_loss(y_true, y_pred):
+     bins_K = variable(value=bins)
+     pred_rmsds = dot([y_pred, bins_K], axes = 1)
+     mean_squared_error(y_true, pred_rmsds)
+     loss = mean_absolute_error(y_true, pred_rmsds)
+     return loss
+
 
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = probabilities)
 sgd = optimizers.SGD(clipnorm=1.)
-model.compile(loss='mean_squared_logarithmic_error',
+model.compile(loss=bin_loss,
               optimizer=sgd)
 
 #LR schedule
