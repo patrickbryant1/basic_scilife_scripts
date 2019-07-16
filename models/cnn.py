@@ -168,7 +168,7 @@ kernel_size = 21 #google uses 21
 filters = 1100
 drop_rate = 0.5
 num_nodes = 300
-num_res_blocks = 2
+num_res_blocks = 1
 dilation_rate = 3
 
 #lr opt
