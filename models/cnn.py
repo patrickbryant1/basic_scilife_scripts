@@ -1,4 +1,4 @@
-#!/usr/share/python
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 
@@ -10,11 +10,11 @@ import pandas as pd
 import glob
 
 #Preprocessing
-#from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix
 from collections import Counter
 import math
 import time
-#import tables
+import tables
 from ast import literal_eval
 
 #Keras
@@ -24,7 +24,7 @@ from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, Callback
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D, dot
-from tensorflow.keras.layers import Activation, RepeatVector, Permute, multiply, Lambda, GlobalAveragePooling1D
+from tensorflow.keras.layers import Activation, RepeatVector, Permute, Multiply, Lambda, GlobalAveragePooling1D
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten, Subtract
 from tensorflow.keras.backend import epsilon, clip, sum, log, pow, mean, get_value, set_value, transpose, variable, abs, square
 from tensorflow.layers import AveragePooling1D
@@ -41,6 +41,9 @@ parser = argparse.ArgumentParser(description = '''A Neural Network for predictin
 
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to dataframe in .csv.')
+
+parser.add_argument('h5_path', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to .h5 file with profiles.')
 
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
@@ -91,13 +94,8 @@ def create_features(df, min_val, max_val, seq_length):
         group_name = 'h_'+hgroup_s[0]+'_'+hgroup_s[1]+'_'+hgroup_s[2]+'_'+hgroup_s[3]
         for i in range(0,len(uid1)):
             uids = uid1[i]+'_'+uid2[i]
-<<<<<<< HEAD
             enc1_i = pad_cut(enc1[i], seq_length, 22)
             enc2_i = pad_cut(enc2[i], seq_length, 22)
-=======
-            enc1_i = pad_cut(enc1[i], 300, 22)
-            enc2_i = pad_cut(enc2[i], 300, 22)
->>>>>>> e02c43d59660a534bff7379953453817180b427d
             #dist = np.asarray([evdist[i]]*22) #Dont want to lose this due to conv
             #dist = np.expand_dims(dist, axis=0)
             #enc1_i = np.append(enc1_i, dist, axis = 0)
@@ -126,8 +124,11 @@ def create_features(df, min_val, max_val, seq_length):
 #MAIN
 args = parser.parse_args()
 dataframe = args.dataframe[0]
+h5_path = args.h5_path[0]
 out_dir = args.out_dir[0]
 
+#Open h5
+h5 = tables.open_file(h5_path)
 #Assign data and labels
 #Read df
 complete_df = pd.read_csv(dataframe)
@@ -136,11 +137,6 @@ train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
 train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
-
-
-#Tensorboard for logging and visualization
-log_name = str(time.time())
-tensorboard = TensorBoard(log_dir=out_dir+log_name)
 
 #Max rmsd for normalization
 max_val = max(complete_df["RMSD_x"])
@@ -174,7 +170,6 @@ log_name = str(time.time())
 tensorboard = TensorBoard(log_dir=out_dir+log_name)
 
 #MODEL PARAMETERS
-<<<<<<< HEAD
 base_epochs = 10
 finish_epochs = 3
 batch_size = 32
@@ -182,16 +177,6 @@ input_dim = X_train[0][0].shape
 num_classes = max(bins.shape)
 kernel_size = 21 #google uses 21
 filters = 100
-=======
-base_epochs = 40
-finish_epochs = 2
-batch_size = 32
-input_dim = X_train_500[0][0].shape
-num_classes = max(y_train[0].shape)
-seq_length = 300
-kernel_size = 21 #google uses 21
-filters = 1100
->>>>>>> e02c43d59660a534bff7379953453817180b427d
 drop_rate = 0.5
 num_nodes = 300
 num_res_blocks = 1
@@ -218,18 +203,15 @@ def resnet(x, num_res_blocks):
 	for res_block in range(num_res_blocks):
 		drop1 = Dropout(rate = drop_rate)(x)
 		batch_out1 = BatchNormalization()(drop1) #Bacth normalize, focus on segment
-		activation1 = Activation('relu')(batch_out1)
-		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation1)
+		activation1_tan = Activation('tanh')(batch_out1)
+		activation1_sig = Activation('sigmoid')(batch_out1)
+		mult1 = Multiply()([activation1_tan, activation1_sig])
+		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(mult1)
 		drop2 = Dropout(rate = drop_rate)(conv_out1)
 		batch_out2 = BatchNormalization()(drop2) #Bacth normalize, focus on segment
 		activation2 = Activation('relu')(batch_out2)
-<<<<<<< HEAD
         #Downsample - half filters
 		conv_out2 = Conv1D(filters = int(filters/2), kernel_size = kernel_size, dilation_rate = 1, input_shape=input_dim, padding ="same")(activation2)
-=======
-		#Bottleneck convolution: downsample to reduce channels
-		conv_out2 = Conv1D(filters = int(filters/2), kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation2)
->>>>>>> e02c43d59660a534bff7379953453817180b427d
 		x = Conv1D(filters = int(filters/2), kernel_size = kernel_size, dilation_rate = 1, input_shape=input_dim, padding ="same")(x)
 		x = add([x, conv_out2]) #Skip connection
 
@@ -248,7 +230,6 @@ x2 = resnet(in_2_conv, num_res_blocks)
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
 maxpool1 = MaxPooling1D(pool_size=seq_length)(x1)
 maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
-<<<<<<< HEAD
 #cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
 
 flat1 = Flatten()(maxpool1)  #Flatten
@@ -257,10 +238,6 @@ flat2 = Flatten()(maxpool2)  #Flatten
  # Add a customized layer to compute the absolute difference between the encodings
 L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
 L1_distance = L1_layer([flat1, flat2])
-=======
-cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
-flat = Flatten()(cat) #Flatten for dense layer
->>>>>>> e02c43d59660a534bff7379953453817180b427d
 #Dense final layer for classification
 probabilities = Dense(num_classes, activation='softmax')(L1_distance)
 
@@ -268,7 +245,8 @@ probabilities = Dense(num_classes, activation='softmax')(L1_distance)
 def bin_loss(y_true, y_pred):
     bins_K = variable(value=bins)
     pred_rmsds = dot([y_pred, bins_K], axes = 1)
-    loss =  mean_squared_error(y_true, pred_rmsds)
+    mean_squared_error(y_true, pred_rmsds)
+    loss = mean_absolute_error(y_true, pred_rmsds)
     return loss
 
 
@@ -277,7 +255,7 @@ model = Model(inputs = [in_1, in_2], outputs = probabilities)
 sgd = optimizers.SGD(clipnorm=1.)
 model.compile(loss=bin_loss,
               optimizer=sgd,
-              metrics=['accuracy', bin_loss])
+              metrics=[bin_loss])
 
 #LR schedule
 def lr_schedule(epochs):
@@ -315,23 +293,11 @@ model.fit(X_train, y_train, batch_size = batch_size,
              shuffle=True, #Dont feed continuously
              callbacks=callbacks)
 
-<<<<<<< HEAD
 pred = model.predict(X_valid)
 pred_rmsds = np.matmul(pred, bins.T)
 mean_error = np.average(np.absolute(pred_rmsds-y_valid))
-=======
-
-pred = np.argmax(model.predict(X_valid), axis = 1)
-y_valid = np.argmax(y_valid, axis = 1)
-average_error = np.average(np.absolute(pred-y_valid))
-print(average_error)
->>>>>>> e02c43d59660a534bff7379953453817180b427d
 #Prind validation predictions to file
-with open(out_dir+'validation.tsv', 'w') as file:
+with open('validation.tsv', 'w') as file:
     for i in range(0, len(pred)):
-<<<<<<< HEAD
         file.write(str(pred_rmsds[i])+'\t'+str(y_valid[i])+'\n')
 pdb.set_trace()
-=======
-        file.write(str(pred[i])+'\t'+str(y_valid[i])+'\n')
->>>>>>> e02c43d59660a534bff7379953453817180b427d
