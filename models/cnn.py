@@ -23,7 +23,7 @@ import tensorflow.keras as keras
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, Callback
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D, dot
+from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D, dot, Masking
 from tensorflow.keras.layers import Activation, RepeatVector, Permute, Multiply, Lambda, GlobalAveragePooling1D
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten, Subtract
 from tensorflow.keras.backend import epsilon, clip, sum, log, pow, mean, get_value, set_value, transpose, variable, abs, square
@@ -105,19 +105,16 @@ def create_features(df, min_val, max_val, seq_length):
             enc_feature1.append(enc1_i) #Append to list.
             enc_feature2.append(enc2_i) #Append to list.
 
-    #Get RMSDs
-    #rmsds = df['RMSD_x'] #rmsds/max_rmsd
-    #Bin the TMscore RMSDs
-    rmsds = df["RMSD_x"]
-    #bins = np.arange(min_val, max_val, 0.1)
-    #binned_rmsd = np.digitize(rmsds, bins)
+    #Get LDDT
+    scores = df["global_lddt"]
+
 
     X = [np.asarray(enc_feature1),np.asarray(enc_feature2)]
     #y = np.eye(45)[binned_rmsd-1] #-1 to start at 0 : Keras needs this (uses indexing)
     #y_binned = np.asarray(binned_rmsds)
     #y_binned = y_binned-1 #Needs to start at 0 for keras
     #y_hot = np.eye(len(bins))[y_binned]
-    y = np.asarray(rmsds)
+    y = np.asarray(scores)
     return(X, y)
 
 
@@ -144,7 +141,7 @@ min_val = min(complete_df["RMSD_x"])
 bins = np.arange(min_val, max_val, 0.1)
 bins = np.expand_dims(bins, axis=0)
 
-seq_length = 200
+seq_length = 300
 #Make the model mix what is fed to x1 and x2 - so both convnets learn the same thing!
 X_train,y_train = create_features(train_df, min_val, max_val, seq_length)
 
@@ -163,7 +160,7 @@ X_train,y_train = create_features(train_df, min_val, max_val, seq_length)
 # X_train_500 = [np.asarray(X_train_500[0]), np.asarray(X_train_500[1])] #convert to arrays
 # y_train_500 = np.asarray(y_train_500)
 X_valid,y_valid = create_features(valid_df, min_val, max_val,  seq_length)
-#X_valid = X_valid.reshape(len(X_valid),301,40,1)
+
 
 #Tensorboard for logging and visualization
 log_name = str(time.time())
@@ -201,14 +198,10 @@ def resnet(x, num_res_blocks):
     	# Instantiate the stack of residual units
     	#Similar to ProtCNN, but they used batch_size = 64, 2000 filters and kernel size of 21
 	for res_block in range(num_res_blocks):
-		drop1 = Dropout(rate = drop_rate)(x)
-		batch_out1 = BatchNormalization()(drop1) #Bacth normalize, focus on segment
-		activation1_tan = Activation('tanh')(batch_out1)
-		activation1_sig = Activation('sigmoid')(batch_out1)
-		mult1 = Multiply()([activation1_tan, activation1_sig])
-		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(mult1)
-		drop2 = Dropout(rate = drop_rate)(conv_out1)
-		batch_out2 = BatchNormalization()(drop2) #Bacth normalize, focus on segment
+		batch_out1 = BatchNormalization()(x) #Bacth normalize, focus on segment
+		activation1 = Activation('relu')(batch_out1)
+		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation1)
+		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
 		activation2 = Activation('relu')(batch_out2)
         #Downsample - half filters
 		conv_out2 = Conv1D(filters = int(filters/2), kernel_size = kernel_size, dilation_rate = 1, input_shape=input_dim, padding ="same")(activation2)
@@ -219,7 +212,7 @@ def resnet(x, num_res_blocks):
 
 	return x
 
-#Initial convolution - to make shapes match
+#Initial convolution
 in_1_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_1)
 in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_2)
 #Output (batch, steps(len), filters), filters = channels in next
@@ -239,23 +232,22 @@ flat2 = Flatten()(maxpool2)  #Flatten
 L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
 L1_distance = L1_layer([flat1, flat2])
 #Dense final layer for classification
-probabilities = Dense(num_classes, activation='softmax')(L1_distance)
+probabilities = Dense(1, activation='softmax')(L1_distance)
 
-#Custom loss
-def bin_loss(y_true, y_pred):
-    bins_K = variable(value=bins)
-    pred_rmsds = dot([y_pred, bins_K], axes = 1)
-    mean_squared_error(y_true, pred_rmsds)
-    loss = mean_absolute_error(y_true, pred_rmsds)
-    return loss
-
+# #Custom loss
+#def bin_loss(y_true, y_pred):
+#     bins_K = variable(value=bins)
+#     pred_rmsds = dot([y_pred, bins_K], axes = 1)
+#     mean_squared_error(y_true, pred_rmsds)
+#     loss = mean_absolute_error(y_true, pred_rmsds)
+#     return loss
+#
 
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = probabilities)
 sgd = optimizers.SGD(clipnorm=1.)
-model.compile(loss=bin_loss,
-              optimizer=sgd,
-              metrics=[bin_loss])
+model.compile(loss='mean_squared_logarithmic_error',
+              optimizer=sgd)
 
 #LR schedule
 def lr_schedule(epochs):
