@@ -10,7 +10,6 @@ import pandas as pd
 import glob
 
 #Preprocessing
-from sklearn.metrics import classification_report, confusion_matrix
 from collections import Counter
 import math
 import time
@@ -42,13 +41,29 @@ parser = argparse.ArgumentParser(description = '''A Neural Network for predictin
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to dataframe in .csv.')
 
-parser.add_argument('h5_path', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to .h5 file with profiles.')
+parser.add_argument('params_file', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to file with net parameters')
 
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
 
+
 #FUNCTIONS
+def read_net_params(params_file):
+    '''Read and return net parameters
+    '''
+    net_params = {} #Save information for net
+
+    with open(params_file) as file:
+        for line in file:
+            line = line.rstrip() #Remove newlines
+            line = line.split("=") #Split on "="
+
+            net_params[line[0]] = line[1]
+
+
+    return net_params
+
 def pad_cut(ar, x, y):
     '''Pads or cuts a 1D array to len x
     '''
@@ -67,18 +82,21 @@ def prob_bin(scores, bins):
     '''
 
     pb_scores = []
+    bin_size = bins[1]-bins[0]
     for i in scores:
         pb_score = np.zeros(len(bins))
-        if float(i) == 1.0:
+        if i == 1.0:
             pb_score[-1] = 1
 
         if float(i) != 0.0 and float(i) != 1.0:
-            stri = str(i)
-            n1 = stri[2]
-            n2 = stri[3:]
-            pb_score[int(n1)] = (1-float('0.'+n2))
-            pb_score[int(n1)+1] = (float('0.'+n2))
-
+            for j in range(0, len(bins)):
+                if i < bins[j+1]:
+                    stri = str(i)
+                    num_decimals = len(stri)-2
+                    n2 = stri[len(str(bin_size)):]
+                    pb_score[j] = (1-(float('0.'+'0'*(num_decimals-2)+n2)/bin_size))
+                    pb_score[j+1] = (float('0.'+'0'*(num_decimals-2)+n2)/bin_size)
+                    break #found which bin
 
         pb_scores.append(pb_score)
     return np.asarray(pb_scores)
@@ -124,51 +142,51 @@ def create_features(df,seq_length, bins):
 
 
     X = [np.asarray(enc_feature1),np.asarray(enc_feature2)]
-    y = np.asarray(scores)
+    y = np.asarray(pb_scores)
     return(X, y)
 
 
 #MAIN
 args = parser.parse_args()
 dataframe = args.dataframe[0]
-h5_path = args.h5_path[0]
+params_file = args.params_file[0]
 out_dir = args.out_dir[0]
 
-#Open h5
-h5 = tables.open_file(h5_path)
 #Assign data and labels
 #Read df
 complete_df = pd.read_csv(dataframe)
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
-train_df = complete_df[complete_df['H_group_x'].isin(train_groups[0:100])]
-valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups[0:100])]
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
+valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
 #Max rmsd for normalization
 max_val = max(complete_df["global_lddt"])
 min_val = min(complete_df["global_lddt"])
-bins = np.arange(min_val, max_val+0.1, 0.1)
+bins = np.arange(min_val, max_val+0.05, 0.05)
 
 
 seq_length = 300
 #Make the model mix what is fed to x1 and x2 - so both convnets learn the same thing!
 X_train,y_train = create_features(train_df, seq_length, bins)
 
-#Take 500 first points in train
-# X_train_500 = [[],[]]
-# y_train_500 = []
-# count_500 = np.zeros(45)
-# for i in range(0, len(y_train)):
-#     pos = np.argmax(y_train[i])
-#     if count_500[pos] <= 500:
-#         X_train_500[0].append(X_train[0][i])
-#         X_train_500[1].append(X_train[1][i])
-#         y_train_500.append(y_train[i])
-#         count_500[pos]+=1
-#
-# X_train_500 = [np.asarray(X_train_500[0]), np.asarray(X_train_500[1])] #convert to arrays
-# y_train_500 = np.asarray(y_train_500)
+#Take p first points in train
+X_train_p = [[],[]]
+y_train_p = []
+count_p = np.zeros(len(bins))
+p = 1000
+for i in range(0, len(y_train)):
+      pos = np.argmax(y_train[i])
+      if count_p[pos] <= p:
+          X_train_p[0].append(X_train[0][i])
+          X_train_p[1].append(X_train[1][i])
+          y_train_p.append(y_train[i])
+          count_p[pos]+=1
+
+X_train_p = [np.asarray(X_train_p[0]), np.asarray(X_train_p[1])] #convert to arrays
+y_train_p = np.asarray(y_train_p)
+
 X_valid,y_valid = create_features(valid_df, seq_length, bins)
 
 bins = np.expand_dims(bins, axis=0)
@@ -176,7 +194,9 @@ bins = np.expand_dims(bins, axis=0)
 log_name = str(time.time())
 tensorboard = TensorBoard(log_dir=out_dir+log_name)
 
-#MODEL PARAMETERS
+######MODEL######
+#Parameters
+#net_params = read_net_params(params_file)
 base_epochs = 10
 finish_epochs = 3
 batch_size = 16
@@ -196,7 +216,7 @@ num_epochs = base_epochs+finish_epochs
 max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further last epochs
-pdb.set_trace()
+
 #MODEL
 in_1 = keras.Input(shape = input_dim)
 in_2 = keras.Input(shape = input_dim)
@@ -247,9 +267,10 @@ probabilities = Dense(num_classes, activation='softmax')(L1_distance)
 #Custom loss
 def bin_loss(y_true, y_pred):
      bins_K = variable(value=bins)
-     pred_rmsds = dot([y_pred, bins_K], axes = 1)
-     mean_squared_error(y_true, pred_rmsds)
-     loss = mean_absolute_error(y_true, pred_rmsds)
+     pred_vals = dot([y_pred, bins_K], axes = 1)
+     true_vals = dot([y_true, bins_K], axes = 1)
+
+     loss = mean_absolute_error(true_vals, pred_vals)
      return loss
 
 
@@ -290,7 +311,7 @@ print(model.summary())
 
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
-model.fit(X_train, y_train, batch_size = batch_size,
+model.fit(X_train_p, y_train_p, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
@@ -298,9 +319,10 @@ model.fit(X_train, y_train, batch_size = batch_size,
 
 pred = model.predict(X_valid)
 pred_rmsds = np.matmul(pred, bins.T)
-mean_error = np.average(np.absolute(pred_rmsds-y_valid))
-#Prind validation predictions to file
+true = np.matmul(y_valid,bins.T)
+mean_error = np.average(np.absolute(pred_rmsds-true))
+#Prind validation predictions to file for further analysis
 with open('validation.tsv', 'w') as file:
     for i in range(0, len(pred)):
-        file.write(str(pred_rmsds[i])+'\t'+str(y_valid[i])+'\n')
+        file.write(str(pred_rmsds[i])+'\t'+str(true[i])+'\n')
 pdb.set_trace()
