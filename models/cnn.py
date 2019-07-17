@@ -26,7 +26,7 @@ from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D, dot, Masking
 from tensorflow.keras.layers import Activation, RepeatVector, Permute, Multiply, Lambda, GlobalAveragePooling1D
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten, Subtract
-from tensorflow.keras.backend import epsilon, clip, sum, log, pow, mean, get_value, set_value, transpose, variable, abs, square
+from tensorflow.keras.backend import epsilon, clip, get_value, set_value, transpose, variable, square
 from tensorflow.layers import AveragePooling1D
 from tensorflow.keras.losses import mean_absolute_error, mean_squared_error
 #visualization
@@ -62,7 +62,28 @@ def pad_cut(ar, x, y):
         ar = ar[0:x]
     return ar
 
-def create_features(df, min_val, max_val, seq_length):
+def prob_bin(scores, bins):
+    '''Bin scores into probabilities in different bins
+    '''
+
+    pb_scores = []
+    for i in scores:
+        pb_score = np.zeros(len(bins))
+        if float(i) == 1.0:
+            pb_score[-1] = 1
+
+        if float(i) != 0.0 and float(i) != 1.0:
+            stri = str(i)
+            n1 = stri[2]
+            n2 = stri[3:]
+            pb_score[int(n1)] = (1-float('0.'+n2))
+            pb_score[int(n1)+1] = (float('0.'+n2))
+
+
+        pb_scores.append(pb_score)
+    return np.asarray(pb_scores)
+
+def create_features(df,seq_length, bins):
     '''Get features
     '''
     #Get H_groups
@@ -75,9 +96,6 @@ def create_features(df, min_val, max_val, seq_length):
     enc2 = []
     [enc1.append(np.eye(22)[literal_eval(x)]) for x in [*df['enc1']]]
     [enc2.append(np.eye(22)[literal_eval(x)]) for x in [*df['enc2']]]
-    #onehot
-    #enc1_hot = np.eye(len(enc1[0]))[enc1]
-    #enc2_hot = np.eye(len(enc1[0]))[enc2]
 
     #Save features
     enc_feature1 = []
@@ -96,24 +114,16 @@ def create_features(df, min_val, max_val, seq_length):
             uids = uid1[i]+'_'+uid2[i]
             enc1_i = pad_cut(enc1[i], seq_length, 22)
             enc2_i = pad_cut(enc2[i], seq_length, 22)
-            #dist = np.asarray([evdist[i]]*22) #Dont want to lose this due to conv
-            #dist = np.expand_dims(dist, axis=0)
-            #enc1_i = np.append(enc1_i, dist, axis = 0)
-            #enc2_i = np.append(enc2_i, dist, axis = 0)
-
 
             enc_feature1.append(enc1_i) #Append to list.
             enc_feature2.append(enc2_i) #Append to list.
 
     #Get LDDT
-    scores = df["global_lddt"]
+    scores = np.asarray(df["global_lddt"])
+    pb_scores = prob_bin(scores, bins)
 
 
     X = [np.asarray(enc_feature1),np.asarray(enc_feature2)]
-    #y = np.eye(45)[binned_rmsd-1] #-1 to start at 0 : Keras needs this (uses indexing)
-    #y_binned = np.asarray(binned_rmsds)
-    #y_binned = y_binned-1 #Needs to start at 0 for keras
-    #y_hot = np.eye(len(bins))[y_binned]
     y = np.asarray(scores)
     return(X, y)
 
@@ -131,19 +141,19 @@ h5 = tables.open_file(h5_path)
 complete_df = pd.read_csv(dataframe)
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
-train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
-valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups[0:100])]
+valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups[0:100])]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
 #Max rmsd for normalization
 max_val = max(complete_df["global_lddt"])
 min_val = min(complete_df["global_lddt"])
-bins = np.arange(min_val, max_val, 0.1)
-bins = np.expand_dims(bins, axis=0)
+bins = np.arange(min_val, max_val+0.1, 0.1)
+
 
 seq_length = 300
 #Make the model mix what is fed to x1 and x2 - so both convnets learn the same thing!
-X_train,y_train = create_features(train_df, min_val, max_val, seq_length)
+X_train,y_train = create_features(train_df, seq_length, bins)
 
 #Take 500 first points in train
 # X_train_500 = [[],[]]
@@ -159,9 +169,9 @@ X_train,y_train = create_features(train_df, min_val, max_val, seq_length)
 #
 # X_train_500 = [np.asarray(X_train_500[0]), np.asarray(X_train_500[1])] #convert to arrays
 # y_train_500 = np.asarray(y_train_500)
-X_valid,y_valid = create_features(valid_df, min_val, max_val,  seq_length)
+X_valid,y_valid = create_features(valid_df, seq_length, bins)
 
-
+bins = np.expand_dims(bins, axis=0)
 #Tensorboard for logging and visualization
 log_name = str(time.time())
 tensorboard = TensorBoard(log_dir=out_dir+log_name)
@@ -169,7 +179,7 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 #MODEL PARAMETERS
 base_epochs = 10
 finish_epochs = 3
-batch_size = 32
+batch_size = 16
 input_dim = X_train[0][0].shape
 num_classes = max(bins.shape)
 kernel_size = 21 #google uses 21
@@ -186,7 +196,7 @@ num_epochs = base_epochs+finish_epochs
 max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further last epochs
-
+pdb.set_trace()
 #MODEL
 in_1 = keras.Input(shape = input_dim)
 in_2 = keras.Input(shape = input_dim)
@@ -246,7 +256,7 @@ def bin_loss(y_true, y_pred):
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = probabilities)
 sgd = optimizers.SGD(clipnorm=1.)
-model.compile(loss=bin_loss,
+model.compile(loss='categorical_crossentropy',
               optimizer=sgd)
 
 #LR schedule
@@ -279,6 +289,7 @@ callbacks=[lrate, tensorboard]
 print(model.summary())
 
 #Fit model
+#Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit(X_train, y_train, batch_size = batch_size,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
