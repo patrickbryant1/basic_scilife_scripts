@@ -53,8 +53,8 @@ def move_res_number(pdb_files):
 		reformatted_ca = [] #Save reformatted version
 		new_number=1
 		for line in ca:
-			res_number = str(int(line[24:27]))
-			new_line = line[0:24]+' '*(3-len(str(new_number)))+str(new_number)+line[27:]
+			res_number = str(int(line[22:26]))
+			new_line = line[0:22]+' '*(4-len(str(new_number)))+str(new_number)+line[26:]
 			reformatted_ca.append(new_line)
 			new_number+=1
 		#Write to new file
@@ -76,7 +76,6 @@ def write_lddt(indir, out, uid1, uid2):
 	with open(lddt_name, 'w') as file:
 		out = out.decode() #Returns byte
 		file.write(out)
-	pdb.set_trace()
 	return None
 
 
