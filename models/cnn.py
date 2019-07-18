@@ -186,9 +186,9 @@ for i in range(0, len(y_train)):
 
 X_train_p = [np.asarray(X_train_p[0]), np.asarray(X_train_p[1])] #convert to arrays
 y_train_p = np.asarray(y_train_p)
-
+#y_train_p = np.matmul(y_train_p, bins)
 X_valid,y_valid = create_features(valid_df, seq_length, bins)
-
+#y_valid = np.matmul(y_valid, bins)
 bins = np.expand_dims(bins, axis=0)
 #Tensorboard for logging and visualization
 log_name = str(time.time())
@@ -199,14 +199,14 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 #net_params = read_net_params(params_file)
 base_epochs = 10
 finish_epochs = 3
-batch_size = 16
+batch_size = 8
 input_dim = X_train[0][0].shape
 num_classes = max(bins.shape)
 kernel_size = 21 #google uses 21
 filters = 100
 drop_rate = 0.5
 num_nodes = 300
-num_res_blocks = 1
+num_res_blocks = 3
 dilation_rate = 3
 
 #lr opt
@@ -261,6 +261,10 @@ flat2 = Flatten()(maxpool2)  #Flatten
  # Add a customized layer to compute the absolute difference between the encodings
 L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
 L1_distance = L1_layer([flat1, flat2])
+
+#L2-normalize samples along the dot product axis before taking the dot product.
+#cos_dist = keras.layers.Dot(axes = 1, normalize=True)([flat1, flat2]) #normalize = True means the cosine similarity is calculated
+
 #Dense final layer for classification
 probabilities = Dense(num_classes, activation='softmax')(L1_distance)
 
@@ -268,9 +272,9 @@ probabilities = Dense(num_classes, activation='softmax')(L1_distance)
 def bin_loss(y_true, y_pred):
      bins_K = variable(value=bins)
      pred_vals = dot([y_pred, bins_K], axes = 1)
-     true_vals = dot([y_true, bins_K], axes = 1)
+     #true_vals = dot([y_true, bins_K], axes = 1)
 
-     loss = mean_absolute_error(true_vals, pred_vals)
+     loss = mean_absolute_error(y_true, pred_vals)
      return loss
 
 
