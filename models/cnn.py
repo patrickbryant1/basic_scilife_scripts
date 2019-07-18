@@ -196,19 +196,19 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 
 ######MODEL######
 #Parameters
-#net_params = read_net_params(params_file)
-base_epochs = 10
-finish_epochs = 3
+net_params = read_net_params(params_file)
 batch_size = 8
 input_dim = X_train[0][0].shape
 num_classes = max(bins.shape)
 kernel_size = 21 #google uses 21
-filters = 500
-drop_rate = 0.5
-num_nodes = 300
-num_res_blocks = 3
-dilation_rate = 3
 
+#Variable params
+num_res_blocks = int(net_params['num_res_blocks'])
+base_epochs = int(net_params['base_epochs'])
+finish_epochs = int(net_params['finish_epochs'])
+filters = int(net_params['filters']) # Dimension of the embedding vector.
+dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolutions
+pdb.set_trace()
 #lr opt
 find_lr = False
 #LR schedule
@@ -258,15 +258,15 @@ maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
 flat1 = Flatten()(maxpool1)  #Flatten
 flat2 = Flatten()(maxpool2)  #Flatten
 
- # Add a customized layer to compute the absolute difference between the encodings
-L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
-L1_distance = L1_layer([flat1, flat2])
+# Add a customized layer to compute the absolute difference between the encodings
+#L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
+#L1_distance = L1_layer([flat1, flat2])
 
-#L2-normalize samples along the dot product axis before taking the dot product.
-#cos_dist = keras.layers.Dot(axes = 1, normalize=True)([flat1, flat2]) #normalize = True means the cosine similarity is calculated
-
+# Add a customized layer to compute the absolute difference between the encodings
+L2_layer = Lambda(lambda tensors:keras.backend.sqrt(keras.backend.square(tensors[0] - tensors[1])))
+L2_distance = L2_layer([flat1, flat2])
 #Dense final layer for classification
-probabilities = Dense(num_classes, activation='softmax')(L1_distance)
+probabilities = Dense(num_classes, activation='softmax')(L2_distance)
 
 #Custom loss
 def bin_loss(y_true, y_pred):
@@ -306,13 +306,16 @@ def lr_schedule(epochs):
 
 #Lrate
 lrate = LearningRateScheduler(lr_schedule)
-callbacks=[lrate, tensorboard]
+#Checkpoint
+filepath=out_dir+"weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
+checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=False, mode='max')
 
 
 
 #Summary of model
 print(model.summary())
 
+callbacks=[lrate, tensorboard, checkpoint, accuracy]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit(X_train_p, y_train_p, batch_size = batch_size,
