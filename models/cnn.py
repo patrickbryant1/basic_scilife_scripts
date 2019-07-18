@@ -208,7 +208,7 @@ base_epochs = int(net_params['base_epochs'])
 finish_epochs = int(net_params['finish_epochs'])
 filters = int(net_params['filters']) # Dimension of the embedding vector.
 dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolutions
-pdb.set_trace()
+
 #lr opt
 find_lr = False
 #LR schedule
@@ -259,14 +259,14 @@ flat1 = Flatten()(maxpool1)  #Flatten
 flat2 = Flatten()(maxpool2)  #Flatten
 
 # Add a customized layer to compute the absolute difference between the encodings
-#L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
-#L1_distance = L1_layer([flat1, flat2])
+L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
+L1_distance = L1_layer([flat1, flat2])
 
 # Add a customized layer to compute the absolute difference between the encodings
-L2_layer = Lambda(lambda tensors:keras.backend.sqrt(keras.backend.square(tensors[0] - tensors[1])))
-L2_distance = L2_layer([flat1, flat2])
+#L2_layer = Lambda(lambda tensors:keras.backend.sqrt(keras.backend.square(tensors[0] - tensors[1])))
+#L2_distance = L2_layer([flat1, flat2])
 #Dense final layer for classification
-probabilities = Dense(num_classes, activation='softmax')(L2_distance)
+probabilities = Dense(num_classes, activation='softmax')(L1_distance)
 
 #Custom loss
 def bin_loss(y_true, y_pred):
@@ -282,6 +282,7 @@ def bin_loss(y_true, y_pred):
 model = Model(inputs = [in_1, in_2], outputs = probabilities)
 sgd = optimizers.SGD(clipnorm=1.)
 model.compile(loss='categorical_crossentropy',
+              metrics = ['accuracy'],
               optimizer=sgd)
 
 #LR schedule
@@ -315,7 +316,7 @@ checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_o
 #Summary of model
 print(model.summary())
 
-callbacks=[lrate, tensorboard, checkpoint, accuracy]
+callbacks=[lrate, tensorboard, checkpoint]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit(X_train_p, y_train_p, batch_size = batch_size,
