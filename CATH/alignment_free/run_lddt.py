@@ -48,16 +48,15 @@ def move_res_number(pdb_files):
 		out = subprocess.check_output(command, shell = True)#Save parsed pdb
 		out = out.decode() #Returns byte
 		out = out.split('\n')
-		seq = out[0]	
 		ca = out[1:-1] 
 
 		reformatted_ca = [] #Save reformatted version
-
+		new_number=1
 		for line in ca:
-			res_number = str(int(line[22:25]))
-			new_line = line[0:23]+' '*(3-len(res_number))+res_number+line[26:]
+			res_number = str(int(line[24:27]))
+			new_line = line[0:24]+' '*(3-len(str(new_number)))+str(new_number)+line[27:]
 			reformatted_ca.append(new_line)
-
+			new_number+=1
 		#Write to new file
 		outname = 'rf_'+pdb_name.split('/')[-1]
 		with open(outname, 'w') as file:
