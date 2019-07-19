@@ -83,8 +83,10 @@ def get_batch(batch_size,s="train"):
     """
     if s == 'train':
         categories = train_groups
+
     else:
         categories = valid_groups
+
     #n_classes, n_examples, w, h = X.shape
 
     # randomly sample several classes to use in the batch
@@ -99,7 +101,7 @@ def get_batch(batch_size,s="train"):
     # make one half of it '1's, so 2nd half of batch has same class (=1)
     targets[batch_size//2:] = 1
     for i in range(batch_size):
-        category = categories[random_numbers[i]] #Random categories chosen above
+        category = random_numbers[i] #Random categories chosen above
         n_examples = np.where(X[1]==category)[0]
         idx_1 = np.random.choice(n_examples)
 
@@ -156,16 +158,16 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 ######MODEL######
 #Parameters
 net_params = read_net_params(params_file)
-batch_size = 8
-input_dim = (300,1)
-num_classes = 2
+batch_size = 4
+input_dim = (300,21)
+num_classes = 1
 kernel_size = 21 #google uses 21
 seq_length=300
 #Variable params
 num_res_blocks = int(net_params['num_res_blocks'])
 base_epochs = int(net_params['base_epochs'])
 finish_epochs = int(net_params['finish_epochs'])
-filters = int(net_params['filters']) # Dimension of the embedding vector.
+filters = 1100#int(net_params['filters']) # Dimension of the embedding vector.
 dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolutions
 
 #lr opt
@@ -225,24 +227,15 @@ L1_distance = L1_layer([flat1, flat2])
 #L2_layer = Lambda(lambda tensors:keras.backend.sqrt(keras.backend.square(tensors[0] - tensors[1])))
 #L2_distance = L2_layer([flat1, flat2])
 #Dense final layer for classification
-probabilities = Dense(num_classes, activation='softmax')(L1_distance)
-
-#Custom loss
-def bin_loss(y_true, y_pred):
-     bins_K = variable(value=bins)
-     pred_vals = dot([y_pred, bins_K], axes = 1)
-     #true_vals = dot([y_true, bins_K], axes = 1)
-
-     loss = mean_absolute_error(y_true, pred_vals)
-     return loss
+probability = Dense(num_classes, activation='sigmoid')(L1_distance)
 
 
 #Model: define inputs and outputs
-model = Model(inputs = [in_1, in_2], outputs = probabilities)
-sgd = optimizers.SGD(clipnorm=1.)
+model = Model(inputs = [in_1, in_2], outputs = probability)
+opt = optimizers.Adam(clipnorm=1.)
 model.compile(loss='binary_crossentropy',
               metrics = ['accuracy'],
-              optimizer=sgd)
+              optimizer=opt)
 
 #LR schedule
 def lr_schedule(epochs):
@@ -275,7 +268,7 @@ checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_o
 #Summary of model
 print(model.summary())
 
-callbacks=[lrate, tensorboard, checkpoint]
+callbacks=[lrate, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
@@ -285,12 +278,5 @@ model.fit_generator(generate(batch_size),
              shuffle=True, #Dont feed continuously
              callbacks=callbacks)
 
-pred = model.predict(X_valid)
-pred_rmsds = np.matmul(pred, bins.T)
-true = np.matmul(y_valid,bins.T)
-mean_error = np.average(np.absolute(pred_rmsds-true))
-#Prind validation predictions to file for further analysis
-with open('validation.tsv', 'w') as file:
-    for i in range(0, len(pred)):
-        file.write(str(pred_rmsds[i])+'\t'+str(true[i])+'\n')
+
 pdb.set_trace()

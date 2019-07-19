@@ -38,7 +38,7 @@ import pdb
 parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
                                                 RMSD between structural alignments .''')
 
-parser.add_argument('data', nargs=1, type= str,
+parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to np array.')
 
 parser.add_argument('params_file', nargs=1, type= str,
@@ -112,8 +112,8 @@ def create_features(df,seq_length, bins):
     #Get encodings
     enc1 = []
     enc2 = []
-    [enc1.append(np.eye(21)[literal_eval(x)]) for x in [*df['full_enc1']]]
-    [enc2.append(np.eye(21)[literal_eval(x)]) for x in [*df['full_enc2']]]
+    [enc1.append(np.eye(22)[literal_eval(x)]) for x in [*df['full_enc1']]]
+    [enc2.append(np.eye(22)[literal_eval(x)]) for x in [*df['full_enc2']]]
 
     #Save features
     enc_feature1 = []
