@@ -38,8 +38,8 @@ import pdb
 parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
                                                 H-group assignment from sequence.''')
 
-parser.add_argument('dataframe', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to dataframe in .csv.')
+parser.add_argument('data', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to np array.')
 
 parser.add_argument('params_file', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to file with net parameters')
@@ -82,66 +82,72 @@ def get_batch(batch_size,s="train"):
     Create batch of n pairs, half same class, half different class
     """
     if s == 'train':
-        X = X_train
         categories = train_groups
     else:
-        X = X_valid
         categories = valid_groups
     #n_classes, n_examples, w, h = X.shape
 
     # randomly sample several classes to use in the batch
-    random_numbers = np.random.choice(len(categories),size=(batch_size,),replace=False) #without replacement
-
+    random_numbers = np.random.choice(categories,size=(batch_size,),replace=False) #without replacement
+    not_chosen = np.setdiff1d(categories,random_numbers) #not chosen categories
     # initialize 2 empty arrays for the input image batch
-    pairs=[np.zeros((batch_size, h, w,1)) for i in range(2)]
+    pairs=[np.zeros((batch_size, 300, 21)) for i in range(2)]
 
     # initialize vector for the targets
     targets=np.zeros((batch_size,))
 
-    # make one half of it '1's, so 2nd half of batch has same class
+    # make one half of it '1's, so 2nd half of batch has same class (=1)
     targets[batch_size//2:] = 1
     for i in range(batch_size):
         category = categories[random_numbers[i]] #Random categories chosen above
+        n_examples = np.where(X[1]==category)[0]
+        idx_1 = np.random.choice(n_examples)
 
-        X['H_group']== category
-        idx_1 = random.randint(0, n_examples)
 
 
-        pairs[0][i,:,:,:] = X[category, idx_1].reshape(w, h, 1)
-        idx_2 = rng.randint(0, n_examples)
+        pairs[0][i,:,:] = pad_cut(X[0][idx_1], 300, 21)
 
         # pick images of same class for 1st half, different for 2nd
         if i >= batch_size // 2:
             category_2 = category
-        else:
-            # add a random number to the category modulo n classes to ensure 2nd image has a different category
-            category_2 = (category + rng.randint(1,n_classes)) % n_classes
 
-        pairs[1][i,:,:,:] = X[category_2,idx_2].reshape(w, h,1)
+        else:
+            # Add another category
+            category_2 =  np.random.choice(not_chosen)
+            n_examples = np.where(X[1]==category)[0]
+
+        idx_2 = np.random.choice(n_examples)
+        pairs[1][i,:,:] = pad_cut(X[0][idx_2], 300, 21)
 
     return pairs, targets
 
+def generate(batch_size, s="train"):
+    """
+    a generator for batches, so model.fit_generator can be used.
+    """
+    while True:
+        pairs, targets = get_batch(batch_size,s)
+        yield (pairs, targets)
+
 #MAIN
 args = parser.parse_args()
-dataframe = args.dataframe[0]
+data_path = args.data[0]
 params_file = args.params_file[0]
 out_dir = args.out_dir[0]
 
 #Assign data and labels
-#Read df
-above2_df = pd.read_csv(dataframe)
+#Read data
+X = np.load(data_path, allow_pickle=True)
 #Split
-#3067 H-groups in total
-train_groups, valid_groups, test_groups = split_on_h_group(above_df, 0.8)
-train_df = above2_df[above2_df['H_group_x'].isin(train_groups)]
-valid_df = above2_df[above2_df['H_group_x'].isin(valid_groups)]
-test_df = above2_df[above2_df['H_group_x'].isin(test_groups)]
+#3067 H-groups in total: split randomly without overlaps
+#from medium:contains characters from 30 alphabets and will be used to train the model, while images_evaluation folder contains characters from the other 20 alphabets which we will use to test our system.
+np.random.seed(2) #Set random seed - ensures same split every time
+train_groups = np.random.choice(3066,size=(int(3067*0.8),),replace=False)
+a = np.arange(3066)
+remain = np.setdiff1d(a,train_groups)
+valid_groups =  np.random.choice(remain,size=(int(3067*0.1),),replace=False)
+test_groups = np.setdiff1d(remain, valid_groups)
 
-#Make the model mix what is fed to x1 and x2 - so both convnets learn the same thing!
-X_train = [*train_df['sequence']]
-y_train = [*train_df['H_encoding']]
-X_valid = [*valid_df['sequence']]
-y_valid = [*valid_df['H_encoding']]
 
 #Tensorboard for logging and visualization
 log_name = str(time.time())
@@ -151,10 +157,10 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 #Parameters
 net_params = read_net_params(params_file)
 batch_size = 8
-input_dim = X_train[0][0].shape
-num_classes = max(bins.shape)
+input_dim = (300,1)
+num_classes = 2
 kernel_size = 21 #google uses 21
-
+seq_length=300
 #Variable params
 num_res_blocks = int(net_params['num_res_blocks'])
 base_epochs = int(net_params['base_epochs'])
@@ -234,7 +240,7 @@ def bin_loss(y_true, y_pred):
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = probabilities)
 sgd = optimizers.SGD(clipnorm=1.)
-model.compile(loss='categorical_crossentropy',
+model.compile(loss='binary_crossentropy',
               metrics = ['accuracy'],
               optimizer=sgd)
 
@@ -272,9 +278,10 @@ print(model.summary())
 callbacks=[lrate, tensorboard, checkpoint]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
-model.fit(X_train_p, y_train_p, batch_size = batch_size,
+model.fit_generator(generate(batch_size),
+             steps_per_epoch=int(len(train_groups)/batch_size),
              epochs=num_epochs,
-             validation_data = [X_valid, y_valid],
+             #validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
              callbacks=callbacks)
 

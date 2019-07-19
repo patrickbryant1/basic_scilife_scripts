@@ -38,8 +38,8 @@ import pdb
 parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
                                                 RMSD between structural alignments .''')
 
-parser.add_argument('dataframe', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to dataframe in .csv.')
+parser.add_argument('data', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to np array.')
 
 parser.add_argument('params_file', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to file with net parameters')
