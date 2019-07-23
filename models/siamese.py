@@ -367,7 +367,8 @@ model.fit_generator(generate(batch_size),
 
 
 pred = model.predict(X_valid)
-mean_error = np.average(np.absolute(pred-y_valid))
+diff = [pred[i]-y_valid[i] for i in range(len(y_valid))]
+print(np.average(np.absolute(diff)))
 #Prind validation predictions to file for further analysis
 with open('validation.tsv', 'w') as file:
     for i in range(0, len(pred)):
