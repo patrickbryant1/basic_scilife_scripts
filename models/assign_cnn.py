@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/share/python
 # -*- coding: utf-8 -*-
 
 
@@ -13,7 +13,6 @@ import glob
 from collections import Counter
 import math
 import time
-import tables
 from ast import literal_eval
 
 #Keras
@@ -164,7 +163,7 @@ num_classes = 1
 kernel_size = 21 #google uses 21
 seq_length=300
 #Variable params
-num_res_blocks = int(net_params['num_res_blocks'])
+num_res_blocks = 5#int(net_params['num_res_blocks'])
 base_epochs = int(net_params['base_epochs'])
 finish_epochs = int(net_params['finish_epochs'])
 filters = 1100#int(net_params['filters']) # Dimension of the embedding vector.
@@ -279,4 +278,4 @@ model.fit_generator(generate(batch_size),
              callbacks=callbacks)
 
 
-pdb.set_trace()
+
