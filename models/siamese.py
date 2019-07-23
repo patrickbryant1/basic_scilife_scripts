@@ -198,7 +198,7 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 ######MODEL######
 #Parameters
 net_params = read_net_params(params_file)
-batch_size = 100
+batch_size = 32
 input_dim = (300,22)
 num_classes = max(bins.shape)
 kernel_size = 21 #google uses 21
@@ -287,11 +287,13 @@ def bin_loss(y_true, y_pred):
 	g_loss = mean_absolute_error(y_true, y_pred) #general, compare difference
 	#log_g_loss = keras.backend.log(g_loss/100)
   #Gauss for loss
-	gauss = keras.backend.random_normal_variable(shape=(batch_size, 1), mean=0.7, scale=0.3) # Gaussian distribution, scale: Float, standard deviation of the normal distribution.
-	kl_loss = keras.losses.kullback_leibler_divergence(gauss, y_pred) #compared to gauss instead? - take all predicted vals, should follow gauss
+	#gauss = keras.backend.random_normal_variable(shape=(batch_size, 1), mean=0.7, scale=0.3) # Gaussian distribution, scale: Float, standard deviation of the normal distribution.
+	kl_loss = keras.losses.kullback_leibler_divergence(y_true, y_pred) #compared to gauss instead? - take all predicted vals, should follow gauss
 	#sum_log_g_loss = keras.backend.sum(log_g_loss, axis = 0)
 	sum_kl_loss = keras.backend.sum(kl_loss, axis =0)
-	loss = g_loss+sum_kl_loss
+	sum_g_loss = keras.backend.sum(g_loss, axis =0)
+	sum_g_loss = sum_g_loss*10 #vary multiplication factor?
+	loss = sum_g_loss+sum_kl_loss
   #Normalize loss by percentage contributions: divide by contribution
   #Write batch generator to avoid incompatibility in shapes
   #problem at batch end due to kongruens
@@ -307,9 +309,10 @@ class IntervalEvaluation(Callback):
 
     def on_epoch_end(self, epoch, logs={}):
         if epoch % self.interval == 0:
-            y_pred = self.model.predict_proba(self.X_val, verbose=0)
-            score = mean_absolute_error(self.y_val, y_pred)
-            print("interval evaluation - epoch: {:d} - score: {:.6f}".format(epoch, score))
+            y_pred = self.model.predict(self.X_val, verbose=0)
+            print(y_pred.shape)
+            score = np.average(np.absolute(y_pred-y_valid))
+            print(epoch, score)
 
 
 
@@ -317,7 +320,6 @@ class IntervalEvaluation(Callback):
 model = Model(inputs = [in_1, in_2], outputs = pred_vals)
 opt = optimizers.Adam(clipnorm=1.)
 model.compile(loss=bin_loss,
-              metrics = ['accuracy'],
               optimizer=opt)
 
 #LR schedule
@@ -358,16 +360,16 @@ callbacks=[lrate, tensorboard, checkpoint, ival]
 model.fit_generator(generate(batch_size),
             steps_per_epoch=int(len(train_df)/batch_size),
             epochs=num_epochs,
-            validation_data = [X_valid, y_valid],
+            #validation_data = [X_valid, y_valid],
             shuffle=True, #Dont feed continuously
             callbacks=callbacks)
 
 
-pdb.set_trace()
+
 pred = model.predict(X_valid)
 mean_error = np.average(np.absolute(pred-y_valid))
 #Prind validation predictions to file for further analysis
 with open('validation.tsv', 'w') as file:
     for i in range(0, len(pred)):
-        file.write(str(pred_rmsds[i])+'\t'+str(true[i])+'\n')
+        file.write(str(pred[i])+'\t'+str(y_valid[i])+'\n')
 pdb.set_trace()
