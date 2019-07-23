@@ -166,7 +166,7 @@ seq_length=300
 num_res_blocks = 5#int(net_params['num_res_blocks'])
 base_epochs = int(net_params['base_epochs'])
 finish_epochs = int(net_params['finish_epochs'])
-filters = 1100#int(net_params['filters']) # Dimension of the embedding vector.
+filters = int(net_params['filters']) # Dimension of the embedding vector.
 dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolutions
 
 #lr opt
@@ -259,7 +259,7 @@ def lr_schedule(epochs):
 #Lrate
 lrate = LearningRateScheduler(lr_schedule)
 #Checkpoint
-filepath=out_dir+"weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
+filepath=out_dir+"weights-improvement-{epoch:02d}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=False, mode='max')
 
 
@@ -271,7 +271,7 @@ callbacks=[lrate, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
-             steps_per_epoch=int(len(train_groups)/batch_size),
+             steps_per_epoch=10000,
              epochs=num_epochs,
              #validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously

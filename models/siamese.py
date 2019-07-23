@@ -17,6 +17,7 @@ import tables
 from ast import literal_eval
 
 #Keras
+import tensorflow as tf
 from tensorflow.keras import regularizers,optimizers
 import tensorflow.keras as keras
 from tensorflow.keras.constraints import max_norm
@@ -27,7 +28,7 @@ from tensorflow.keras.layers import Activation, RepeatVector, Permute, Multiply,
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten, Subtract
 from tensorflow.keras.backend import epsilon, clip, get_value, set_value, transpose, variable, square
 from tensorflow.layers import AveragePooling1D
-from tensorflow.keras.losses import mean_absolute_error, mean_squared_error
+from tensorflow.keras.losses import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 #visualization
 from tensorflow.keras.callbacks import TensorBoard
 #Custom
@@ -101,46 +102,46 @@ def prob_bin(scores, bins):
         pb_scores.append(pb_score)
     return np.asarray(pb_scores)
 
-def create_features(df,seq_length, bins):
-    '''Get features
-    '''
-    #Get H_groups
-    groups = [*Counter(df['H_group_x']).keys()]
-    #Get MLAAdist
-    evdist = np.asarray(df['MLAAdist_x'])
 
-    #Get encodings
-    enc1 = []
-    enc2 = []
-    [enc1.append(np.eye(22)[literal_eval(x)]) for x in [*df['full_enc1']]]
-    [enc2.append(np.eye(22)[literal_eval(x)]) for x in [*df['full_enc2']]]
+def get_batch(batch_size,s="train"):
+    """
+    Create batch of n pairs
+    """
+    x1 = [*train_df['enc1']]
+    x2 = [*train_df['enc2']]
+    X = [x1, x2]
+    scores = np.asarray(train_df["global_lddt"])
 
-    #Save features
-    enc_feature1 = []
-    enc_feature2 = []
+    random_numbers = np.random.choice(len(scores),size=(batch_size,),replace=False) #without replacement
 
-    #Get hmms
-    for hgroup in groups:
-        group_data = df[df['H_group_x']==hgroup]
-        uid1 = [*group_data['uid1']]
-        uid2 = [*group_data['uid2']]
+    #initialize 2 empty arrays for the input image batch
+    pairs=[np.zeros((batch_size, 300, 22)) for i in range(2)]
 
-        for i in range(0,len(uid1)):
-            enc1_i = pad_cut(enc1[i], seq_length, 22)
-            enc2_i = pad_cut(enc2[i], seq_length, 22)
+    # initialize vector for the targets
+    targets=np.zeros((batch_size,))
 
-            enc_feature1.append(enc1_i) #Append to list.
-            enc_feature2.append(enc2_i) #Append to list.
+    #Get batch data
+    j = 0 #Placement in pairs and targets
+    for i in random_numbers:
+      r1 = np.random.choice(2) #Choose which sequence should end up in siamese 1 or 2
+      r2 = np.setdiff1d([0,1], r1)[0]
 
-    #Get LDDT
-    scores = np.asarray(df["global_lddt"])
-    pb_scores = prob_bin(scores, bins)
+      enc1 = np.eye(22)[literal_eval(X[r1][i])]
+      enc2 = np.eye(22)[literal_eval(X[r2][i])]
+      pairs[0][j,:,:] = pad_cut(enc1, 300, 22)
+      pairs[1][j,:,:] = pad_cut(enc2, 300, 22)
+      targets[j] = scores[i]
+      j+=1
 
+    return pairs, targets
 
-    X = [np.asarray(enc_feature1),np.asarray(enc_feature2)]
-    y = np.asarray(pb_scores)
-    return(X, y)
-
+def generate(batch_size, s="train"):
+    """
+    a generator for batches, so model.fit_generator can be used.
+    """
+    while True:
+        pairs, targets = get_batch(batch_size,s)
+        yield (pairs, targets)
 
 #MAIN
 args = parser.parse_args()
@@ -151,6 +152,7 @@ out_dir = args.out_dir[0]
 #Assign data and labels
 #Read df
 complete_df = pd.read_csv(dataframe)
+np.random.seed(2) #Set random seed - ensures same split every time
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
 train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
@@ -164,37 +166,40 @@ bins = np.arange(min_val, max_val+0.05, 0.05)
 
 
 seq_length = 300
-#Make the model mix what is fed to x1 and x2 - so both convnets learn the same thing!
-X_train,y_train = create_features(train_df, seq_length, bins)
 
-#Take p first points in train
-X_train_p = [[],[]]
-y_train_p = []
-count_p = np.zeros(len(bins))
-p = 1000
-for i in range(0, len(y_train)):
-      pos = np.argmax(y_train[i])
-      if count_p[pos] <= p:
-          X_train_p[0].append(X_train[0][i])
-          X_train_p[1].append(X_train[1][i])
-          y_train_p.append(y_train[i])
-          count_p[pos]+=1
+#Validation data
+val_enc1 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*valid_df['enc1']]]
+val_enc2 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*valid_df['enc2']]]
+X_valid = [np.asarray(val_enc1), np.asarray(val_enc2)]
+y_valid = np.asarray(valid_df['global_lddt'])
 
-X_train_p = [np.asarray(X_train_p[0]), np.asarray(X_train_p[1])] #convert to arrays
-y_train_p = np.asarray(y_train_p)
-#y_train_p = np.matmul(y_train_p, bins)
-X_valid,y_valid = create_features(valid_df, seq_length, bins)
-#y_valid = np.matmul(y_valid, bins)
+# #Take p first points in train
+# X_train_p = [[],[]]
+# y_train_p = []
+# count_p = np.zeros(len(bins))
+# p = 1000
+# for i in range(0, len(y_train)):
+#       pos = np.argmax(y_train[i])
+#       if count_p[pos] <= p:
+#           X_train_p[0].append(X_train[0][i])
+#           X_train_p[1].append(X_train[1][i])
+#           y_train_p.append(y_train[i])
+#           count_p[pos]+=1
+
+# X_train_p = [np.asarray(X_train_p[0]), np.asarray(X_train_p[1])] #convert to arrays
+# y_train_p = np.asarray(y_train_p)
+
 bins = np.expand_dims(bins, axis=0)
 #Tensorboard for logging and visualization
 log_name = str(time.time())
 tensorboard = TensorBoard(log_dir=out_dir+log_name)
 
+
 ######MODEL######
 #Parameters
 net_params = read_net_params(params_file)
-batch_size = 8
-input_dim = X_train[0][0].shape
+batch_size = 32
+input_dim = (300,22)
 num_classes = max(bins.shape)
 kernel_size = 21 #google uses 21
 
@@ -254,6 +259,10 @@ maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
 flat1 = Flatten()(maxpool1)  #Flatten
 flat2 = Flatten()(maxpool2)  #Flatten
 
+#Should have sum of two losses:
+#1. How closely the predicted lddt matches the real one
+#2. How closely the probability distribution of the bins match a gaussian distribution (kl divergence)
+#Perhaps I should try to predict the deviation from the mean, since the scores are so centered around the mean.
 # Add a customized layer to compute the absolute difference between the encodings
 L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
 L1_distance = L1_layer([flat1, flat2])
@@ -263,23 +272,55 @@ L1_distance = L1_layer([flat1, flat2])
 #L2_distance = L2_layer([flat1, flat2])
 #Dense final layer for classification
 probabilities = Dense(num_classes, activation='softmax')(L1_distance)
+bins_K = variable(value=bins)
+
+def multiply(x):
+  return tf.matmul(x, bins_K,transpose_b=True)
+
+pred_vals = Lambda(multiply)(probabilities)
+#The length of the validation data must be a multiple of batch size!
+#Other wise you will have shape mismatches
 
 #Custom loss
 def bin_loss(y_true, y_pred):
-     bins_K = variable(value=bins)
-     pred_vals = dot([y_pred, bins_K], axes = 1)
-     #true_vals = dot([y_true, bins_K], axes = 1)
+  #Shold make this a log loss
+	g_loss = mean_absolute_error(y_true, y_pred) #general, compare difference
+	#log_g_loss = keras.backend.log(g_loss/100)
+  #Gauss for loss
+	#gauss = keras.backend.random_normal_variable(shape=(batch_size, 1), mean=0.7, scale=0.3) # Gaussian distribution, scale: Float, standard deviation of the normal distribution.
+	kl_loss = keras.losses.kullback_leibler_divergence(y_true, y_pred) #compared to gauss instead? - take all predicted vals, should follow gauss
+	#sum_log_g_loss = keras.backend.sum(log_g_loss, axis = 0)
+	sum_kl_loss = keras.backend.sum(kl_loss, axis =0)
+	sum_g_loss = keras.backend.sum(g_loss, axis =0)
+	sum_g_loss = sum_g_loss*10 #vary multiplication factor?
+	loss = sum_g_loss+sum_kl_loss
+  #Normalize loss by percentage contributions: divide by contribution
+  #Write batch generator to avoid incompatibility in shapes
+  #problem at batch end due to kongruens
+	return loss
 
-     loss = mean_absolute_error(y_true, pred_vals)
-     return loss
+#Custom validation loss
+class IntervalEvaluation(Callback):
+    def __init__(self, validation_data=(), interval=1):
+        super(Callback, self).__init__()
+
+        self.interval = interval
+        self.X_val, self.y_val = validation_data
+
+    def on_epoch_end(self, epoch, logs={}):
+        if epoch % self.interval == 0:
+            y_pred = self.model.predict(self.X_val, verbose=0)
+            print(y_pred.shape)
+            score = np.average(np.absolute(y_pred-y_valid))
+            print(epoch, score)
+
 
 
 #Model: define inputs and outputs
-model = Model(inputs = [in_1, in_2], outputs = probabilities)
-sgd = optimizers.SGD(clipnorm=1.)
-model.compile(loss='categorical_crossentropy',
-              metrics = ['accuracy'],
-              optimizer=sgd)
+model = Model(inputs = [in_1, in_2], outputs = pred_vals)
+opt = optimizers.Adam(clipnorm=1.)
+model.compile(loss=bin_loss,
+              optimizer=opt)
 
 #LR schedule
 def lr_schedule(epochs):
@@ -304,29 +345,32 @@ def lr_schedule(epochs):
 #Lrate
 lrate = LearningRateScheduler(lr_schedule)
 #Checkpoint
-filepath=out_dir+"weights-improvement-{epoch:02d}-{val_acc:.2f}.hdf5"
-checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=False, mode='max')
+filepath=out_dir+"weights-improvement-{epoch:02d}-.hdf5"
+checkpoint = ModelCheckpoint(filepath, verbose=1, save_best_only=False, mode='max')
 
-
+#Validation data
+ival = IntervalEvaluation(validation_data=(X_valid, y_valid), interval=1)
 
 #Summary of model
 print(model.summary())
 
-callbacks=[lrate, tensorboard, checkpoint]
+callbacks=[lrate, tensorboard, checkpoint, ival]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
-model.fit(X_train_p, y_train_p, batch_size = batch_size,
-             epochs=num_epochs,
-             validation_data = [X_valid, y_valid],
-             shuffle=True, #Dont feed continuously
-             callbacks=callbacks)
+model.fit_generator(generate(batch_size),
+            steps_per_epoch=int(len(train_df)/batch_size),
+            epochs=num_epochs,
+            #validation_data = [X_valid, y_valid],
+            shuffle=True, #Dont feed continuously
+            callbacks=callbacks)
+
+
 
 pred = model.predict(X_valid)
-pred_rmsds = np.matmul(pred, bins.T)
-true = np.matmul(y_valid,bins.T)
-mean_error = np.average(np.absolute(pred_rmsds-true))
+diff = [pred[i]-y_valid[i] for i in range(len(y_valid))]
+print(np.average(np.absolute(diff)))
 #Prind validation predictions to file for further analysis
 with open('validation.tsv', 'w') as file:
     for i in range(0, len(pred)):
-        file.write(str(pred_rmsds[i])+'\t'+str(true[i])+'\n')
+        file.write(str(pred[i])+'\t'+str(y_valid[i])+'\n')
 pdb.set_trace()
