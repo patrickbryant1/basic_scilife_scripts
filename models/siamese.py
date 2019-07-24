@@ -33,10 +33,11 @@ from tensorflow.keras.callbacks import TensorBoard
 #Custom
 from model_inputs import split_on_h_group, pad_cut
 from lr_finder import LRFinder
+from scipy import stats
 import pdb
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
-                                                RMSD between structural alignments .''')
+                                                distance between structural alignments .''')
 
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to np array.')
@@ -154,7 +155,7 @@ complete_df = pd.read_csv(dataframe)
 np.random.seed(2) #Set random seed - ensures same split every time
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
-train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups[0:100])]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
@@ -293,11 +294,12 @@ def bin_loss(y_true, y_pred):
 	#sum_log_g_loss = keras.backend.sum(log_g_loss, axis = 0)
 	sum_kl_loss = keras.backend.sum(kl_loss, axis =0)
 	sum_g_loss = keras.backend.sum(g_loss, axis =0)
-	sum_g_loss = sum_g_loss*10 #vary multiplication factor?
+	sum_g_loss = sum_g_loss*10 #vary multiplication factor? This is basically a loss penalty
 	loss = sum_g_loss+sum_kl_loss
-  #Normalize loss by percentage contributions: divide by contribution
-  #Write batch generator to avoid incompatibility in shapes
-  #problem at batch end due to kongruens
+  #Scale with R? loss = loss/R
+  	#Normalize loss by percentage contributions: divide by contribution
+  	#Write batch generator to avoid incompatibility in shapes
+  	#problem at batch end due to kongruens
 	return loss
 
 #Custom validation loss
@@ -311,16 +313,17 @@ class IntervalEvaluation(Callback):
     def on_epoch_end(self, epoch, logs={}):
         if epoch % self.interval == 0:
             y_pred = self.model.predict(self.X_val, verbose=0)
-            np.savetxt(out_dir+'validpred_'+str(epoch)+'.txt', y_pred)
             diff = [y_pred[i]-y_valid[i] for i in range(len(y_valid))]
             score = np.average(np.absolute(diff))
-            print(epoch, score)
+            #Pearson correlation coefficient
+            R,pval = stats.pearsonr(y_valid, y_pred.flatten())
+            print('epoch: ',epoch, ' score: ', score, ' R: ', R)
 
-
+            np.savetxt(out_dir+"validpred-{epoch:02d}-{score:04d}-{R:03d}.txt", y_pred)
 
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = pred_vals)
-opt = optimizers.Adam(clipnorm=1.)
+opt = optimizers.Adam() #remove clipnorm and add loss penalty
 model.compile(loss=bin_loss,
               optimizer=opt)
 
