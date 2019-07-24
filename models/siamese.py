@@ -13,7 +13,6 @@ import glob
 from collections import Counter
 import math
 import time
-import tables
 from ast import literal_eval
 
 #Keras
@@ -173,7 +172,7 @@ val_enc2 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*valid_df['e
 X_valid = [np.asarray(val_enc1), np.asarray(val_enc2)]
 y_valid = np.asarray(valid_df['global_lddt'])
 #Save validation data
-np.savetxt(outdir+'y_valid.txt', y_valid)
+np.savetxt(out_dir+'y_valid.txt', y_valid)
 
 # #Take p first points in train
 # X_train_p = [[],[]]
@@ -312,9 +311,9 @@ class IntervalEvaluation(Callback):
     def on_epoch_end(self, epoch, logs={}):
         if epoch % self.interval == 0:
             y_pred = self.model.predict(self.X_val, verbose=0)
-	    np.savetxt(out_dir+'validpred_'+str(epoch)+'.txt', y_pred)
+            np.savetxt(out_dir+'validpred_'+str(epoch)+'.txt', y_pred)
             diff = [y_pred[i]-y_valid[i] for i in range(len(y_valid))]
-	    score = np.average(np.absolute(diff))
+            score = np.average(np.absolute(diff))
             print(epoch, score)
 
 
