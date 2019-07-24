@@ -155,7 +155,7 @@ complete_df = pd.read_csv(dataframe)
 np.random.seed(2) #Set random seed - ensures same split every time
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
-train_df = complete_df[complete_df['H_group_x'].isin(train_groups[0:100])]
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
@@ -200,7 +200,6 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 ######MODEL######
 #Parameters
 net_params = read_net_params(params_file)
-batch_size = 32
 input_dim = (300,22)
 num_classes = max(bins.shape)
 kernel_size = 21 #google uses 21
@@ -211,7 +210,8 @@ base_epochs = int(net_params['base_epochs'])
 finish_epochs = int(net_params['finish_epochs'])
 filters = int(net_params['filters']) # Dimension of the embedding vector.
 dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolutions
-
+alpha = int(net_params['alpha'])
+batch_size = 32 #int(net_params['batch_size'])
 #lr opt
 find_lr = False
 #LR schedule
@@ -286,21 +286,28 @@ pred_vals = Lambda(multiply)(probabilities)
 #Custom loss
 def bin_loss(y_true, y_pred):
   #Shold make this a log loss
-	g_loss = mean_absolute_error(y_true, y_pred) #general, compare difference
+        g_loss = mean_absolute_error(y_true, y_pred) #general, compare difference
 	#log_g_loss = keras.backend.log(g_loss/100)
   #Gauss for loss
 	#gauss = keras.backend.random_normal_variable(shape=(batch_size, 1), mean=0.7, scale=0.3) # Gaussian distribution, scale: Float, standard deviation of the normal distribution.
-	kl_loss = keras.losses.kullback_leibler_divergence(y_true, y_pred) #compared to gauss instead? - take all predicted vals, should follow gauss
-	#sum_log_g_loss = keras.backend.sum(log_g_loss, axis = 0)
-	sum_kl_loss = keras.backend.sum(kl_loss, axis =0)
-	sum_g_loss = keras.backend.sum(g_loss, axis =0)
-	sum_g_loss = sum_g_loss*10 #vary multiplication factor? This is basically a loss penalty
-	loss = sum_g_loss+sum_kl_loss
-  #Scale with R? loss = loss/R
+        kl_loss = keras.losses.kullback_leibler_divergence(y_true, y_pred) #better than comparing to gaussian
+        sum_kl_loss = keras.backend.sum(kl_loss, axis =0)
+        sum_g_loss = keras.backend.sum(g_loss, axis =0)
+        sum_g_loss = sum_g_loss*alpha #This is basically a loss penalty
+
+
+        #Normalize due to proportion
+        kl_p = sum_kl_loss/(sum_g_loss+sum_kl_loss)
+        g_p = sum_g_loss/(sum_g_loss+sum_kl_loss)
+
+        sum_kl_loss = sum_kl_loss/kl_p
+        sum_g_loss = sum_g_loss/g_p
+        loss = sum_g_loss+sum_kl_loss
+        #Scale with R? loss = loss/R - on_batch_end
   	#Normalize loss by percentage contributions: divide by contribution
   	#Write batch generator to avoid incompatibility in shapes
   	#problem at batch end due to kongruens
-	return loss
+        return loss
 
 #Custom validation loss
 class IntervalEvaluation(Callback):
@@ -317,9 +324,11 @@ class IntervalEvaluation(Callback):
             score = np.average(np.absolute(diff))
             #Pearson correlation coefficient
             R,pval = stats.pearsonr(y_valid, y_pred.flatten())
+            R = np.round(R, decimals = 3)
+            score = np.round(score, decimals = 3)
             print('epoch: ',epoch, ' score: ', score, ' R: ', R)
 
-            np.savetxt(out_dir+"validpred-{epoch:02d}-{score:04d}-{R:03d}.txt", y_pred)
+            np.savetxt(out_dir+'validpred_'+str(epoch)+'_'+str(score)+'_'+str(R)+'.txt', y_pred)
 
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = pred_vals)
