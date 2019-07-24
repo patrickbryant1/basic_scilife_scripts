@@ -303,12 +303,12 @@ def bin_loss(y_true, y_pred):
         sum_g_loss = sum_g_loss*alpha #This is basically a loss penalty
 
 
-        #Normalize due to proportion
-        kl_p = sum_kl_loss/(sum_g_loss+sum_kl_loss)
-        g_p = sum_g_loss/(sum_g_loss+sum_kl_loss)
+        # #Normalize due to proportion
+        # kl_p = sum_kl_loss/(sum_g_loss+sum_kl_loss)
+        # g_p = sum_g_loss/(sum_g_loss+sum_kl_loss)
 
-        sum_kl_loss = sum_kl_loss/kl_p
-        sum_g_loss = sum_g_loss/g_p
+        # sum_kl_loss = sum_kl_loss/kl_p
+        # sum_g_loss = sum_g_loss/g_p
         loss = sum_g_loss+sum_kl_loss
         #Scale with R? loss = loss/R - on_batch_end
   	#Normalize loss by percentage contributions: divide by contribution
@@ -339,7 +339,7 @@ class IntervalEvaluation(Callback):
 
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = pred_vals)
-opt = optimizers.Adam() #remove clipnorm and add loss penalty
+opt = optimizers.Adam(clipnorm=1.) #remove clipnorm and add loss penalty - clipnorm works better
 model.compile(loss=bin_loss,
               optimizer=opt)
 
