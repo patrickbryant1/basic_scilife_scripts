@@ -1,7 +1,0 @@
-num_res_blocks=5
-base_epochs=10
-finish_epochs=3
-num_nodes=128
-embedding_size=5
-drop_rate=0.7
-find_lr=1
