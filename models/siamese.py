@@ -48,6 +48,13 @@ parser.add_argument('params_file', nargs=1, type= str,
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
 
+#from tensorflow.keras.backend import set_session
+#config = tf.ConfigProto()
+#config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
+#config.log_device_placement = True  # to log device placement (on which device the operation ran)
+                                    # (nothing gets printed in Jupyter, only if you run it standalone)
+#sess = tf.Session(config=config)
+#set_session(sess)  # set this TensorFlow session as the default session for Keras
 
 #FUNCTIONS
 def read_net_params(params_file):
