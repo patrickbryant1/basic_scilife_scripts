@@ -220,7 +220,7 @@ dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolution
 alpha = int(net_params['alpha'])
 batch_size = 32 #int(net_params['batch_size'])
 #lr opt
-find_lr = False
+find_lr = True
 #LR schedule
 num_epochs = base_epochs+finish_epochs
 max_lr = 0.001
@@ -342,6 +342,22 @@ model = Model(inputs = [in_1, in_2], outputs = pred_vals)
 opt = optimizers.Adam(clipnorm=1.) #remove clipnorm and add loss penalty - clipnorm works better
 model.compile(loss=bin_loss,
               optimizer=opt)
+
+
+
+if find_lr == True:
+  lr_finder = LRFinder(model)
+  #Validation data
+  train_enc1 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*train_df['enc1']]]
+  train_enc2 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*train_df['enc2']]]
+  X_train = [np.asarray(train_enc1), np.asarray(train_enc2)]
+  y_train = np.asarray(train_df['global_lddt'])
+  lr_finder.find(X_train, y_train, start_lr=0.0001, end_lr=1, batch_size=batch_size, epochs=1)
+  losses = lr_finder.losses
+  lrs = lr_finder.lrs
+  l_l = np.asarray([lrs, losses])
+  np.savetxt(out_dir+'lrs_losses.txt', l_l)
+  num_epochs = 0
 
 #LR schedule
 def lr_schedule(epochs):
