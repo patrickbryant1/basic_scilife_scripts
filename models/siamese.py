@@ -162,7 +162,7 @@ complete_df = pd.read_csv(dataframe)
 np.random.seed(2) #Set random seed - ensures same split every time
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
-train_df = complete_df[complete_df['H_group_x'].isin(train_groups[0:100])]
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
@@ -368,22 +368,18 @@ class LRschedule(Callback):
   '''
   def __init__(self, interval=1):
     super(Callback, self).__init__()
-    num_steps = int(len(train_df)/batch_size)
-    max_lr = 0.00003
-    min_lr = max_lr/10
-    self.lr_change = (max_lr-min_lr)/(step_size*num_steps) #How mauch to change each batch
+    self.lr_change = lr_change #How mauch to change each batch
     self.lr = min_lr
     self.interval = interval
 
   def on_epoch_end(self, epoch, logs={}):
-    if (epoch+1)%2 == 0:
-      pdb.set_trace()
-      self.lr_change = self.lr_change*-1
+    if (epoch+1)%step_size == 0:
+      self.lr_change = self.lr_change*-1 #Change decrease/increase
 
   def on_batch_end(self, batch, logs={}):
     self.lr = self.lr + self.lr_change
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
-    print(self.model.optimizer.lr)
+    #print(' ',keras.backend.get_value(self.model.optimizer.lr))
 
 
 #Lrate
