@@ -162,7 +162,7 @@ complete_df = pd.read_csv(dataframe)
 np.random.seed(2) #Set random seed - ensures same split every time
 #Split
 train_groups, valid_groups, test_groups = split_on_h_group(complete_df, 0.8)
-train_df = complete_df[complete_df['H_group_x'].isin(train_groups)]
+train_df = complete_df[complete_df['H_group_x'].isin(train_groups[0:100])]
 valid_df = complete_df[complete_df['H_group_x'].isin(valid_groups)]
 test_df = complete_df[complete_df['H_group_x'].isin(test_groups)]
 
@@ -209,8 +209,8 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 net_params = read_net_params(params_file)
 input_dim = (300,22)
 num_classes = max(bins.shape)
-kernel_size = 21 #google uses 21
-step_size = 2
+kernel_size = 22 #google uses 21 (but they don't have gaps)
+
 #Variable params
 num_res_blocks = int(net_params['num_res_blocks'])
 base_epochs = int(net_params['base_epochs'])
@@ -220,14 +220,16 @@ dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolution
 alpha = int(net_params['alpha'])
 batch_size = 32 #int(net_params['batch_size'])
 #lr opt
-find_lr = True
+find_lr = False
 #LR schedule
+step_size = 2
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
-max_lr = 0.001
+num_steps = int(len(train_df)/batch_size)
+max_lr = 0.00003
 min_lr = max_lr/10
-lr_change = (max_lr-min_lr)/(step_size) #Reduce further last epochs
-
+lr_change = (max_lr-min_lr)/(step_size*num_steps) #How mauch to change each batch
+lr = min_lr
 #MODEL
 in_1 = keras.Input(shape = input_dim)
 in_2 = keras.Input(shape = input_dim)
@@ -340,7 +342,7 @@ class IntervalEvaluation(Callback):
 
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = pred_vals)
-opt = optimizers.Adam(clipnorm=1.) #remove clipnorm and add loss penalty - clipnorm works better
+opt = optimizers.Adam(clipnorm=1., lr = lr) #remove clipnorm and add loss penalty - clipnorm works better
 model.compile(loss=bin_loss,
               optimizer=opt)
 
@@ -361,28 +363,31 @@ if find_lr == True:
   num_epochs = 0
 
 #LR schedule
-def lr_schedule(epochs):
+class LRschedule(Callback):
   '''lr scheduel according to one-cycle policy.
   '''
+  def __init__(self, interval=1):
+    super(Callback, self).__init__()
+    num_steps = int(len(train_df)/batch_size)
+    max_lr = 0.00003
+    min_lr = max_lr/10
+    self.lr_change = (max_lr-min_lr)/(step_size*num_steps) #How mauch to change each batch
+    self.lr = min_lr
+    self.interval = interval
 
-  #step size = from min to max lr = 2∗epoch
-  #Increase lrate in beginning
-  if epochs == 0:
-    lrate = min_lr
-  elif (epochs <(base_epochs/2) and epochs > 0):
-    lrate = min_lr+(epochs*lr_change)
-  #Decrease further below min_lr last three epochs
-  elif epochs >= base_epochs:
-    lrate = min_lr/(2*(epochs+1-base_epochs))
-  #After the max lrate is reached, decrease it back to the min
-  else:
-    lrate = max_lr-((epochs-(base_epochs/2))*lr_change)
+  def on_epoch_end(self, epoch, logs={}):
+    if (epoch+1)%2 == 0:
+      pdb.set_trace()
+      self.lr_change = self.lr_change*-1
 
-  print(epochs,lrate)
-  return lrate
+  def on_batch_end(self, batch, logs={}):
+    self.lr = self.lr + self.lr_change
+    keras.backend.set_value(self.model.optimizer.lr, self.lr)
+    print(self.model.optimizer.lr)
+
 
 #Lrate
-lrate = LearningRateScheduler(lr_schedule)
+lrate = LRschedule()
 #Checkpoint
 filepath=out_dir+"weights-{epoch:02d}-.hdf5"
 checkpoint = ModelCheckpoint(filepath, verbose=1, save_best_only=False, mode='max')
@@ -397,7 +402,7 @@ callbacks=[lrate, tensorboard, checkpoint, ival]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
-            steps_per_epoch=int(len(train_df)/batch_size),
+            steps_per_epoch=num_steps,
             epochs=num_epochs,
             #validation_data = [X_valid, y_valid],
             shuffle=True, #Dont feed continuously
