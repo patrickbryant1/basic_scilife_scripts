@@ -210,7 +210,7 @@ net_params = read_net_params(params_file)
 input_dim = (300,22)
 num_classes = max(bins.shape)
 kernel_size = 21 #google uses 21
-
+step_size = 2
 #Variable params
 num_res_blocks = int(net_params['num_res_blocks'])
 base_epochs = int(net_params['base_epochs'])
@@ -222,10 +222,11 @@ batch_size = 32 #int(net_params['batch_size'])
 #lr opt
 find_lr = True
 #LR schedule
-num_epochs = base_epochs+finish_epochs
+num_cycles = 3
+num_epochs = step_size*2*num_cycles
 max_lr = 0.001
 min_lr = max_lr/10
-lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further last epochs
+lr_change = (max_lr-min_lr)/(step_size) #Reduce further last epochs
 
 #MODEL
 in_1 = keras.Input(shape = input_dim)
@@ -352,7 +353,7 @@ if find_lr == True:
   train_enc2 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*train_df['enc2']]]
   X_train = [np.asarray(train_enc1), np.asarray(train_enc2)]
   y_train = np.asarray(train_df['global_lddt'])
-  lr_finder.find(X_train, y_train, start_lr=0.0001, end_lr=1, batch_size=batch_size, epochs=1)
+  lr_finder.find(X_train, y_train, start_lr=0.00001, end_lr=1, batch_size=batch_size, epochs=1)
   losses = lr_finder.losses
   lrs = lr_finder.lrs
   l_l = np.asarray([lrs, losses])
@@ -364,6 +365,7 @@ def lr_schedule(epochs):
   '''lr scheduel according to one-cycle policy.
   '''
 
+  #step size = from min to max lr = 2∗epoch
   #Increase lrate in beginning
   if epochs == 0:
     lrate = min_lr
