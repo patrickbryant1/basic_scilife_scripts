@@ -193,7 +193,6 @@ val_enc2 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*valid_df['e
 #   valid_pairs[1][i,:,0:22] = val_enc2[i]
 #   valid_pairs[1][i,:,22] = repeat_dist[i]
 X_valid = [val_enc1, val_enc2]
-X_valid = np.asarray(X_valid)
 y_valid = np.asarray(valid_df['global_lddt'])
 #Save validation data
 np.savetxt(out_dir+'y_valid.txt', y_valid)
