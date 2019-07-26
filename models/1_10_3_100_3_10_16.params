@@ -1,0 +1,7 @@
+num_res_blocks=1
+base_epochs=10
+finish_epochs=3
+filters=100
+dilation_rate=3
+alpha=10
+batch_size=16
