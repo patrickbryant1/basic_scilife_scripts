@@ -196,7 +196,7 @@ X_valid = [val_enc1, val_enc2]
 y_valid = np.asarray(valid_df['global_lddt'])
 #Save validation data
 np.savetxt(out_dir+'y_valid.txt', y_valid)
-
+valid_metrics = [[],[]] #save scores and R values
 # #Take p first points in train
 # X_train_p = [[],[]]
 # y_train_p = []
@@ -241,10 +241,10 @@ step_size = 5 #should increase alot - maybe 5?
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
 num_steps = int(len(train_df)/batch_size)
-max_lr = 0.00003
+max_lr = 0.001
 min_lr = max_lr/10
-lr_change = (max_lr-min_lr)/(step_size*num_steps) #How mauch to change each batch
-lr = min_lr
+lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
+lrate = min_lr
 #MODEL
 in_1 = keras.Input(shape = input_dim)
 in_2 = keras.Input(shape = input_dim)
@@ -352,12 +352,13 @@ class IntervalEvaluation(Callback):
             R = np.round(R, decimals = 3)
             score = np.round(score, decimals = 3)
             print('epoch: ',epoch, ' score: ', score, ' R: ', R)
-
+            valid_metrics[0].append(score)
+            valid_metrics[1].append(R)
             np.savetxt(out_dir+'validpred_'+str(epoch)+'_'+str(score)+'_'+str(R)+'.txt', y_pred)
 
 #Model: define inputs and outputs
 model = Model(inputs = [in_1, in_2], outputs = pred_vals)
-opt = optimizers.Adam(clipnorm=1., lr = lr) #remove clipnorm and add loss penalty - clipnorm works better
+opt = optimizers.Adam(clipnorm=1., lr = lrate) #remove clipnorm and add loss penalty - clipnorm works better
 model.compile(loss=bin_loss,
               optimizer=opt)
 
@@ -388,17 +389,19 @@ class LRschedule(Callback):
     self.interval = interval
 
   def on_epoch_end(self, epoch, logs={}):
-    if (epoch+1)%step_size == 0:
+    if epoch > 0 and epoch%step_size == 0:
       self.lr_change = self.lr_change*-1 #Change decrease/increase
 
-  def on_batch_end(self, batch, logs={}):
     self.lr = self.lr + self.lr_change
+  # def on_batch_end(self, batch, logs={}):
+  #   self.lr = self.lr + self.lr_change
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
-    #print(' ',keras.backend.get_value(self.model.optimizer.lr))
 
 
 #Lrate
 lrate = LRschedule()
+
+
 #Checkpoint
 filepath=out_dir+"weights-{epoch:02d}-.hdf5"
 checkpoint = ModelCheckpoint(filepath, verbose=1, save_best_only=False, mode='max')
@@ -420,3 +423,6 @@ model.fit_generator(generate(batch_size),
             callbacks=callbacks)
 
 
+#Save validation metrics
+valid_metrics = np.asarray(valid_metrics)
+np.savetxt('valid_metrics.txt', valid_metrics)
