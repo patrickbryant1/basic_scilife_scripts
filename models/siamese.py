@@ -116,6 +116,7 @@ def get_batch(batch_size,s="train"):
     """
     x1 = [*train_df['enc1']]
     x2 = [*train_df['enc2']]
+    #x3 = [*train_df['MLAAdist_x']]
     X = [x1, x2]
     scores = np.asarray(train_df["global_lddt"])
 
@@ -123,7 +124,7 @@ def get_batch(batch_size,s="train"):
 
     #initialize 2 empty arrays for the input image batch
     pairs=[np.zeros((batch_size, 300, 22)) for i in range(2)]
-
+    
     # initialize vector for the targets
     targets=np.zeros((batch_size,))
 
@@ -135,8 +136,11 @@ def get_batch(batch_size,s="train"):
 
       enc1 = np.eye(22)[literal_eval(X[r1][i])]
       enc2 = np.eye(22)[literal_eval(X[r2][i])]
-      pairs[0][j,:,:] = pad_cut(enc1, 300, 22)
-      pairs[1][j,:,:] = pad_cut(enc2, 300, 22)
+      #mldist = np.repeat(x3[i],300)
+      pairs[0][j,:,0:22] = pad_cut(enc1, 300, 22)
+      #pairs[0][j,:,22] = mldist
+      pairs[1][j,:,0:22] = pad_cut(enc2, 300, 22)
+      #pairs[1][j,:,22] = mldist
       targets[j] = scores[i]
       j+=1
 
@@ -177,7 +181,18 @@ seq_length = 300
 #Validation data
 val_enc1 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*valid_df['enc1']]]
 val_enc2 = [pad_cut(np.eye(22)[literal_eval(x)], 300, 22) for x in [*valid_df['enc2']]]
-X_valid = [np.asarray(val_enc1), np.asarray(val_enc2)]
+# valid_mldists = [*valid_df['MLAAdist_x']]
+# repeat_dist = []
+# [repeat_dist.append(np.repeat(i, 300)) for i in valid_mldists]
+# repeat_dist = np.asarray(repeat_dist)
+
+# valid_pairs=[np.zeros((len(valid_df), 300, 23)) for i in range(2)]
+# for i in range(len(valid_pairs)):
+#   valid_pairs[0][i,:,0:22] = val_enc1[i]
+#   valid_pairs[0][i,:,22] = repeat_dist[i]
+#   valid_pairs[1][i,:,0:22] = val_enc2[i]
+#   valid_pairs[1][i,:,22] = repeat_dist[i]
+X_valid = np.asarray([val_enc1, val_enc2])
 y_valid = np.asarray(valid_df['global_lddt'])
 #Save validation data
 np.savetxt(out_dir+'y_valid.txt', y_valid)
@@ -222,7 +237,7 @@ batch_size = 32 #int(net_params['batch_size'])
 #lr opt
 find_lr = False
 #LR schedule
-step_size = 2 #should increase alot - maybe 5?
+step_size = 5 #should increase alot - maybe 5?
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
 num_steps = int(len(train_df)/batch_size)
@@ -262,8 +277,7 @@ in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate =
 x1 = resnet(in_1_conv, num_res_blocks)
 x2 = resnet(in_2_conv, num_res_blocks)
 
-#Average pool along sequence axis
-#x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
+#Maxpool along sequence axis
 maxpool1 = MaxPooling1D(pool_size=seq_length)(x1)
 maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
 #cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
@@ -283,6 +297,7 @@ L1_distance = L1_layer([flat1, flat2])
 #L2_layer = Lambda(lambda tensors:keras.backend.sqrt(keras.backend.square(tensors[0] - tensors[1])))
 #L2_distance = L2_layer([flat1, flat2])
 #Dense final layer for classification
+  
 probabilities = Dense(num_classes, activation='softmax')(L1_distance)
 bins_K = variable(value=bins)
 
