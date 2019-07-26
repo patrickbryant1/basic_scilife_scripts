@@ -222,7 +222,7 @@ batch_size = 32 #int(net_params['batch_size'])
 #lr opt
 find_lr = False
 #LR schedule
-step_size = 2
+step_size = 2 #should increase alot - maybe 5?
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
 num_steps = int(len(train_df)/batch_size)
