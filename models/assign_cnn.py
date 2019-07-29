@@ -14,6 +14,7 @@ from collections import Counter
 import math
 import time
 from ast import literal_eval
+from sklearn.model_selection import train_test_split
 
 #Keras
 from tensorflow.keras import regularizers,optimizers
@@ -30,7 +31,6 @@ from tensorflow.keras.losses import mean_absolute_error, mean_squared_error
 #visualization
 from tensorflow.keras.callbacks import TensorBoard
 #Custom
-from model_inputs import split_on_h_group
 from lr_finder import LRFinder
 import pdb
 #Arguments for argparse module:
@@ -276,6 +276,3 @@ model.fit_generator(generate(batch_size),
              #validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
              callbacks=callbacks)
-
-
-
