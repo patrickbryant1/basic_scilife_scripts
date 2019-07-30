@@ -142,13 +142,13 @@ X = np.load(data_path, allow_pickle=True)
 #Split
 #3067 H-groups in total: split randomly without overlaps
 #from medium:contains characters from 30 alphabets and will be used to train the model, while images_evaluation folder contains characters from the other 20 alphabets which we will use to test our system.
-np.random.seed(2) #Set random seed - ensures same split every time
-train_groups = np.random.choice(3066,size=(int(3067*0.8),),replace=False)
-a = np.arange(3066)
-remain = np.setdiff1d(a,train_groups)
-valid_groups =  np.random.choice(remain,size=(int(3067*0.1),),replace=False)
-test_groups = np.setdiff1d(remain, valid_groups)
-
+#np.random.seed(2) #Set random seed - ensures same split every time
+#train_groups = np.random.choice(3066,size=(int(3067*0.8),),replace=False)
+#a = np.arange(3066)
+#remain = np.setdiff1d(a,train_groups)
+#valid_groups =  np.random.choice(remain,size=(int(3067*0.1),),replace=False)
+#test_groups = np.setdiff1d(remain, valid_groups)
+X_train, X_test, y_train, y_test = train_test_split(X[0], X[1], test_size=0.33, random_state=42)
 
 #Tensorboard for logging and visualization
 log_name = str(time.time())
