@@ -37,8 +37,11 @@ import pdb
 parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
                                                 H-group assignment from sequence.''')
 
-parser.add_argument('data', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to np array.')
+parser.add_argument('encodings', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to np array with encoded aa sequences.')
+
+parser.add_argument('df', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to df with labels and other info.')
 
 parser.add_argument('params_file', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to file with net parameters')
@@ -81,46 +84,31 @@ def get_batch(batch_size,s="train"):
     Create batch of n pairs, half same class, half different class
     """
     if s == 'train':
-        categories = train_groups
-
+        X = X_train
+        y = y_train
     else:
-        categories = valid_groups
+        X = X_test
+        y = y_test
 
-    #n_classes, n_examples, w, h = X.shape
-
-    # randomly sample several classes to use in the batch
-    random_numbers = np.random.choice(categories,size=(batch_size,),replace=False) #without replacement
-    not_chosen = np.setdiff1d(categories,random_numbers) #not chosen categories
-    # initialize 2 empty arrays for the input image batch
-    pairs=[np.zeros((batch_size, 300, 21)) for i in range(2)]
-
-    # initialize vector for the targets
-    targets=np.zeros((batch_size,))
-
-    # make one half of it '1's, so 2nd half of batch has same class (=1)
-    targets[batch_size//2:] = 1
+    # #n_classes, n_examples, w, h = X.shape
+    #
+    # # randomly sample several classes to use in the batch
+    random_numbers = np.random.choice(len(y),size=(batch_size,),replace=False) #without replacement
+    # not_chosen = np.setdiff1d(categories,random_numbers) #not chosen categories
+    # # initialize 2 empty arrays for the input image batch
+    # pairs=[np.zeros((batch_size, 300, 21)) for i in range(2)]
+    #
+    # # initialize vector for the targets
+    # targets=np.zeros((batch_size,))
+    #
+    # # make one half of it '1's, so 2nd half of batch has same class (=1)
+    # targets[batch_size//2:] = 1
+    batch_x = np.zeros((batch_size, 300, 21))
+    batch_y = np.zeros((batch_size, min(y.shape)))
     for i in range(batch_size):
-        category = random_numbers[i] #Random categories chosen above
-        n_examples = np.where(X[1]==category)[0]
-        idx_1 = np.random.choice(n_examples)
-
-
-
-        pairs[0][i,:,:] = pad_cut(X[0][idx_1], 300, 21)
-
-        # pick images of same class for 1st half, different for 2nd
-        if i >= batch_size // 2:
-            category_2 = category
-
-        else:
-            # Add another category
-            category_2 =  np.random.choice(not_chosen)
-            n_examples = np.where(X[1]==category)[0]
-
-        idx_2 = np.random.choice(n_examples)
-        pairs[1][i,:,:] = pad_cut(X[0][idx_2], 300, 21)
-
-    return pairs, targets
+        batch_x[i,:,:] = pad_cut(X[random_numbers[i]], 300, 21)
+        batch_y[i,:] = y[random_numbers[i]]
+    return batch_x, batch_y
 
 def generate(batch_size, s="train"):
     """
@@ -132,24 +120,24 @@ def generate(batch_size, s="train"):
 
 #MAIN
 args = parser.parse_args()
-data_path = args.data[0]
+encodings = args.encodings[0]
+df = pd.read_csv(args.df[0])
 params_file = args.params_file[0]
 out_dir = args.out_dir[0]
 
 #Assign data and labels
 #Read data
-X = np.load(data_path, allow_pickle=True)
-#Split
-#3067 H-groups in total: split randomly without overlaps
-#from medium:contains characters from 30 alphabets and will be used to train the model, while images_evaluation folder contains characters from the other 20 alphabets which we will use to test our system.
-#np.random.seed(2) #Set random seed - ensures same split every time
-#train_groups = np.random.choice(3066,size=(int(3067*0.8),),replace=False)
-#a = np.arange(3066)
-#remain = np.setdiff1d(a,train_groups)
-#valid_groups =  np.random.choice(remain,size=(int(3067*0.1),),replace=False)
-#test_groups = np.setdiff1d(remain, valid_groups)
-X_train, X_test, y_train, y_test = train_test_split(X[0], X[1], test_size=0.33, random_state=42)
-
+X = np.load(encodings, allow_pickle=True)
+y = np.asarray([*df['C']])
+y = y-1 #Set index to 0
+y = np.eye(4)[y]
+X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+#Pad X_valid
+padded_X_valid = []
+for i in range(0,len(X_valid)):
+    padded_X_valid.append(pad_cut(X_train[i], 300, 21))
+X_valid = np.asarray(padded_X_valid)
+X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
 #Tensorboard for logging and visualization
 log_name = str(time.time())
 tensorboard = TensorBoard(log_dir=out_dir+log_name)
@@ -157,13 +145,13 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 ######MODEL######
 #Parameters
 net_params = read_net_params(params_file)
-batch_size = 4
+batch_size = 32
 input_dim = (300,21)
-num_classes = 1
+num_classes = 4
 kernel_size = 21 #google uses 21
 seq_length=300
 #Variable params
-num_res_blocks = 5#int(net_params['num_res_blocks'])
+num_res_blocks = 1#int(net_params['num_res_blocks'])
 base_epochs = int(net_params['base_epochs'])
 finish_epochs = int(net_params['finish_epochs'])
 filters = int(net_params['filters']) # Dimension of the embedding vector.
@@ -172,14 +160,18 @@ dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolution
 #lr opt
 find_lr = False
 #LR schedule
-num_epochs = base_epochs+finish_epochs
-max_lr = 0.001
+step_size = 5
+num_cycles = 3
+num_epochs = step_size*2*num_cycles
+num_steps = int(len(y_train)/batch_size)
+max_lr = 0.0001
 min_lr = max_lr/10
-lr_change = (max_lr-min_lr)/(base_epochs/2-1) #Reduce further last epochs
+lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
+lrate = min_lr
 
 #MODEL
 in_1 = keras.Input(shape = input_dim)
-in_2 = keras.Input(shape = input_dim)
+#in_2 = keras.Input(shape = input_dim)
 def resnet(x, num_res_blocks):
 	"""Builds a resnet with 1D convolutions of the defined depth.
 	"""
@@ -204,65 +196,83 @@ def resnet(x, num_res_blocks):
 
 #Initial convolution
 in_1_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_1)
-in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_2)
+#in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_2)
 #Output (batch, steps(len), filters), filters = channels in next
 x1 = resnet(in_1_conv, num_res_blocks)
-x2 = resnet(in_2_conv, num_res_blocks)
+#x2 = resnet(in_2_conv, num_res_blocks)
 
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
 maxpool1 = MaxPooling1D(pool_size=seq_length)(x1)
-maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
+#maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
 #cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
 
 flat1 = Flatten()(maxpool1)  #Flatten
-flat2 = Flatten()(maxpool2)  #Flatten
+#flat2 = Flatten()(maxpool2)  #Flatten
 
 # Add a customized layer to compute the absolute difference between the encodings
-L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
-L1_distance = L1_layer([flat1, flat2])
+#L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
+#L1_distance = L1_layer([flat1, flat2])
 
 # Add a customized layer to compute the absolute difference between the encodings
 #L2_layer = Lambda(lambda tensors:keras.backend.sqrt(keras.backend.square(tensors[0] - tensors[1])))
 #L2_distance = L2_layer([flat1, flat2])
 #Dense final layer for classification
-probability = Dense(num_classes, activation='sigmoid')(L1_distance)
+probability = Dense(num_classes, activation='sigmoid')(flat1)
 
 
 #Model: define inputs and outputs
-model = Model(inputs = [in_1, in_2], outputs = probability)
+model = Model(inputs = [in_1], outputs = probability)
 opt = optimizers.Adam(clipnorm=1.)
-model.compile(loss='binary_crossentropy',
+model.compile(loss='categorical_crossentropy',
               metrics = ['accuracy'],
               optimizer=opt)
 
+#LRFinder
+if find_lr == True:
+  lr_finder = LRFinder(model)
+  #data
+  padded_X_Train = []
+  for i in range(0,len(X_train)):
+      padded_X_train.append(pad_cut(X_train[i], 300, 21))
+
+  lr_finder.find(np.asarray(padded_X_train), y_train, start_lr=0.00001, end_lr=1, batch_size=batch_size, epochs=1)
+  losses = lr_finder.losses
+  lrs = lr_finder.lrs
+  l_l = np.asarray([lrs, losses])
+  np.savetxt(out_dir+'lrs_losses.txt', l_l)
+  num_epochs = 0
+
 #LR schedule
-def lr_schedule(epochs):
+class LRschedule(Callback):
   '''lr scheduel according to one-cycle policy.
   '''
+  def __init__(self, interval=1):
+    super(Callback, self).__init__()
+    self.lr_change = lr_change #How mauch to change each batch
+    self.lr = min_lr
+    self.interval = interval
 
-  #Increase lrate in beginning
-  if epochs == 0:
-    lrate = min_lr
-  elif (epochs <(base_epochs/2) and epochs > 0):
-    lrate = min_lr+(epochs*lr_change)
-  #Decrease further below min_lr last three epochs
-  elif epochs >= base_epochs:
-    lrate = min_lr/(2*(epochs+1-base_epochs))
-  #After the max lrate is reached, decrease it back to the min
-  else:
-    lrate = max_lr-((epochs-(base_epochs/2))*lr_change)
+  def on_epoch_end(self, epoch, logs={}):
+    if epoch > 0 and epoch%step_size == 0:
+      self.lr_change = self.lr_change*-1 #Change decrease/increase
 
-  print(epochs,lrate)
-  return lrate
+    self.lr = self.lr + self.lr_change
+  # def on_batch_end(self, batch, logs={}):
+  #   self.lr = self.lr + self.lr_change
+    print(' ',self.lr)
+    keras.backend.set_value(self.model.optimizer.lr, self.lr)
+
 
 #Lrate
-lrate = LearningRateScheduler(lr_schedule)
+lrate = LRschedule()
+
+
+
+
 #Checkpoint
 filepath=out_dir+"weights-improvement-{epoch:02d}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=False, mode='max')
-
-
 
 #Summary of model
 print(model.summary())
@@ -271,8 +281,8 @@ callbacks=[lrate, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
-             steps_per_epoch=10000,
+             steps_per_epoch=num_steps,
              epochs=num_epochs,
-             #validation_data = [X_valid, y_valid],
+             validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
              callbacks=callbacks)

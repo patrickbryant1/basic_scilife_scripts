@@ -37,9 +37,10 @@ class LRFinder:
         # Increase the learning rate for the next batch
         lr *= self.lr_mult
         K.set_value(self.model.optimizer.lr, lr)
+        print(' ',lr)
 
     def find(self, x_train, y_train, start_lr, end_lr, batch_size=64, epochs=1):
-        num_batches = epochs * x_train[0].shape[0] / batch_size
+        num_batches = epochs * x_train.shape[0] / batch_size
         self.lr_mult = (end_lr / start_lr) ** (1 / num_batches)
 
         # Save weights into a file
@@ -75,7 +76,7 @@ class LRFinder:
         #plt.xlabel("learning rate (log scale)")
         #plt.plot(self.lrs[n_skip_beginning:-n_skip_end], self.losses[n_skip_beginning:-n_skip_end])
         #plt.xscale('log')
-    
+
 
 
     #def plot_loss_change(self, sma=1, n_skip_beginning=10, n_skip_end=5, y_lim=(-0.01, 0.01)):
