@@ -128,9 +128,9 @@ out_dir = args.out_dir[0]
 #Assign data and labels
 #Read data
 X = np.load(encodings, allow_pickle=True)
-y = np.asarray([*df['C']])
-y = y-1 #Set index to 0
-y = np.eye(4)[y]
+y = np.asarray([*df['group_enc']])
+num_classes = max(y)+1
+y = np.eye(max(y)+1)[y]
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
 #Pad X_valid
 padded_X_valid = []
@@ -147,7 +147,7 @@ tensorboard = TensorBoard(log_dir=out_dir+log_name)
 net_params = read_net_params(params_file)
 batch_size = 32
 input_dim = (300,21)
-num_classes = 4
+num_classes = num_classes
 kernel_size = 21 #google uses 21
 seq_length=300
 #Variable params
