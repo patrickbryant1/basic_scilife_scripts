@@ -8,6 +8,8 @@ import numpy as np
 from ast import literal_eval
 import pandas as pd
 import glob
+from os import makedirs
+from os.path import exists, join
 
 #Preprocessing
 from collections import Counter
@@ -17,6 +19,7 @@ from ast import literal_eval
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 
 #Keras
+import tensorflow as tf
 from tensorflow.keras import regularizers,optimizers
 import tensorflow.keras as keras
 from tensorflow.keras.constraints import max_norm
@@ -29,10 +32,23 @@ from tensorflow.keras.backend import epsilon, clip, get_value, set_value, transp
 from tensorflow.layers import AveragePooling1D
 from tensorflow.keras.losses import mean_absolute_error, mean_squared_error
 #visualization
-from tensorflow.keras.callbacks import TensorBoard
+#from tensorflow.keras.callbacks import TensorBoard
 #Custom
+sys.modules['keras'] = keras
 from lr_finder import LRFinder
 import pdb
+#Workaround for tensorboard
+class TensorBoardWithSession(keras.callbacks.TensorBoard):
+
+    def __init__(self, **kwargs):
+        from tensorflow.python.keras import backend as K
+        self.sess = K.get_session()
+
+        super().__init__(**kwargs)
+
+TensorBoard = TensorBoardWithSession
+
+
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A Neural Network for predicting
                                                 H-group assignment from sequence.''')
@@ -127,8 +143,8 @@ out_dir = args.out_dir[0]
 
 #Assign data and labels
 #Read data
-X = np.load(encodings, allow_pickle=True)
-y = np.asarray([*df['group_enc']])
+X = np.load(encodings, allow_pickle=True)[0:100]
+y = np.asarray([*df['group_enc']])[0:100]
 
 #Split so both groups are represented in train and test
 sss = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=0)
@@ -146,10 +162,6 @@ for i in range(0,len(X_valid)):
     padded_X_valid.append(pad_cut(X_valid[i], 300, 21))
 X_valid = np.asarray(padded_X_valid)
 
-#Tensorboard for logging and visualization
-log_name = str(time.time())
-tensorboard = TensorBoard(log_dir=out_dir+log_name)
-
 ######MODEL######
 #Parameters
 net_params = read_net_params(params_file)
@@ -166,13 +178,13 @@ filters = int(net_params['filters']) # Dimension of the embedding vector.
 dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolutions
 
 #lr opt
-find_lr = True
+find_lr = False
 #LR schedule
 step_size = 5
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
 num_steps = int(len(y_train)/batch_size)
-max_lr = 0.0001
+max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
 lrate = min_lr
@@ -215,7 +227,7 @@ maxpool1 = MaxPooling1D(pool_size=seq_length)(x1)
 #maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
 #cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
 
-flat1 = Flatten()(maxpool1)  #Flatten
+flat1 = Flatten(name='features')(maxpool1)  #Flatten
 #flat2 = Flatten()(maxpool2)  #Flatten
 
 # Add a customized layer to compute the absolute difference between the encodings
@@ -240,7 +252,7 @@ model.compile(loss='categorical_crossentropy',
 if find_lr == True:
   lr_finder = LRFinder(model)
   #data
-  padded_X_Train = []
+  padded_X_train = []
   for i in range(0,len(X_train)):
       padded_X_train.append(pad_cut(X_train[i], 300, 21))
 
@@ -264,8 +276,14 @@ class LRschedule(Callback):
   def on_epoch_end(self, epoch, logs={}):
     if epoch > 0 and epoch%step_size == 0:
       self.lr_change = self.lr_change*-1 #Change decrease/increase
-
     self.lr = self.lr + self.lr_change
+    layer_name = 'features'
+    intermediate_layer_model = Model(inputs=model.input,
+                                 outputs=model.get_layer(layer_name).output)
+    intermediate_output = intermediate_layer_model.predict(X_valid)
+    #Add visualization of intermediate output by writing it to tensorboard
+    #https://www.tensorflow.org/tensorboard/r2/scalars_and_keras
+    pdb.set_trace()
   # def on_batch_end(self, batch, logs={}):
   #   self.lr = self.lr + self.lr_change
     print(' ',self.lr)
@@ -275,7 +293,27 @@ class LRschedule(Callback):
 #Lrate
 lrate = LRschedule()
 
+#Tensorboard for logging and visualization
+# save class labels to disk to color data points in TensorBoard accordingly
+log_name = str(time.time())
+log_dir=out_dir
+if not exists(log_dir):
+    makedirs(log_dir)
+with open(join(log_dir, 'metadata.tsv'), 'w') as f:
+    np.savetxt(f, np.argmax(y_valid, axis = 1))
 
+padded_X_train = []
+for i in range(0,len(X_train)):
+    padded_X_train.append(pad_cut(X_train[i], 300, 21))
+
+
+# tensorboard = TensorBoard(log_dir=log_dir,
+#                           batch_size=batch_size,
+#                           embeddings_freq=1,
+#                           embeddings_layer_names=['features'],
+#                           embeddings_metadata='metadata.tsv',
+#                           embeddings_data=X_valid
+#                           )
 
 
 #Checkpoint
@@ -285,7 +323,7 @@ checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_o
 #Summary of model
 print(model.summary())
 
-callbacks=[lrate, tensorboard]
+callbacks=[lrate, checkpoint]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
@@ -294,3 +332,9 @@ model.fit_generator(generate(batch_size),
              validation_data = [X_valid, y_valid],
              shuffle=True, #Dont feed continuously
              callbacks=callbacks)
+
+ #from tensorflow.keras.models import model_from_json
+ #serialize model to JSON
+model_json = model.to_json()
+with open(out_dir+"model.json", "w") as json_file:
+     json_file.write(model_json)
