@@ -14,7 +14,7 @@ from collections import Counter
 import math
 import time
 from ast import literal_eval
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 
 #Keras
 from tensorflow.keras import regularizers,optimizers
@@ -129,15 +129,23 @@ out_dir = args.out_dir[0]
 #Read data
 X = np.load(encodings, allow_pickle=True)
 y = np.asarray([*df['group_enc']])
+
+#Split so both groups are represented in train and test
+sss = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=0)
+for train_index, test_index in sss.split(X, y):
+    X_train, X_valid = X[train_index], X[test_index]
+    y_train, y_valid = y[train_index], y[test_index]
+
+#Onehot encode labels
 num_classes = max(y)+1
-y = np.eye(max(y)+1)[y]
-X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+y_train = np.eye(max(y)+1)[y_train]
+y_valid = np.eye(max(y)+1)[y_valid]
 #Pad X_valid
 padded_X_valid = []
 for i in range(0,len(X_valid)):
-    padded_X_valid.append(pad_cut(X_train[i], 300, 21))
+    padded_X_valid.append(pad_cut(X_valid[i], 300, 21))
 X_valid = np.asarray(padded_X_valid)
-X_valid, X_test, y_valid, y_test = train_test_split(X_valid, y_valid, test_size=0.5, random_state=42)
+
 #Tensorboard for logging and visualization
 log_name = str(time.time())
 tensorboard = TensorBoard(log_dir=out_dir+log_name)
@@ -158,7 +166,7 @@ filters = int(net_params['filters']) # Dimension of the embedding vector.
 dilation_rate = int(net_params['dilation_rate'])  #dilation rate for convolutions
 
 #lr opt
-find_lr = False
+find_lr = True
 #LR schedule
 step_size = 5
 num_cycles = 3
