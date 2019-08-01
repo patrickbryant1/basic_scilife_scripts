@@ -32,21 +32,11 @@ from tensorflow.keras.backend import epsilon, clip, get_value, set_value, transp
 from tensorflow.layers import AveragePooling1D
 from tensorflow.keras.losses import mean_absolute_error, mean_squared_error
 #visualization
-#from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
 #Custom
-sys.modules['keras'] = keras
 from lr_finder import LRFinder
 import pdb
-#Workaround for tensorboard
-class TensorBoardWithSession(keras.callbacks.TensorBoard):
 
-    def __init__(self, **kwargs):
-        from tensorflow.python.keras import backend as K
-        self.sess = K.get_session()
-
-        super().__init__(**kwargs)
-
-TensorBoard = TensorBoardWithSession
 
 
 #Arguments for argparse module:
@@ -65,7 +55,8 @@ parser.add_argument('params_file', nargs=1, type= str,
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
 
-
+#Set random seed
+np.random.seed(0)
 #FUNCTIONS
 def read_net_params(params_file):
     '''Read and return net parameters
@@ -143,11 +134,32 @@ out_dir = args.out_dir[0]
 
 #Assign data and labels
 #Read data
-X = np.load(encodings, allow_pickle=True)[0:100]
-y = np.asarray([*df['group_enc']])[0:100]
+X = np.load(encodings, allow_pickle=True)
+
+#Get 5 first of all above 5
+groups = [*df['group_enc']]
+counted_groups = Counter(groups)
+max5labels = []
+max5onehot = []
+for group in [*counted_groups.keys()]:
+    if counted_groups[group]>5:
+        ind = np.asarray(df[df['group_enc'] == group].index)
+        selected = np.random.choice(ind, 5, replace = False)
+        for i in selected:
+            max5labels.append(group)
+            max5onehot.append(X[i])
+    else:
+        ind = np.asarray(df[df['group_enc'] == group].index)
+        for i in ind:
+            max5labels.append(group)
+            max5onehot.append(X[i])
+
+#Create np arrays
+X = np.asarray(max5onehot)
+y = np.asarray(max5labels)
 
 #Split so both groups are represented in train and test
-sss = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=0)
+sss = StratifiedShuffleSplit(n_splits=1, test_size=0.4, random_state=0)
 for train_index, test_index in sss.split(X, y):
     X_train, X_valid = X[train_index], X[test_index]
     y_train, y_valid = y[train_index], y[test_index]
@@ -156,6 +168,7 @@ for train_index, test_index in sss.split(X, y):
 num_classes = max(y)+1
 y_train = np.eye(max(y)+1)[y_train]
 y_valid = np.eye(max(y)+1)[y_valid]
+
 #Pad X_valid
 padded_X_valid = []
 for i in range(0,len(X_valid)):
@@ -165,7 +178,7 @@ X_valid = np.asarray(padded_X_valid)
 ######MODEL######
 #Parameters
 net_params = read_net_params(params_file)
-batch_size = 32
+batch_size = 16
 input_dim = (300,21)
 num_classes = num_classes
 kernel_size = 21 #google uses 21
@@ -184,7 +197,7 @@ step_size = 5
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
 num_steps = int(len(y_train)/batch_size)
-max_lr = 0.001
+max_lr = 0.0009
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
 lrate = min_lr
@@ -201,10 +214,10 @@ def resnet(x, num_res_blocks):
     	#Similar to ProtCNN, but they used batch_size = 64, 2000 filters and kernel size of 21
 	for res_block in range(num_res_blocks):
 		batch_out1 = BatchNormalization()(x) #Bacth normalize, focus on segment
-		activation1 = Activation('relu')(batch_out1)
+		activation1 = Activation('relu')(x)
 		conv_out1 = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = dilation_rate, input_shape=input_dim, padding ="same")(activation1)
 		batch_out2 = BatchNormalization()(conv_out1) #Bacth normalize, focus on segment
-		activation2 = Activation('relu')(batch_out2)
+		activation2 = Activation('relu')(conv_out1)
         #Downsample - half filters
 		conv_out2 = Conv1D(filters = int(filters/2), kernel_size = kernel_size, dilation_rate = 1, input_shape=input_dim, padding ="same")(activation2)
 		x = Conv1D(filters = int(filters/2), kernel_size = kernel_size, dilation_rate = 1, input_shape=input_dim, padding ="same")(x)
@@ -220,10 +233,10 @@ in_1_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate =
 #Output (batch, steps(len), filters), filters = channels in next
 x1 = resnet(in_1_conv, num_res_blocks)
 #x2 = resnet(in_2_conv, num_res_blocks)
-
+drop1 = Dropout(0.8)(x1) #Fraction to drop. In Keras dropout is disabled in test mode
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
-maxpool1 = MaxPooling1D(pool_size=seq_length)(x1)
+maxpool1 = MaxPooling1D(pool_size=seq_length)(drop1)
 #maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
 #cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
 
@@ -256,7 +269,7 @@ if find_lr == True:
   for i in range(0,len(X_train)):
       padded_X_train.append(pad_cut(X_train[i], 300, 21))
 
-  lr_finder.find(np.asarray(padded_X_train), y_train, start_lr=0.00001, end_lr=1, batch_size=batch_size, epochs=1)
+  lr_finder.find(np.asarray(padded_X_train), y_train, start_lr=0.001, end_lr=1, batch_size=batch_size, epochs=1)
   losses = lr_finder.losses
   lrs = lr_finder.lrs
   l_l = np.asarray([lrs, losses])
@@ -282,56 +295,39 @@ class LRschedule(Callback):
                                  outputs=model.get_layer(layer_name).output)
     intermediate_output = np.asarray(intermediate_layer_model.predict(X_valid))
     np.save(out_dir+'emb_'+str(epoch)+'.npy', intermediate_output)
-    #Add visualization of intermediate output by writing it to tensorboard
-    #https://www.tensorflow.org/tensorboard/r2/scalars_and_keras
-    pdb.set_trace()
-  # def on_batch_end(self, batch, logs={}):
-  #   self.lr = self.lr + self.lr_change
+
+    #Set lr
     print(' ',self.lr)
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
 
-
+#Save y_valid
+np.save(out_dir+'y_valid.npy', np.argmax(y_valid, axis = 1))
 #Lrate
 lrate = LRschedule()
 
 #Tensorboard for logging and visualization
 # save class labels to disk to color data points in TensorBoard accordingly
 log_name = str(time.time())
-log_dir=out_dir
-if not exists(log_dir):
-    makedirs(log_dir)
-with open(join(log_dir, 'metadata.tsv'), 'w') as f:
-    np.savetxt(f, np.argmax(y_valid, axis = 1))
+log_dir=out_dir+log_name
 
-padded_X_train = []
-for i in range(0,len(X_train)):
-    padded_X_train.append(pad_cut(X_train[i], 300, 21))
-
-
-# tensorboard = TensorBoard(log_dir=log_dir,
-#                           batch_size=batch_size,
-#                           embeddings_freq=1,
-#                           embeddings_layer_names=['features'],
-#                           embeddings_metadata='metadata.tsv',
-#                           embeddings_data=X_valid
-#                           )
+tensorboard = TensorBoard(log_dir=log_dir)
 
 
 #Checkpoint
-filepath=out_dir+"weights-improvement-{epoch:02d}.hdf5"
+filepath=out_dir+"weights-{epoch:02d}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=False, mode='max')
 
 #Summary of model
 print(model.summary())
 
-callbacks=[lrate, checkpoint]
+callbacks=[lrate, checkpoint, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
              steps_per_epoch=num_steps,
              epochs=num_epochs,
              validation_data = [X_valid, y_valid],
-             shuffle=True, #Dont feed continuously
+             shuffle=False, #Dont feed continuously
              callbacks=callbacks)
 
  #from tensorflow.keras.models import model_from_json
