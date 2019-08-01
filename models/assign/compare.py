@@ -300,7 +300,8 @@ class LRschedule(Callback):
     layer_name = 'features1'
     intermediate_layer_model = Model(inputs=model.input,
                                  outputs=model.get_layer(layer_name).output)
-    intermediate_output = np.asarray(intermediate_layer_model.predict(X_valid))
+    intermediate_output = np.asarray(intermediate_layer_model.predict([X_valid, X_valid]))
+    np.save(out_dir+'y_valid.npy', y_valid)
     np.save(out_dir+'emb_'+str(epoch)+'.npy', intermediate_output)
 
     #Set lr
