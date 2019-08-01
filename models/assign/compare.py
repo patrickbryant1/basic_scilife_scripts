@@ -90,18 +90,13 @@ def get_batch(batch_size,s="train"):
     """
     Create batch of n pairs, half same class, half different class
     """
-    if s == 'train':
-        X = X_train
-        y = y_train
-    else:
-        X = X_test
-        y = y_test
+
 
     # #n_classes, n_examples, w, h = X.shape
     #
     # # randomly sample several classes to use in the batch
-    random_classes = np.random.choice(max(y_train),size=(batch_size,),replace=False) #without replacement
-    not_chosen = np.setdiff1d(range(max(y_train)),random_classes) #not chosen categories
+    random_classes = np.random.choice(max(y),size=(batch_size,),replace=False) #without replacement
+    not_chosen = np.setdiff1d(range(max(y)),random_classes) #not chosen categories
     random_not_chosen = np.random.choice(not_chosen, size=(batch_size,),replace=False)
     # initialize 2 empty arrays for the input image batch
     pairs=[np.zeros((batch_size, 300, 21)) for i in range(2)]
@@ -115,7 +110,7 @@ def get_batch(batch_size,s="train"):
     for i in range(batch_size):
 
         #Get index for class
-        loc = np.where(y_train == random_classes[i])
+        loc = np.where(y == random_classes[i])
 
         c = np.random.choice(loc[0], size=(2,), replace=False)
         pairs[0][i] = pad_cut(X[c[0]], 300, 21)
@@ -123,7 +118,7 @@ def get_batch(batch_size,s="train"):
             pairs[1][i] = pad_cut(X[c[1]], 300, 21)
         #Get random
         else:
-            loc = np.where(y_train == random_not_chosen[i])
+            loc = np.where(y == random_not_chosen[i])
             nc = np.random.choice(loc[0], size = 1, replace=False)
             pairs[1][i] = pad_cut(X[nc[0]], 300, 21)
 
@@ -172,16 +167,20 @@ y = np.asarray(max5labels)
 
 #Split so both groups are represented in train and test
 #CAn probably use much more data, that is also unbalanced in terms of classes
-sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
-for train_index, test_index in sss.split(X, y):
-    X_train, X_valid = X[train_index], X[test_index]
-    y_train, y_valid = y[train_index], y[test_index]
+#sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+#for train_index, test_index in sss.split(X, y):
+#    X_train, X_valid = X[train_index], X[test_index]
+#    y_train, y_valid = y[train_index], y[test_index]
 
 #Pad X_valid
 padded_X_valid = []
-for i in range(0,len(X_valid)):
-    padded_X_valid.append(pad_cut(X_valid[i], 300, 21))
+y_valid = []
+valid_index = np.random.choice(len(y),size=2000,replace=False) #Take 2000 random examples
+for i in valid_index:
+    padded_X_valid.append(pad_cut(X[i], 300, 21))
+    y_valid.append(y[i])
 X_valid = np.asarray(padded_X_valid)
+y_valid = np.asarray(y_valid)
 
 ######MODEL######
 #Parameters
@@ -203,7 +202,7 @@ find_lr = False
 step_size = 5
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
-num_steps = int(len(y_train)/batch_size)
+num_steps = int((max(y)*10/batch_size)*2) #*2 since half of batch will be decoys
 max_lr = 0.0009
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
