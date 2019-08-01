@@ -100,8 +100,9 @@ def get_batch(batch_size,s="train"):
     # #n_classes, n_examples, w, h = X.shape
     #
     # # randomly sample several classes to use in the batch
-    random_numbers = np.random.choice(len(y),size=(batch_size,),replace=False) #without replacement
-    not_chosen = np.setdiff1d(categories,random_numbers) #not chosen categories
+    random_classes = np.random.choice(max(y_train),size=(batch_size,),replace=False) #without replacement
+    not_chosen = np.setdiff1d(range(max(y_train)),random_classes) #not chosen categories
+    random_not_chosen = np.random.choice(not_chosen, size=(batch_size,),replace=False)
     # initialize 2 empty arrays for the input image batch
     pairs=[np.zeros((batch_size, 300, 21)) for i in range(2)]
 
@@ -112,10 +113,21 @@ def get_batch(batch_size,s="train"):
     targets[batch_size//2:] = 1
 
     for i in range(batch_size):
-        
-        batch_x[i,:,:] = pad_cut(X[random_numbers[i]], 300, 21)
-        batch_y[i,:] = y[random_numbers[i]]
-    return batch_x, batch_y
+
+        #Get index for class
+        loc = np.where(y_train == random_classes[i])
+
+        c = np.random.choice(loc[0], size=(2,), replace=False)
+        pairs[0][i] = pad_cut(X[c[0]], 300, 21)
+        if i >= batch_size//2:
+            pairs[1][i] = pad_cut(X[c[1]], 300, 21)
+        #Get random
+        else:
+            loc = np.where(y_train == random_not_chosen[i])
+            nc = np.random.choice(loc[0], size = 1, replace=False)
+            pairs[1][i] = pad_cut(X[nc[0]], 300, 21)
+
+    return pairs, targets
 
 def generate(batch_size, s="train"):
     """
@@ -159,15 +171,11 @@ X = np.asarray(max5onehot)
 y = np.asarray(max5labels)
 
 #Split so both groups are represented in train and test
-sss = StratifiedShuffleSplit(n_splits=1, test_size=0.4, random_state=0)
+#CAn probably use much more data, that is also unbalanced in terms of classes
+sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
 for train_index, test_index in sss.split(X, y):
     X_train, X_valid = X[train_index], X[test_index]
     y_train, y_valid = y[train_index], y[test_index]
-
-#Onehot encode labels
-num_classes = max(y)+1
-y_train = np.eye(max(y)+1)[y_train]
-y_valid = np.eye(max(y)+1)[y_valid]
 
 #Pad X_valid
 padded_X_valid = []
@@ -180,7 +188,6 @@ X_valid = np.asarray(padded_X_valid)
 net_params = read_net_params(params_file)
 batch_size = 16
 input_dim = (300,21)
-num_classes = num_classes
 kernel_size = 21 #google uses 21
 seq_length=300
 #Variable params
@@ -204,7 +211,7 @@ lrate = min_lr
 
 #MODEL
 in_1 = keras.Input(shape = input_dim)
-#in_2 = keras.Input(shape = input_dim)
+in_2 = keras.Input(shape = input_dim)
 def resnet(x, num_res_blocks):
 	"""Builds a resnet with 1D convolutions of the defined depth.
 	"""
@@ -229,35 +236,35 @@ def resnet(x, num_res_blocks):
 
 #Initial convolution
 in_1_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_1)
-#in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_2)
+in_2_conv = Conv1D(filters = filters, kernel_size = kernel_size, dilation_rate = 2, input_shape=input_dim, padding ="same")(in_2)
 #Output (batch, steps(len), filters), filters = channels in next
 x1 = resnet(in_1_conv, num_res_blocks)
-#x2 = resnet(in_2_conv, num_res_blocks)
-drop1 = Dropout(0.8)(x1) #Fraction to drop. In Keras dropout is disabled in test mode
+x2 = resnet(in_2_conv, num_res_blocks)
+#drop1 = Dropout(0.8)(x1) #Fraction to drop. In Keras dropout is disabled in test mode
 #Average pool along sequence axis
 #x = AveragePooling1D(data_format='channels_first')(x) #data_format='channels_first'
-maxpool1 = MaxPooling1D(pool_size=seq_length)(drop1)
-#maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
+maxpool1 = MaxPooling1D(pool_size=seq_length)(x1)
+maxpool2 = MaxPooling1D(pool_size=seq_length)(x2)
 #cat = concatenate([maxpool1, maxpool2]) #Cat convolutions
 
-flat1 = Flatten(name='features')(maxpool1)  #Flatten
-#flat2 = Flatten()(maxpool2)  #Flatten
+flat1 = Flatten(name='features1')(maxpool1)  #Flatten
+flat2 = Flatten(name='features2')(maxpool2)  #Flatten
 
 # Add a customized layer to compute the absolute difference between the encodings
-#L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
-#L1_distance = L1_layer([flat1, flat2])
+L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
+L1_distance = L1_layer([flat1, flat2])
 
 # Add a customized layer to compute the absolute difference between the encodings
 #L2_layer = Lambda(lambda tensors:keras.backend.sqrt(keras.backend.square(tensors[0] - tensors[1])))
 #L2_distance = L2_layer([flat1, flat2])
 #Dense final layer for classification
-probability = Dense(num_classes, activation='sigmoid')(flat1)
+probability = Dense(1, activation='sigmoid')(L1_distance)
 
 
 #Model: define inputs and outputs
-model = Model(inputs = [in_1], outputs = probability)
+model = Model(inputs = [in_1, in_2], outputs = probability)
 opt = optimizers.Adam(clipnorm=1.)
-model.compile(loss='categorical_crossentropy',
+model.compile(loss='binary_crossentropy',
               metrics = ['accuracy'],
               optimizer=opt)
 
@@ -290,7 +297,7 @@ class LRschedule(Callback):
     if epoch > 0 and epoch%step_size == 0:
       self.lr_change = self.lr_change*-1 #Change decrease/increase
     self.lr = self.lr + self.lr_change
-    layer_name = 'features'
+    layer_name = 'features1'
     intermediate_layer_model = Model(inputs=model.input,
                                  outputs=model.get_layer(layer_name).output)
     intermediate_output = np.asarray(intermediate_layer_model.predict(X_valid))
@@ -301,7 +308,7 @@ class LRschedule(Callback):
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
 
 #Save y_valid
-np.save(out_dir+'y_valid.npy', np.argmax(y_valid, axis = 1))
+np.save(out_dir+'y_valid.npy', y_valid)
 #Lrate
 lrate = LRschedule()
 
@@ -326,7 +333,6 @@ callbacks=[lrate, checkpoint, tensorboard]
 model.fit_generator(generate(batch_size),
              steps_per_epoch=num_steps,
              epochs=num_epochs,
-             validation_data = [X_valid, y_valid],
              shuffle=False, #Dont feed continuously
              callbacks=callbacks)
 
