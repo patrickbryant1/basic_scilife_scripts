@@ -280,7 +280,8 @@ class LRschedule(Callback):
     layer_name = 'features'
     intermediate_layer_model = Model(inputs=model.input,
                                  outputs=model.get_layer(layer_name).output)
-    intermediate_output = intermediate_layer_model.predict(X_valid)
+    intermediate_output = np.asarray(intermediate_layer_model.predict(X_valid))
+    np.save(out_dir+'emb_'+str(epoch)+'.npy', intermediate_output)
     #Add visualization of intermediate output by writing it to tensorboard
     #https://www.tensorflow.org/tensorboard/r2/scalars_and_keras
     pdb.set_trace()
