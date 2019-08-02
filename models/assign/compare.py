@@ -93,16 +93,18 @@ def get_batch(batch_size,s="train"):
     if s == 'train':
         X = X_train
         y = y_train
+        num_classes = train_classes
     else:
         X = X_valid
         y = y_valid
+        num_classes = valid_classes
         print('VALIDATION')
 
     # #n_classes, n_examples, w, h = X.shape
     #
     # # randomly sample several classes to use in the batch
-    random_classes = np.random.choice(max(y),size=(batch_size,),replace=False) #without replacement
-    not_chosen = np.setdiff1d(range(max(y)),random_classes) #not chosen categories
+    random_classes = np.random.choice(num_classes,size=(batch_size,),replace=False) #without replacement
+    not_chosen = np.setdiff1d(num_classes,random_classes) #not chosen categories
     random_not_chosen = np.random.choice(not_chosen, size=(batch_size,),replace=False)
     # initialize 2 empty arrays for the input image batch
     pairs=[np.zeros((batch_size, 300, 21)) for i in range(2)]
@@ -142,32 +144,33 @@ def test_oneshot(model, s = "val", verbose = 0):
     """Test average N way oneshot learning accuracy of a siamese neural net over k one-shot tasks"""
     n_correct = 0
     k = 20 #Run 20 random tests
-    N = max(y)+1 #Number of total classes
+    N = valid_classes #classes
+    y = y_valid
+    X = X_valid
     if verbose:
-        print("Evaluating model on {} random {} way one-shot learning tasks ... \n".format(k,N))
+        print("Evaluating model on {} random {} way one-shot learning tasks ... \n".format(k,len(N)))
 
     #Data is already padded
     # initialize empty arrays for the input
-    pairs=[np.zeros((N, 300, 21)) for i in range(2)]
+    pairs=[np.zeros((len(N), 300, 21)) for i in range(2)]
 
     # initialize vector for the targets
-    targets=np.zeros((N,))
+    targets=np.zeros((len(N),))
     targets[0] = 1
 
     #k random n_classes
-    k_classes = np.random.choice(range(N), size = (k,), replace = False)
+    k_classes = np.random.choice(N, size = (k,), replace = False)
     for i in k_classes:
         #Get index for class
-        loc = np.where(y_valid == i) #y_valid conatains one pair, y_test only one sequence
+        loc = np.where(y == i)
         c = np.random.choice(loc[0], size=(2,), replace=False)
-        true1 = X_valid[c[0]]
+        true1 = X[c[0]]
 
-        pairs[0] = true1*np.ones((N, 300, 21)) #Assign true 1 as first column in pairs
-        true2 = X_valid[c[1]]
+        pairs[0] = true1*np.ones((len(N), 300, 21)) #Assign true 1 as first column in pairs
+        true2 = X[c[1]]
         pairs[1][0] = true2 #Assign true 2 as first entry in second column in pairs
-
-        not_i = np.setdiff1d(range(N),i)
-        false_indices = np.isin(y_test, not_i)
+        not_i = np.setdiff1d(N,i)
+        false_indices = np.isin(y_test, not_i) #y_test contains only one sequence of each
         false_matches = X_test[false_indices]
 
         pairs[1][1:] = false_matches
@@ -177,7 +180,7 @@ def test_oneshot(model, s = "val", verbose = 0):
             n_correct+=1
     percent_correct = (100.0 * n_correct / k)
     if verbose:
-        print("Got an average of {}% {} way one-shot learning accuracy \n".format(percent_correct,N))
+        print("Got an average of {}% {} way one-shot learning accuracy \n".format(percent_correct,len(N)))
     return percent_correct
 
 #MAIN
@@ -213,12 +216,17 @@ for group in [*counted_groups.keys()]:
 X = np.asarray(max5onehot)
 y = np.asarray(max5labels)
 
-#Split so both groups are represented in train and test
-#Can probably use much more data, that is also unbalanced in terms of classes
-sss = StratifiedShuffleSplit(n_splits=1, test_size=0.4, random_state=0)
-for train_index, test_index in sss.split(X, y):
-    X_train, X_valid = X[train_index], X[test_index]
-    y_train, y_valid = y[train_index], y[test_index]
+#Split without overlaps of classes between train and test
+train_classes = np.random.choice(max(y), size = (int((max(y)+1)*0.8),), replace = False)
+train_index = np.isin(y, train_classes)
+X_train = X[train_index]
+y_train = y[train_index]
+
+
+valid_classes = np.setdiff1d(range(max(y)),train_classes) #categories not chosen for training
+valid_index = np.isin(y, valid_classes)
+X_valid = X[valid_index]
+y_valid = y[valid_index]
 
 #Pad X_valid
 padded_X_valid = []
@@ -227,14 +235,16 @@ for i in range(0, len(y_valid)):
     padded_X_valid.append(pad_cut(X_valid[i], 300, 21))
 
 X_valid = np.asarray(padded_X_valid)
+
+#Get test data
+sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+for valid_index, test_index in sss.split(X_valid, y_valid):
+    X_valid, X_test = X_valid[valid_index], X_valid[test_index]
+    y_valid, y_test = y_valid[valid_index], y_valid[test_index]
+
 #Save y_valid for embedding classes
 np.save(out_dir+'y_valid.npy', y_valid)
 
-#Get test data
-sss = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=0)
-for train_index, test_index in sss.split(X_valid, y_valid):
-    X_test = X_valid[test_index]
-    y_test = y_valid[test_index]
 
 ######MODEL######
 #Parameters
@@ -256,8 +266,8 @@ find_lr = False
 step_size = 5
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
-train_steps = int((max(y)*(3*2/2)/batch_size)*2) #*2 since half of batch will be decoys
-valid_steps = int((max(y)*(2*1/2)/batch_size)*2) #*2 since half of batch will be decoys
+train_steps = int(len(train_classes)*10/batch_size*2) #*2 since half of batch will be decoys
+valid_steps = int(len(valid_classes)*10/batch_size*2) #*2 since half of batch will be decoys
 max_lr = 0.0009
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
@@ -386,7 +396,7 @@ callbacks=[lrate, checkpoint, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
-             steps_per_epoch=train_steps,
+             steps_per_epoch=int(train_steps),
              epochs=num_epochs,
              validation_data = generate(batch_size), #Validate on 1000 examples
              validation_steps = valid_steps,
