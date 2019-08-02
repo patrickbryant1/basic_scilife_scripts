@@ -141,29 +141,37 @@ def generate(batch_size, s="train"):
 def test_oneshot(model, s = "val", verbose = 0):
     """Test average N way oneshot learning accuracy of a siamese neural net over k one-shot tasks"""
     n_correct = 0
+    k = 20 #Run 20 random tests
+    N = max(y)+1 #Number of total classes
     if verbose:
         print("Evaluating model on {} random {} way one-shot learning tasks ... \n".format(k,N))
 
     #Data is already padded
     # initialize empty arrays for the input
-    pairs=[np.zeros((max(y), 300, 21)) for i in range(2)]
+    pairs=[np.zeros((N, 300, 21)) for i in range(2)]
+
     # initialize vector for the targets
-    targets=np.zeros(((max(y),))
+    targets=np.zeros((N,))
     targets[0] = 1
-    for i in range(max(y)):
+
+    #k random n_classes
+    k_classes = np.random.choice(range(N), size = (k,), replace = False)
+    for i in k_classes:
         #Get index for class
         loc = np.where(y_valid == i) #y_valid conatains one pair, y_test only one sequence
         c = np.random.choice(loc[0], size=(2,), replace=False)
-        true1 = X[c[0]]
-        pairs[0] = np.repeat(true1, max(y_labels)) #Assign true 1 as first column in pairs
-        true2 = X[c[1]]
+        true1 = X_valid[c[0]]
+
+        pairs[0] = true1*np.ones((N, 300, 21)) #Assign true 1 as first column in pairs
+        true2 = X_valid[c[1]]
         pairs[1][0] = true2 #Assign true 2 as first entry in second column in pairs
 
-        not_i = np.setdiff1d(range(max(y)),i)
+        not_i = np.setdiff1d(range(N),i)
         false_indices = np.isin(y_test, not_i)
         false_matches = X_test[false_indices]
+
         pairs[1][1:] = false_matches
-        pdb.set_trace()
+
         probs = model.predict(pairs) #Save all predicted probabilities
         if np.argmax(probs) == np.argmax(targets):
             n_correct+=1
@@ -225,8 +233,8 @@ np.save(out_dir+'y_valid.npy', y_valid)
 #Get test data
 sss = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=0)
 for train_index, test_index in sss.split(X_valid, y_valid):
-    X_test = X[test_index]
-    y_test = y[test_index]
+    X_test = X_valid[test_index]
+    y_test = y_valid[test_index]
 
 ######MODEL######
 #Parameters
@@ -355,7 +363,7 @@ class LRschedule(Callback):
     print(' ',self.lr)
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
 
-
+    test_oneshot(model, s = "val", verbose = 1)
 #Lrate
 lrate = LRschedule()
 
@@ -378,7 +386,7 @@ callbacks=[lrate, checkpoint, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
-             steps_per_epoch=train_steps*2,
+             steps_per_epoch=train_steps,
              epochs=num_epochs,
              validation_data = generate(batch_size), #Validate on 1000 examples
              validation_steps = valid_steps,
