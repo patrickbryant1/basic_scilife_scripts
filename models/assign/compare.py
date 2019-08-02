@@ -88,9 +88,15 @@ def pad_cut(ar, x, y):
 
 def get_batch(batch_size,s="train"):
     """
-    Create batch of n pairs, half same class, half different class
+    Create a batch of batch_size pairs, half being the same class, half of different classes
     """
-
+    if s == 'train':
+        X = X_train
+        y = y_train
+    else:
+        X = X_valid
+        y = y_valid
+        print('VALIDATION')
 
     # #n_classes, n_examples, w, h = X.shape
     #
@@ -132,6 +138,40 @@ def generate(batch_size, s="train"):
         pairs, targets = get_batch(batch_size,s)
         yield (pairs, targets)
 
+def test_oneshot(model, s = "val", verbose = 0):
+    """Test average N way oneshot learning accuracy of a siamese neural net over k one-shot tasks"""
+    n_correct = 0
+    if verbose:
+        print("Evaluating model on {} random {} way one-shot learning tasks ... \n".format(k,N))
+
+    #Data is already padded
+    # initialize empty arrays for the input
+    pairs=[np.zeros((max(y), 300, 21)) for i in range(2)]
+    # initialize vector for the targets
+    targets=np.zeros(((max(y),))
+    targets[0] = 1
+    for i in range(max(y)):
+        #Get index for class
+        loc = np.where(y_valid == i) #y_valid conatains one pair, y_test only one sequence
+        c = np.random.choice(loc[0], size=(2,), replace=False)
+        true1 = X[c[0]]
+        pairs[0] = np.repeat(true1, max(y_labels)) #Assign true 1 as first column in pairs
+        true2 = X[c[1]]
+        pairs[1][0] = true2 #Assign true 2 as first entry in second column in pairs
+
+        not_i = np.setdiff1d(range(max(y)),i)
+        false_indices = np.isin(y_test, not_i)
+        false_matches = X_test[false_indices]
+        pairs[1][1:] = false_matches
+        pdb.set_trace()
+        probs = model.predict(pairs) #Save all predicted probabilities
+        if np.argmax(probs) == np.argmax(targets):
+            n_correct+=1
+    percent_correct = (100.0 * n_correct / k)
+    if verbose:
+        print("Got an average of {}% {} way one-shot learning accuracy \n".format(percent_correct,N))
+    return percent_correct
+
 #MAIN
 args = parser.parse_args()
 encodings = args.encodings[0]
@@ -166,21 +206,27 @@ X = np.asarray(max5onehot)
 y = np.asarray(max5labels)
 
 #Split so both groups are represented in train and test
-#CAn probably use much more data, that is also unbalanced in terms of classes
-#sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
-#for train_index, test_index in sss.split(X, y):
-#    X_train, X_valid = X[train_index], X[test_index]
-#    y_train, y_valid = y[train_index], y[test_index]
+#Can probably use much more data, that is also unbalanced in terms of classes
+sss = StratifiedShuffleSplit(n_splits=1, test_size=0.4, random_state=0)
+for train_index, test_index in sss.split(X, y):
+    X_train, X_valid = X[train_index], X[test_index]
+    y_train, y_valid = y[train_index], y[test_index]
 
 #Pad X_valid
 padded_X_valid = []
-y_valid = []
-valid_index = np.random.choice(len(y),size=2000,replace=False) #Take 2000 random examples
-for i in valid_index:
-    padded_X_valid.append(pad_cut(X[i], 300, 21))
-    y_valid.append(y[i])
+#Have one example from each H-group
+for i in range(0, len(y_valid)):
+    padded_X_valid.append(pad_cut(X_valid[i], 300, 21))
+
 X_valid = np.asarray(padded_X_valid)
-y_valid = np.asarray(y_valid)
+#Save y_valid for embedding classes
+np.save(out_dir+'y_valid.npy', y_valid)
+
+#Get test data
+sss = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=0)
+for train_index, test_index in sss.split(X_valid, y_valid):
+    X_test = X[test_index]
+    y_test = y[test_index]
 
 ######MODEL######
 #Parameters
@@ -202,7 +248,8 @@ find_lr = False
 step_size = 5
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
-num_steps = int((max(y)*10/batch_size)*2) #*2 since half of batch will be decoys
+train_steps = int((max(y)*(3*2/2)/batch_size)*2) #*2 since half of batch will be decoys
+valid_steps = int((max(y)*(2*1/2)/batch_size)*2) #*2 since half of batch will be decoys
 max_lr = 0.0009
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
@@ -296,19 +343,19 @@ class LRschedule(Callback):
     if epoch > 0 and epoch%step_size == 0:
       self.lr_change = self.lr_change*-1 #Change decrease/increase
     self.lr = self.lr + self.lr_change
+
+    #Get embeddings for X_valid
     layer_name = 'features1'
     intermediate_layer_model = Model(inputs=model.input,
                                  outputs=model.get_layer(layer_name).output)
     intermediate_output = np.asarray(intermediate_layer_model.predict([X_valid, X_valid]))
-    np.save(out_dir+'y_valid.npy', y_valid)
     np.save(out_dir+'emb_'+str(epoch)+'.npy', intermediate_output)
 
     #Set lr
     print(' ',self.lr)
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
 
-#Save y_valid
-np.save(out_dir+'y_valid.npy', y_valid)
+
 #Lrate
 lrate = LRschedule()
 
@@ -331,9 +378,11 @@ callbacks=[lrate, checkpoint, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
-             steps_per_epoch=num_steps,
+             steps_per_epoch=train_steps*2,
              epochs=num_epochs,
-             shuffle=False, #Dont feed continuously
+             validation_data = generate(batch_size), #Validate on 1000 examples
+             validation_steps = valid_steps,
+             shuffle=False, #Feed continuously, since random examples are picked
              callbacks=callbacks)
 
  #from tensorflow.keras.models import model_from_json
