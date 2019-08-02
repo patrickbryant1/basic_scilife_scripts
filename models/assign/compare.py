@@ -25,7 +25,7 @@ import tensorflow.keras as keras
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, Callback
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D, dot, Masking
+from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D, Dot, Masking
 from tensorflow.keras.layers import Activation, RepeatVector, Permute, Multiply, Lambda, GlobalAveragePooling1D
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten, Subtract
 from tensorflow.keras.backend import epsilon, clip, get_value, set_value, transpose, variable, square
@@ -143,7 +143,7 @@ def generate(batch_size, s="train"):
 def test_oneshot(model, s = "val", verbose = 0):
     """Test average N way oneshot learning accuracy of a siamese neural net over k one-shot tasks"""
     n_correct = 0
-    k = 20 #Run 20 random tests
+    k = 50 #Run k random tests
     N = valid_classes #classes
     y = y_valid
     X = X_valid
@@ -318,9 +318,10 @@ flat2 = Flatten(name='features2')(maxpool2)  #Flatten
 L1_layer = Lambda(lambda tensors:abs(tensors[0] - tensors[1]))
 L1_distance = L1_layer([flat1, flat2])
 
-# Add a customized layer to compute the absolute difference between the encodings
-#L2_layer = Lambda(lambda tensors:keras.backend.sqrt(keras.backend.square(tensors[0] - tensors[1])))
-#L2_distance = L2_layer([flat1, flat2])
+#Cosine similarity (using normalize = True)
+#distance = Dot(normalize = True, axes = 1)([flat1, flat2])
+#Does not work as well as L1
+
 #Dense final layer for classification
 probability = Dense(1, activation='sigmoid')(L1_distance)
 
@@ -370,7 +371,7 @@ class LRschedule(Callback):
     np.save(out_dir+'emb_'+str(epoch)+'.npy', intermediate_output)
 
     #Set lr
-    print(' ',self.lr)
+    print(' lr:',np.round(self.lr, 2))
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
 
     test_oneshot(model, s = "val", verbose = 1)
