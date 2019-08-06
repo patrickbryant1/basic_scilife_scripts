@@ -140,13 +140,15 @@ def generate(batch_size, s="train"):
         pairs, targets = get_batch(batch_size,s)
         yield (pairs, targets)
 
-def test_oneshot(model, s = "val", verbose = 0):
+def test_oneshot(model, epoch, s = "val", verbose = 0):
     """Test average N way oneshot learning accuracy of a siamese neural net over k one-shot tasks"""
     n_correct = 0
     k = 50 #Run k random tests
     N = valid_classes #classes
     y = y_valid
     X = X_valid
+    pred_positions = [] #save predicted_positions
+    rank_of_true = [] #Save the rank of the probability of the true label
     if verbose:
         print("Evaluating model on {} random {} way one-shot learning tasks ... \n".format(k,len(N)))
 
@@ -176,9 +178,24 @@ def test_oneshot(model, s = "val", verbose = 0):
         pairs[1][1:] = false_matches
 
         probs = model.predict(pairs) #Save all predicted probabilities
-        if np.argmax(probs) == np.argmax(targets):
+        pred_pos = np.argmax(probs)
+        pred_positions.append(y_test[false_indices][pred_pos-1]) #Save the group encoding for the predicted position
+        if pred_pos == np.argmax(targets):
             n_correct+=1
+        #Sort probabilities
+        sorted_probs = np.argsort(probs, axis = 0)
+        #Find position of 0
+        for j in range(len(sorted_probs)):
+            if sorted_probs[j] == 0:
+                rank_of_true.append(len(sorted_probs)-j)
+                break
+
+    #Include top 10 also - or write which rank the prediciton had
+    test_pred['pred_group_enc'] = pred_positions
+    test_pred['rank_of_true'] = rank_of_true
+    test_pred['group_enc'] = list(k_classes)
     percent_correct = (100.0 * n_correct / k)
+    test_pred.to_csv(out_dir+'test_pred_'+str(epoch)+'.csv')
     if verbose:
         print("Got an average of {}% {} way one-shot learning accuracy \n".format(percent_correct,len(N)))
     return percent_correct
@@ -217,7 +234,7 @@ X = np.asarray(max5onehot)
 y = np.asarray(max5labels)
 
 #Split without overlaps of classes between train and test
-train_classes = np.random.choice(max(y), size = (int((max(y)+1)*0.8),), replace = False)
+train_classes = np.random.choice(max(y), size = (int((max(y)+1)*0.6),), replace = False)
 train_index = np.isin(y, train_classes)
 X_train = X[train_index]
 y_train = y[train_index]
@@ -245,6 +262,8 @@ for valid_index, test_index in sss.split(X_valid, y_valid):
 #Save y_valid for embedding classes
 np.save(out_dir+'y_valid.npy', y_valid)
 
+#Create df for saving test predictions
+test_pred = pd.DataFrame()
 
 ######MODEL######
 #Parameters
@@ -371,10 +390,10 @@ class LRschedule(Callback):
     np.save(out_dir+'emb_'+str(epoch)+'.npy', intermediate_output)
 
     #Set lr
-    print(' lr:',np.round(self.lr, 2))
+    print(' lr:',np.round(self.lr, 5))
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
 
-    test_oneshot(model, s = "val", verbose = 1)
+    test_oneshot(model, epoch, s = "val", verbose = 1)
 #Lrate
 lrate = LRschedule()
 

@@ -297,7 +297,7 @@ class LRschedule(Callback):
     np.save(out_dir+'emb_'+str(epoch)+'.npy', intermediate_output)
 
     #Set lr
-    print(' ',self.lr)
+    print(self.lr)
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
 
 #Save y_valid
