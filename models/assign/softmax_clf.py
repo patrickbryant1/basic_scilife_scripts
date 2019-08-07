@@ -182,14 +182,14 @@ input_dim = average_emb[0].shape
 batch_size = 32
 
 #lr opt
-find_lr = True
+find_lr = False
 #LR schedule
 step_size = 5
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
-train_steps = int(len(y_train)/batch_size)
+train_steps = int(len(y_train)/batch_size)*10
 valid_steps = int(len(y_valid)/batch_size)
-max_lr = 0.0009
+max_lr = 0.0005
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
 lrate = min_lr
