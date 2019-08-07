@@ -103,7 +103,6 @@ df = pd.read_csv(dataframe)
 #Read data
 X = np.load(encodings, allow_pickle=True)
 y = np.asarray([*df['group_enc']])
-y_hot = np.eye(max(y)+1)[y]
 #Pad X
 padded_X = []
 for i in range(0,len(X)):
@@ -122,19 +121,52 @@ features2 = Model(inputs=model.input, outputs=model.get_layer('features2').outpu
 emb1 = np.asarray(features1.predict([X,X]))
 emb2 = np.asarray(features2.predict([X,X]))
 average_emb = np.average([emb1, emb2], axis = 0)
-pdb.set_trace()
+
+#Split data
+X_train, X_valid, y_train, y_valid = train_test_split(average_emb, y, test_size=0.2, random_state=42)
+y_hot = np.eye(max(y)+1)[y]
+num_classes = max(y)+1
 #Compute L1 distance to all class_embeddings
 L_dists = []
 for i in range(0, len(average_emb)):
     true = y[i]
     diff = np.absolute(class_embeddings-average_emb[i])
     L_dists.append(diff)
-pdb.set_trace()
 
+def get_batch(batch_size,s="train"):
+    """
+    Create a batch of L_dists
+    """
+    X = average_emb
+    y = y_hot
+
+    # # randomly sample several classes to use in the batch
+    random_samples = np.random.choice(len(X),size=(batch_size,),replace=False) #without replacement
+
+    batch_X = X[random_samples]
+    batch_y = y[random_samples]
+
+
+
+    return batch_X, batch_y
+
+def generate(batch_size, s="train"):
+    """
+    a generator for batches, so model.fit_generator can be used.
+    """
+    while True:
+        pairs, targets = get_batch(batch_size,s)
+        yield (pairs, targets)
+
+input_dim = average_emb[0].shape
+
+batch_size = 1
 #MODEL
 x = keras.Input(shape = input_dim)
+#Flatten
+flat = Flatten()(x)
 #Create softmax classifier
-probability = Dense(1, activation='softmax')(x)
+probability = Dense(num_classes, activation='softmax')(flat)
 
 
 
@@ -143,5 +175,10 @@ opt = optimizers.Adam(clipnorm=1.)
 softmax_clf.compile(loss='categorical_crossentropy',
               metrics = ['accuracy'],
               optimizer=opt)
-softmax_clf.fit(L_dists, y_hot, batch_size = 1)
-pdb.set_trace()
+#Summary of model
+print(softmax_clf.summary())
+
+softmax_clf.fit_generator(generate(batch_size),
+             steps_per_epoch=int(len(y_hot)/batch_size),
+             epochs=10,
+             shuffle=False) #Feed continuously, since random examples are picked

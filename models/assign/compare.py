@@ -98,7 +98,7 @@ def get_batch(batch_size,s="train"):
         X = X_valid
         y = y_valid
         num_classes = valid_classes
-        print('VALIDATION')
+
 
     # #n_classes, n_examples, w, h = X.shape
     #
@@ -133,6 +133,14 @@ def get_batch(batch_size,s="train"):
     return pairs, targets
 
 def generate(batch_size, s="train"):
+    """
+    a generator for batches, so model.fit_generator can be used.
+    """
+    while True:
+        pairs, targets = get_batch(batch_size,s)
+        yield (pairs, targets)
+
+def get_valid(batch_size, s="valid"):
     """
     a generator for batches, so model.fit_generator can be used.
     """
@@ -416,9 +424,9 @@ callbacks=[lrate, checkpoint, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
-             steps_per_epoch=int(train_steps),
+             steps_per_epoch=int(train_steps/1000),
              epochs=num_epochs,
-             validation_data = generate(batch_size), #Validate on 1000 examples
+             validation_data = get_valid(batch_size), #Validate on 1000 examples
              validation_steps = valid_steps,
              shuffle=False, #Feed continuously, since random examples are picked
              callbacks=callbacks)
