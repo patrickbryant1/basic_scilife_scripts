@@ -51,6 +51,9 @@ parser.add_argument('encodings', nargs=1, type= str,
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = '''path to data to be used for prediction.''')
 
+parser.add_argument('out_dir', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to output directory.''')
+
 
 #FUNCTIONS
 
@@ -85,6 +88,7 @@ json_file = (args.json_file[0])
 weights = (args.weights[0])
 encodings = args.encodings[0]
 dataframe = args.dataframe[0]
+out_dir = args.out_dir[0]
 
 #Assign data and labels
 #Read df
@@ -95,11 +99,6 @@ df = pd.read_csv(dataframe)
 X = np.load(encodings, allow_pickle=True)
 y = np.asarray([*df['group_enc']])
 
-
-#Onehot encode labels
-num_classes = max(y)+1
-y = np.eye(max(y)+1)[y]
-
 #Pad X
 padded_X = []
 for i in range(0,len(X)):
@@ -109,13 +108,28 @@ X = np.asarray(padded_X)
 
 #Load and run model
 model = load_model(json_file, weights)
-pred = model.predict([X[0:10],X[0:10]])
-pdb.set_trace()
 
-argmax_pred = tf.argmax(pred, 1)
+#Get embedding layers
+features1 = Model(inputs=model.input, outputs=model.get_layer('features1').output)
+features2 = Model(inputs=model.input, outputs=model.get_layer('features2').output)
 
-sess = tf.Session()
-called = sess.run(argmax_pred)
+#Get average embeddings for all entries
+emb1 = np.asarray(features1.predict([X,X]))
+emb2 = np.asarray(features2.predict([X,X]))
+average_emb = np.average([emb1, emb2], axis = 0)
+#Save embeddings
+np.save(out_dir+'average_feature_emb.npy', average_emb)
 
-argmax_valid = np.argmax(y_valid, axis = 1)
+#Compute class labels by averaging the embeddings for each H-group.
+class_embeddings = []
+for group in range(max(y)+1):
+    emb_match = average_emb[np.where(y == group)]
+    class_emb = np.average(emb_match, axis = 0)
+    class_embeddings.append(class_emb)
+
+class_embeddings = np.asarray(class_embeddings)
+#Save class embeddings
+np.save(out_dir+'class_emb.npy', average_emb)
+
+
 pdb.set_trace()
