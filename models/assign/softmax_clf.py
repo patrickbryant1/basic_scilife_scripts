@@ -33,6 +33,9 @@ from tensorflow.keras.backend import epsilon, clip, get_value, set_value, transp
 from tensorflow.layers import AveragePooling1D
 from tensorflow.keras.losses import mean_absolute_error, mean_squared_error
 
+#Custom
+from lr_finder import LRFinder
+
 import pdb
 
 
@@ -124,7 +127,9 @@ average_emb = np.average([emb1, emb2], axis = 0)
 
 #Split data
 X_train, X_valid, y_train, y_valid = train_test_split(average_emb, y, test_size=0.2, random_state=42)
-y_hot = np.eye(max(y)+1)[y]
+#Onehot encode labels
+y_train = np.eye(max(y)+1)[y_train]
+y_valid = np.eye(max(y)+1)[y_valid]
 num_classes = max(y)+1
 #Compute L1 distance to all class_embeddings
 L_dists = []
@@ -137,8 +142,14 @@ def get_batch(batch_size,s="train"):
     """
     Create a batch of L_dists
     """
-    X = average_emb
-    y = y_hot
+    if s == 'train':
+        X = X_train
+        y = y_train
+    else:
+        X = X_valid
+        y = y_valid
+
+
 
     # # randomly sample several classes to use in the batch
     random_samples = np.random.choice(len(X),size=(batch_size,),replace=False) #without replacement
@@ -158,9 +169,31 @@ def generate(batch_size, s="train"):
         pairs, targets = get_batch(batch_size,s)
         yield (pairs, targets)
 
-input_dim = average_emb[0].shape
+def get_valid(batch_size, s="valid"):
+    """
+    a generator for batches, so model.fit_generator can be used.
+    """
+    while True:
+        pairs, targets = get_batch(batch_size,s)
+        yield (pairs, targets)
 
-batch_size = 1
+#Parameters
+input_dim = average_emb[0].shape
+batch_size = 32
+
+#lr opt
+find_lr = True
+#LR schedule
+step_size = 5
+num_cycles = 3
+num_epochs = step_size*2*num_cycles
+train_steps = int(len(y_train)/batch_size)
+valid_steps = int(len(y_valid)/batch_size)
+max_lr = 0.0009
+min_lr = max_lr/10
+lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
+lrate = min_lr
+
 #MODEL
 x = keras.Input(shape = input_dim)
 #Flatten
@@ -178,7 +211,40 @@ softmax_clf.compile(loss='categorical_crossentropy',
 #Summary of model
 print(softmax_clf.summary())
 
+#LRFinder
+if find_lr == True:
+  lr_finder = LRFinder(softmax_clf)
+
+  lr_finder.find(np.asarray(X_train), y_train, start_lr=0.00001, end_lr=1, batch_size=batch_size, epochs=1)
+  losses = lr_finder.losses
+  lrs = lr_finder.lrs
+  l_l = np.asarray([lrs, losses])
+  np.savetxt(out_dir+'lrs_losses.txt', l_l)
+  num_epochs = 0
+
+#LR schedule
+class LRschedule(Callback):
+  '''lr scheduel according to one-cycle policy.
+  '''
+  def __init__(self, interval=1):
+    super(Callback, self).__init__()
+    self.lr_change = lr_change #How mauch to change each batch
+    self.lr = min_lr
+    self.interval = interval
+
+  def on_epoch_end(self, epoch, logs={}):
+    if epoch > 0 and epoch%step_size == 0:
+      self.lr_change = self.lr_change*-1 #Change decrease/increase
+    self.lr = self.lr + self.lr_change
+
+#Lrate
+lrate = LRschedule()
+callbacks=[lrate]
+
 softmax_clf.fit_generator(generate(batch_size),
-             steps_per_epoch=int(len(y_hot)/batch_size),
-             epochs=10,
-             shuffle=False) #Feed continuously, since random examples are picked
+             steps_per_epoch=train_steps,
+             epochs=num_epochs,
+             validation_data = get_valid(batch_size), #Validate on 1000 examples
+             validation_steps = valid_steps,
+             shuffle=False, #Feed continuously, since random examples are picked
+             callbacks = callbacks)
