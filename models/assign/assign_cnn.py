@@ -159,7 +159,7 @@ X = np.asarray(max5onehot)
 y = np.asarray(max5labels)
 
 #Split so both groups are represented in train and test
-sss = StratifiedShuffleSplit(n_splits=1, test_size=0.4, random_state=0)
+sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
 for train_index, test_index in sss.split(X, y):
     X_train, X_valid = X[train_index], X[test_index]
     y_train, y_valid = y[train_index], y[test_index]
@@ -297,7 +297,7 @@ class LRschedule(Callback):
     np.save(out_dir+'emb_'+str(epoch)+'.npy', intermediate_output)
 
     #Set lr
-    print(self.lr)
+    print(' ',np.round(self.lr, 5))
     keras.backend.set_value(self.model.optimizer.lr, self.lr)
 
 #Save y_valid

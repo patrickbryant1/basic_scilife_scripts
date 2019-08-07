@@ -1,0 +1,121 @@
+#!/usr/share/python3
+# -*- coding: utf-8 -*-
+
+
+import argparse
+import sys
+import numpy as np
+from ast import literal_eval
+import pandas as pd
+import glob
+from os import makedirs
+from os.path import exists, join
+
+#Preprocessing
+from collections import Counter
+import math
+import time
+from ast import literal_eval
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+
+#Keras
+from tensorflow.keras.models import model_from_json
+import tensorflow as tf
+from tensorflow.keras import regularizers,optimizers
+import tensorflow.keras as keras
+from tensorflow.keras.constraints import max_norm
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, Callback
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Dropout, Activation, Conv1D, Reshape, MaxPooling1D, Dot, Masking
+from tensorflow.keras.layers import Activation, RepeatVector, Permute, Multiply, Lambda, GlobalAveragePooling1D
+from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten, Subtract
+from tensorflow.keras.backend import epsilon, clip, get_value, set_value, transpose, variable, square
+from tensorflow.layers import AveragePooling1D
+from tensorflow.keras.losses import mean_absolute_error, mean_squared_error
+
+import pdb
+
+
+#Arguments for argparse module:
+parser = argparse.ArgumentParser(description = '''A program that reads a keras model from a .json and a .h5 file''')
+
+parser.add_argument('json_file', nargs=1, type= str,
+                  default=sys.stdin, help = 'path to .json file with keras model to be opened')
+
+parser.add_argument('weights', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to .h5 file containing weights for net.''')
+
+parser.add_argument('encodings', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to np array with encoded aa sequences.')
+
+parser.add_argument('dataframe', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to data to be used for prediction.''')
+
+
+#FUNCTIONS
+
+def pad_cut(ar, x, y):
+    '''Pads or cuts a 1D array to len x
+    '''
+    shape = ar.shape
+
+    if max(shape) < x:
+        empty = np.zeros((x,y))
+        empty[0:len(ar)]=ar
+        ar = empty
+    else:
+        ar = ar[0:x]
+    return ar
+
+def load_model(json_file, weights):
+
+	global model
+
+	json_file = open(json_file, 'r')
+	model_json = json_file.read()
+	model = model_from_json(model_json)
+	model.load_weights(weights)
+	model._make_predict_function()
+	model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+	return model
+
+#MAIN
+args = parser.parse_args()
+json_file = (args.json_file[0])
+weights = (args.weights[0])
+encodings = args.encodings[0]
+dataframe = args.dataframe[0]
+
+#Assign data and labels
+#Read df
+df = pd.read_csv(dataframe)
+
+#Assign data and labels
+#Read data
+X = np.load(encodings, allow_pickle=True)
+y = np.asarray([*df['group_enc']])
+
+
+#Onehot encode labels
+num_classes = max(y)+1
+y = np.eye(max(y)+1)[y]
+
+#Pad X
+padded_X = []
+for i in range(0,len(X)):
+    padded_X.append(pad_cut(X[i], 300, 21))
+X = np.asarray(padded_X)
+
+
+#Load and run model
+model = load_model(json_file, weights)
+pred = model.predict([X[0:10],X[0:10]])
+pdb.set_trace()
+
+argmax_pred = tf.argmax(pred, 1)
+
+sess = tf.Session()
+called = sess.run(argmax_pred)
+
+argmax_valid = np.argmax(y_valid, axis = 1)
+pdb.set_trace()

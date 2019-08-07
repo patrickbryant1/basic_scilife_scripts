@@ -234,7 +234,7 @@ X = np.asarray(max5onehot)
 y = np.asarray(max5labels)
 
 #Split without overlaps of classes between train and test
-train_classes = np.random.choice(max(y), size = (int((max(y)+1)*0.6),), replace = False)
+train_classes = np.random.choice(max(y), size = (int((max(y)+1)*0.8),), replace = False)
 train_index = np.isin(y, train_classes)
 X_train = X[train_index]
 y_train = y[train_index]
