@@ -37,7 +37,7 @@ import pdb
 
 
 #Arguments for argparse module:
-parser = argparse.ArgumentParser(description = '''A program that reads a keras model from a .json and a .h5 file''')
+parser = argparse.ArgumentParser(description = '''A softmax classifier that uses embeddings generated from a pretrained model.''')
 
 parser.add_argument('json_file', nargs=1, type= str,
                   default=sys.stdin, help = 'path to .json file with keras model to be opened')
@@ -51,8 +51,13 @@ parser.add_argument('encodings', nargs=1, type= str,
 parser.add_argument('dataframe', nargs=1, type= str,
                   default=sys.stdin, help = '''path to data to be used for prediction.''')
 
+parser.add_argument('class_embeddings', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to class embeddings.''')
+
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = '''path to output directory.''')
+
+
 
 
 #FUNCTIONS
@@ -79,7 +84,6 @@ def load_model(json_file, weights):
 	model = model_from_json(model_json)
 	model.load_weights(weights)
 	model._make_predict_function()
-	#model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 	return model
 
 #MAIN
@@ -88,6 +92,7 @@ json_file = (args.json_file[0])
 weights = (args.weights[0])
 encodings = args.encodings[0]
 dataframe = args.dataframe[0]
+class_embeddings = np.load(args.class_embeddings[0], allow_pickle=True)
 out_dir = args.out_dir[0]
 
 #Assign data and labels
@@ -98,7 +103,7 @@ df = pd.read_csv(dataframe)
 #Read data
 X = np.load(encodings, allow_pickle=True)
 y = np.asarray([*df['group_enc']])
-
+y_hot = np.eye(max(y)+1)[y]
 #Pad X
 padded_X = []
 for i in range(0,len(X)):
@@ -117,19 +122,26 @@ features2 = Model(inputs=model.input, outputs=model.get_layer('features2').outpu
 emb1 = np.asarray(features1.predict([X,X]))
 emb2 = np.asarray(features2.predict([X,X]))
 average_emb = np.average([emb1, emb2], axis = 0)
-#Save embeddings
-np.save(out_dir+'average_feature_emb.npy', average_emb)
+pdb.set_trace()
+#Compute L1 distance to all class_embeddings
+L_dists = []
+for i in range(0, len(average_emb)):
+    true = y[i]
+    diff = np.absolute(class_embeddings-average_emb[i])
+    L_dists.append(diff)
+pdb.set_trace()
 
-#Compute class labels by averaging the embeddings for each H-group.
-class_embeddings = []
-for group in range(0,max(y)+1):
-    emb_match = average_emb[np.where(y == group)]
-    class_emb = np.average(emb_match, axis = 0)
-    class_embeddings.append(class_emb)
-
-class_embeddings = np.asarray(class_embeddings)
-#Save class embeddings
-np.save(out_dir+'class_emb.npy', class_embeddings)
+#MODEL
+x = keras.Input(shape = input_dim)
+#Create softmax classifier
+probability = Dense(1, activation='softmax')(x)
 
 
+
+softmax_clf = Model(inputs = [x], outputs = probability)
+opt = optimizers.Adam(clipnorm=1.)
+softmax_clf.compile(loss='categorical_crossentropy',
+              metrics = ['accuracy'],
+              optimizer=opt)
+softmax_clf.fit(L_dists, y_hot, batch_size = 1)
 pdb.set_trace()
