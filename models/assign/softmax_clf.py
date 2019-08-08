@@ -126,17 +126,45 @@ emb2 = np.asarray(features2.predict([X,X]))
 average_emb = np.average([emb1, emb2], axis = 0)
 
 #Split data
-X_train, X_valid, y_train, y_valid = train_test_split(average_emb, y, test_size=0.2, random_state=42)
+#Get test data
+X = average_emb #Should run on emb1, emb2 and average to see which is best
+#Get 5 first of all above 5
+groups = [*df['group_enc']]
+counted_groups = Counter(groups)
+max5labels = []
+max5onehot = []
+for group in [*counted_groups.keys()]:
+    if counted_groups[group]>5:
+        ind = np.asarray(df[df['group_enc'] == group].index)
+        selected = np.random.choice(ind, 5, replace = False)
+        for i in selected:
+            max5labels.append(group)
+            max5onehot.append(X[i])
+    else:
+        ind = np.asarray(df[df['group_enc'] == group].index)
+        for i in ind:
+            max5labels.append(group)
+            max5onehot.append(X[i])
+
+#Create np arrays
+X = np.asarray(max5onehot)
+y = np.asarray(max5labels)
+
+sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+for train_index, valid_index in sss.split(X, y):
+    X_train, X_valid = X[train_index], X[valid_index]
+    y_train, y_valid = y[train_index], y[valid_index]
+
 #Onehot encode labels
 y_train = np.eye(max(y)+1)[y_train]
 y_valid = np.eye(max(y)+1)[y_valid]
 num_classes = max(y)+1
 #Compute L1 distance to all class_embeddings
-L_dists = []
-for i in range(0, len(average_emb)):
-    true = y[i]
-    diff = np.absolute(class_embeddings-average_emb[i])
-    L_dists.append(diff)
+# L_dists = []
+# for i in range(0, len(average_emb)):
+#     true = y[i]
+#     diff = np.absolute(class_embeddings-average_emb[i])
+#     L_dists.append(diff)
 
 def get_batch(batch_size,s="train"):
     """
@@ -184,10 +212,10 @@ batch_size = 32
 #lr opt
 find_lr = False
 #LR schedule
-step_size = 5
+step_size = 15
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
-train_steps = int(len(y_train)/batch_size)*10
+train_steps = int(len(y_train)/batch_size)
 valid_steps = int(len(y_valid)/batch_size)
 max_lr = 0.0005
 min_lr = max_lr/10
