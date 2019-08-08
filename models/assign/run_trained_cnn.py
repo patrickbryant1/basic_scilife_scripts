@@ -140,38 +140,38 @@ np.random.seed(0)
 train_classes = np.random.choice(max(y), size = (int((max(y)+1)*0.8),), replace = False)
 valid_classes = np.setdiff1d(range(max(y)),train_classes) #categories not chosen for training
 
-#Get 5 first of all above 5
-groups = [*df['group_enc']]
-counted_groups = Counter(groups)
-max5labels = []
-max5emb1 = []
-max5emb2 = []
-max5_avemb = []
-for group in [*counted_groups.keys()]:
-    if counted_groups[group]>5:
-        ind = np.asarray(df[df['group_enc'] == group].index)
-        selected = np.random.choice(ind, 5, replace = False)
-        for i in selected:
-            max5labels.append(group)
-            max5emb1.append(emb1[i])
-            max5emb2.append(emb2[i])
-            max5_avemb.append(average_emb[i])
+# #Get 5 first of all above 5
+# groups = [*df['group_enc']]
+# counted_groups = Counter(groups)
+# max5labels = []
+# max5emb1 = []
+# max5emb2 = []
+# max5_avemb = []
+# for group in [*counted_groups.keys()]:
+#     if counted_groups[group]>5:
+#         ind = np.asarray(df[df['group_enc'] == group].index)
+#         selected = np.random.choice(ind, 5, replace = False)
+#         for i in selected:
+#             max5labels.append(group)
+#             max5emb1.append(emb1[i])
+#             max5emb2.append(emb2[i])
+#             max5_avemb.append(average_emb[i])
+#
+#     else:
+#         ind = np.asarray(df[df['group_enc'] == group].index)
+#         for i in ind:
+#             max5labels.append(group)
+#             max5emb1.append(emb1[i])
+#             max5emb2.append(emb2[i])
+#             max5_avemb.append(average_emb[i])
 
-    else:
-        ind = np.asarray(df[df['group_enc'] == group].index)
-        for i in ind:
-            max5labels.append(group)
-            max5emb1.append(emb1[i])
-            max5emb2.append(emb2[i])
-            max5_avemb.append(average_emb[i])
-
-emb1 = np.asarray(max5emb1)
-emb2 = np.asarray(max5emb2)
-average_emb = np.asarray(max5_avemb)
-y = np.asarray(max5labels)
-np.save(out_dir+'max5labels.npy', y)
-train_index = np.isin(max5labels, train_classes)
-valid_index = np.isin(max5labels, valid_classes)
+# emb1 = np.asarray(max5emb1)
+# emb2 = np.asarray(max5emb2)
+# average_emb = np.asarray(max5_avemb)
+# y = np.asarray(max5labels)
+# np.save(out_dir+'max5labels.npy', y)
+train_index = np.isin(y, train_classes)
+valid_index = np.isin(y, valid_classes)
 pdb.set_trace()
 
 def zsl_test(indices, type, out_dir):
