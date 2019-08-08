@@ -212,12 +212,12 @@ batch_size = 32
 #lr opt
 find_lr = False
 #LR schedule
-step_size = 15
+step_size = 5
 num_cycles = 3
 num_epochs = step_size*2*num_cycles
 train_steps = int(len(y_train)/batch_size)
 valid_steps = int(len(y_valid)/batch_size)
-max_lr = 0.0005
+max_lr = 0.001
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
 lrate = min_lr
@@ -243,7 +243,7 @@ print(softmax_clf.summary())
 if find_lr == True:
   lr_finder = LRFinder(softmax_clf)
 
-  lr_finder.find(np.asarray(X_train), y_train, start_lr=0.00001, end_lr=1, batch_size=batch_size, epochs=1)
+  lr_finder.find(np.asarray(X_train), y_train, start_lr=0.00001, end_lr=1, batch_size=batch_size, epochs=5)
   losses = lr_finder.losses
   lrs = lr_finder.lrs
   l_l = np.asarray([lrs, losses])
@@ -268,11 +268,16 @@ class LRschedule(Callback):
 #Lrate
 lrate = LRschedule()
 callbacks=[lrate]
-
-softmax_clf.fit_generator(generate(batch_size),
-             steps_per_epoch=train_steps,
-             epochs=num_epochs,
-             validation_data = get_valid(batch_size), #Validate on 1000 examples
-             validation_steps = valid_steps,
-             shuffle=False, #Feed continuously, since random examples are picked
-             callbacks = callbacks)
+softmax_clf.fit(X_train, y_train, batch_size = batch_size,
+              epochs=num_epochs,
+              validation_data=[X_valid, y_valid],
+              shuffle=True, #Dont feed continuously
+	          callbacks=callbacks)
+#
+# softmax_clf.fit_generator(generate(batch_size),
+#              steps_per_epoch=train_steps,
+#              epochs=num_epochs,
+#              validation_data = get_valid(batch_size), #Validate on 1000 examples
+#              validation_steps = valid_steps,
+#              shuffle=False, #Feed continuously, since random examples are picked
+#              callbacks = callbacks)
