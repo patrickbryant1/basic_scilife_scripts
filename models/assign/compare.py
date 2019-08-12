@@ -1,4 +1,4 @@
-#!/usr/share/python
+#!/usr/share/python3
 # -*- coding: utf-8 -*-
 
 
@@ -36,7 +36,8 @@ from tensorflow.keras.callbacks import TensorBoard
 #Custom
 from lr_finder import LRFinder
 import pdb
-
+#Set session
+from tensorflow.keras.backend import set_session
 
 
 #Arguments for argparse module:
@@ -55,6 +56,12 @@ parser.add_argument('params_file', nargs=1, type= str,
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'Path to output directory. Include /in end')
 
+#Set config
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+#config.log_device_placement = True
+sess = tf.Session(config=config)
+set_session(sess)  # set this TensorFlow session as the default session for Keras
 #Set random seed
 np.random.seed(0)
 #FUNCTIONS
@@ -424,9 +431,9 @@ callbacks=[lrate, checkpoint, tensorboard]
 #Fit model
 #Should shuffle uid1 and uid2 in X[0] vs X[1]
 model.fit_generator(generate(batch_size),
-             steps_per_epoch=int(train_steps/1000),
+             steps_per_epoch=int(train_steps),
              epochs=num_epochs,
-             validation_data = get_valid(batch_size), #Validate on 1000 examples
+             validation_data = get_valid(batch_size), #Validate 
              validation_steps = valid_steps,
              shuffle=False, #Feed continuously, since random examples are picked
              callbacks=callbacks)
