@@ -45,11 +45,17 @@ parser.add_argument('json_file', nargs=1, type= str,
 parser.add_argument('weights', nargs=1, type= str,
                   default=sys.stdin, help = '''path to .h5 file containing weights for net.''')
 
-parser.add_argument('encodings', nargs=1, type= str,
-                  default=sys.stdin, help = 'Path to np array with encoded aa sequences.')
+parser.add_argument('encodings_train', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to np array with encoded aa sequences used to train the net.')
 
-parser.add_argument('dataframe', nargs=1, type= str,
-                  default=sys.stdin, help = '''path to data to be used for prediction.''')
+parser.add_argument('dataframe_train', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to dataframe with labels used to train the net.''')
+
+parser.add_argument('encodings_test', nargs=1, type= str,
+                  default=sys.stdin, help = 'Path to np array with encoded aa sequences to be used for testing.')
+
+parser.add_argument('dataframe_test', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to dataframe with labels to be used for testing.''')
 
 parser.add_argument('out_dir', nargs=1, type= str,
                   default=sys.stdin, help = '''path to output directory.''')
@@ -86,8 +92,10 @@ def load_model(json_file, weights):
 args = parser.parse_args()
 json_file = (args.json_file[0])
 weights = (args.weights[0])
-encodings = args.encodings[0]
-dataframe = args.dataframe[0]
+encodings_train = args.encodings_train[0]
+dataframe_train = args.dataframe_train[0]
+encodings_test = args.encodings_test[0]
+dataframe_test = args.dataframe_test[0]
 out_dir = args.out_dir[0]
 
 #Assign data and labels
