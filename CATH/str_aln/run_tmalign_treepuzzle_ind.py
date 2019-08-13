@@ -22,24 +22,8 @@ parser.add_argument('TMalign', nargs=1, type= str, default=sys.stdin, help = 'Pa
 parser.add_argument('address', nargs=1, type= str, default=sys.stdin, help = 'Web adress to download from.') #www.cathdb.info/version/v4_2_0/api/rest/id/
 
 #FUNCTIONS
-
-
-def run_puzzle(indir, puzzle):
-	'''Run tree-puzzle and retrieve output
-	'''
-	for name in glob.glob(indir+"*.phy"): #Use all .phy files
-		uid_pairs = name.split('/')[-1].split('.')[0].split('_')
-		try:
-			p = subprocess.Popen([puzzle, name], stdin=subprocess.PIPE)
-			p.communicate(b'y\nn\n')[0]
-		except:
-			raise IOError(name)
-
-
-	return None
-
 def run_TMalign(outdir, TMalign, hgroup, address):
-	'''#Download pdb files from CATH api and run TMalign.
+	'''Download pdb files from CATH api and run TMalign.
 	'''
 	
 	measures = {} #Save RMSD to add with MLAA distance from tree-puzzle
@@ -54,12 +38,12 @@ def run_TMalign(outdir, TMalign, hgroup, address):
 		str_i = outdir+uids[i]+'.pdb'
 		for j in range(i+1, len(uids)):
 			str_j = outdir+uids[i]+'.pdb'
-
-
+			#Run TMalign and parse output
 			tmalign_out = subprocess.check_output([TMalign, str1 , str2]) #Performs optimal structural alignment 
 			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
-			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
-	
+			measures[uids[i]+'_'+uids[j]] = [rmsd, tmscores[0], tmscores[1]]
+			#Make .phy file of aligned sequences
+			make_phylip([uids[i], uids[j]], tm_sequences[0], tm_sequences[1]) 
 
 	return measures, status
 
@@ -95,6 +79,38 @@ def parse_tm(tmalign_out):
 			
 	return(aligned_len, rmsd, tmscores, identity, chain_lens, sequences)
 
+def make_phylip(uids, query_aln, template_aln):
+        '''Print phylip format for tree-puzzle calculations
+        '''
+        #Create text in phylip format
+        text = (' 4  ' + str(len(query_aln)) + '\n'
+                        + uids[0] + '00|' + query_aln + '\n'
+                        + 'copy11111' + '|' + query_aln + '\n'
+                        + uids[1] + '00|' + template_aln + '\n'
+                        + 'copy22222' + '|' + template_aln + '\n')
+
+
+        #Define file name
+        file_name = uids[0] + '_' + uids[1] + '.phy'
+        #Open file and write text to it
+        with open(file_name, "w") as file:
+                file.write(text)
+
+        return None
+
+def run_puzzle(indir, puzzle):
+        '''Run tree-puzzle and retrieve output
+        '''
+        for name in glob.glob(indir+"*.phy"): #Use all .phy files
+                uid_pairs = name.split('/')[-1].split('.')[0].split('_')
+                try:
+                        p = subprocess.Popen([puzzle, name], stdin=subprocess.PIPE)
+                        p.communicate(b'y\nn\n')[0]
+                except:
+                        raise IOError(name)
+
+
+        return None
 
 def parse_puzzle(measures, indir):
 	'''Parse output from tree-puzzle and write to dict
@@ -142,16 +158,16 @@ def print_tsv(measures, hgroup):
 #####MAIN#####
 args = parser.parse_args()
 
-indir = args.indir[0]
+outdir = args.outdir[0]
 hgroup = args.hgroup[0]
 puzzle = args.puzzle[0]
 TMalign = args.TMalign[0]
+address = args.address[0
 
 #Download pdb files from CATH api and run TMalign
-(measures, status) = run_TMalign(indir, TMalign)
-
-run_puzzle(indir, puzzle)
-(measures, status) = run_TMalign(indir, TMalign)
-if status == True: #Only if H-groups fulfills criteria
-	measures = parse_puzzle(measures, indir)
-	print_tsv(measures, hgroup)
+(measures) = run_TMalign(outdir, TMalign)
+#Run tree-puzzle on .phy files created from extracted sequence alignments from TMalign struvtural alignments
+run_puzzle(outdir, puzzle)
+#Parse dist files from tree-puzzle and match to TMalign results
+measures = parse_puzzle(measures, outdir)
+print_tsv(measures, hgroup)
