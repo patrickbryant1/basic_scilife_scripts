@@ -7,6 +7,7 @@ import sys
 import os
 import glob
 import subprocess
+import pandas as pd
 import pdb
 
 
@@ -16,18 +17,19 @@ parser = argparse.ArgumentParser(description = '''A program that runs TMalign an
 						receives the resulting output.''')
 
 parser.add_argument('outdir', nargs=1, type= str, default=sys.stdin, help = 'Path to output directory.')
-parser.add_argument('hgroup', nargs=1, type= str, default=sys.stdin, help = 'H-group.')
+parser.add_argument('hgroup_file', nargs=1, type= str, default=sys.stdin, help = 'File with selected uids for the specific H-group.')
 parser.add_argument('puzzle', nargs=1, type= str, default=sys.stdin, help = 'Path to tree-puzzle.')
 parser.add_argument('TMalign', nargs=1, type= str, default=sys.stdin, help = 'Path to TMalign.')
 parser.add_argument('address', nargs=1, type= str, default=sys.stdin, help = 'Web adress to download from.') #www.cathdb.info/version/v4_2_0/api/rest/id/
 
 #FUNCTIONS
-def run_TMalign(outdir, TMalign, hgroup, address):
+def run_TMalign(outdir, TMalign, hgroup, hgroup_file, address):
 	'''Download pdb files from CATH api and run TMalign.
 	'''
 	
 	measures = {} #Save RMSD to add with MLAA distance from tree-puzzle
-	uids = pd.read_csv(outdir+hgroup+'.txt', sep ='\n')
+	uids = pd.read_csv(hgroup_file, sep ='\n', header=None)
+	uids = uids[0]
 	#Get pdb files for domains
 	for uid in uids:
 		#Get pdb file. Make sure they are saved to outdir
@@ -37,15 +39,15 @@ def run_TMalign(outdir, TMalign, hgroup, address):
 	for i in range(len(uids)):
 		str_i = outdir+uids[i]+'.pdb'
 		for j in range(i+1, len(uids)):
-			str_j = outdir+uids[i]+'.pdb'
+			str_j = outdir+uids[j]+'.pdb'
 			#Run TMalign and parse output
-			tmalign_out = subprocess.check_output([TMalign, str1 , str2]) #Performs optimal structural alignment 
+			tmalign_out = subprocess.check_output([TMalign, str_i , str_j]) #Performs optimal structural alignment 
 			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 			measures[uids[i]+'_'+uids[j]] = [rmsd, tmscores[0], tmscores[1]]
 			#Make .phy file of aligned sequences
 			make_phylip([uids[i], uids[j]], tm_sequences[0], tm_sequences[1]) 
 
-	return measures, status
+	return measures
 
 def parse_tm(tmalign_out):
 	'''A function that gets the uids and the corresponding scores
@@ -75,8 +77,6 @@ def parse_tm(tmalign_out):
 	sequences = [tmalign_out[-5], tmalign_out[-3]]
 
 	chain_lens = [int(len_1), int(len_2)]
-	
-			
 	return(aligned_len, rmsd, tmscores, identity, chain_lens, sequences)
 
 def make_phylip(uids, query_aln, template_aln):
@@ -88,7 +88,6 @@ def make_phylip(uids, query_aln, template_aln):
                         + 'copy11111' + '|' + query_aln + '\n'
                         + uids[1] + '00|' + template_aln + '\n'
                         + 'copy22222' + '|' + template_aln + '\n')
-
 
         #Define file name
         file_name = uids[0] + '_' + uids[1] + '.phy'
@@ -159,13 +158,14 @@ def print_tsv(measures, hgroup):
 args = parser.parse_args()
 
 outdir = args.outdir[0]
-hgroup = args.hgroup[0]
+hgroup_file = args.hgroup_file[0]
 puzzle = args.puzzle[0]
 TMalign = args.TMalign[0]
-address = args.address[0
+address = args.address[0]
 
 #Download pdb files from CATH api and run TMalign
-(measures) = run_TMalign(outdir, TMalign)
+hgroup = hgroup_file.split('/')[-1].split('.txt')[0]
+measures = run_TMalign(outdir, TMalign, hgroup, hgroup_file, address)
 #Run tree-puzzle on .phy files created from extracted sequence alignments from TMalign struvtural alignments
 run_puzzle(outdir, puzzle)
 #Parse dist files from tree-puzzle and match to TMalign results
