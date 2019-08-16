@@ -17,6 +17,7 @@ import math
 import time
 from ast import literal_eval
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from itertools import product
 
 #Keras
 from tensorflow.keras.models import model_from_json
@@ -155,10 +156,46 @@ for train_index, valid_index in sss.split(X, y):
     X_train, X_valid = X[train_index], X[valid_index]
     y_train, y_valid = y[train_index], y[valid_index]
 
+
+#Create words for class encodings
+prod = product('ABCDE', repeat=5)
+words = []
+for i in prod:
+    words.append(list(i))
+
+#Create vectors for class encodings
+letters = {
+'A' : np.asarray([1, 0, 0, 0, 0]),
+'B' : np.asarray([0, 1, 0, 0, 0]),
+'C' : np.asarray([0, 0, 1, 0, 0]),
+'D' : np.asarray([0, 0, 0, 1, 0]),
+'E' : np.asarray([0, 0, 0, 0, 1])
+}
+
+vectors = []
+for i in range(np.unique(y).size):
+    vector = [] #Save full encoding
+    word = words[i]
+    for letter in word:
+        vector.append(letters[letter])
+
+    vectors.append(np.asarray(vector))
+vectors = np.asarray(vectors)
+
+def custom_one_hot(y, vectors):
+    '''Custom encoding of labels
+    '''
+    enc_labels = []
+    for label in y:
+        enc_labels.append(vectors[label])
+
+    return np.asarray(enc_labels)
+
 #Onehot encode labels
-y_train = np.eye(max(y)+1)[y_train]
-y_valid = np.eye(max(y)+1)[y_valid]
+y_train = custom_one_hot(y_train, vectors)
+y_valid = custom_one_hot(y_valid, vectors)
 num_classes = max(y)+1
+pdb.set_trace()
 #Compute L1 distance to all class_embeddings
 # L_dists = []
 # for i in range(0, len(average_emb)):
@@ -227,13 +264,28 @@ x = keras.Input(shape = input_dim)
 #Flatten
 flat = Flatten()(x)
 #Create softmax classifier
-probability = Dense(num_classes, activation='softmax')(flat)
+probability = Dense(25, activation='softmax')(flat) #Has to assign probaiblities in 5x5 fashion
 
+#Custom loss for softmax classifier
+def custom_loss(ytrue,ypred):
+    output = ypred
+    target = ytrue
+    for i in range(5):
+        output = ypred[:][i]
+        target = ytrue[:][i]
+        # scale preds so that the class probas of each sample sum to 1
+        output /= tf.reduce_sum(output, reduction_indices=len(output.get_shape()) - 1, keep_dims=True)
+        # manual computation of crossentropy
+        epsilon = _to_tensor(_EPSILON, output.dtype.base_dtype)
+        output = tf.clip_by_value(output, epsilon, 1. - epsilon)
+        cross_entropy =  - tf.reduce_sum(target * tf.log(output), reduction_indices=len(output.get_shape()) - 1)
+        pdb.set_trace()
 
+    return K.sum(K.log(yTrue) - K.log(yPred))
 
 softmax_clf = Model(inputs = [x], outputs = probability)
 opt = optimizers.Adam(clipnorm=1.)
-softmax_clf.compile(loss='categorical_crossentropy',
+softmax_clf.compile(loss=custom_loss,
               metrics = ['accuracy'],
               optimizer=opt)
 #Summary of model
