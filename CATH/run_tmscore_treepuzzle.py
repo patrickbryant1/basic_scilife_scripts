@@ -35,7 +35,6 @@ def run_puzzle(indir, puzzle):
 		except:
 			raise IOError(name)
 
-
 	return None
 
 def read_fasta(aln_file):
@@ -68,8 +67,8 @@ def run_TMscore(indir, TMscore):
 	names = glob.glob(indir+"*.aln") #Use all _aln files
 	done_uids = [] #Keep trackof the uids that are completed
 	status = True #See if H-group has enough entries fulfilling criteria
-	n = 5 #at least n structures compared
-	if len(names) < (n*2):
+	n = 1 #at least n structures compared
+	if len(names) < n:
 		status = False
 	if status == True:
 		while names:#While names not empty

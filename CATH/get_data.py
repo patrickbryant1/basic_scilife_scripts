@@ -24,8 +24,6 @@ parser = argparse.ArgumentParser(description = '''A program that converts fasta 
 
 parser.add_argument('input_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'path to directory with .fa files.')
-parser.add_argument('filter_file', nargs=1, type= str,
-                  default=sys.stdin, help = 'path to file that contains newline separated pdb ids from a pdb search.')
 parser.add_argument('output_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'output directory.')
 parser.add_argument('hhblits', nargs=1, type= str,
@@ -53,7 +51,7 @@ def read_newline(file_name):
 
 	return(contents)
 
-def read_fasta(input_dir, filter_ids, output_dir):
+def read_fasta(input_dir, output_dir):
 	'''Read fasta sequences into dict
 	'''
 
@@ -72,6 +70,7 @@ def read_fasta(input_dir, filter_ids, output_dir):
 				else:
 					sequence += line
 
+			fasta_dict[uid] = sequence
 	return(fasta_dict)
 
 
@@ -97,16 +96,16 @@ def loop_through_ids(fasta_dict, uids, H_group,  input_dir, output_dir, hhblits,
 		run_hhblits(selected_uids[i], input_dir, hhblits, uniprot)
 		#Get pdb file
 		subprocess.call(["wget",address+selected_uids[i]+'.pdb'])
-
 	#Align
-	(status, latest_pos, identities) = align(selected_uids, output_dir, H_group, hhalign, identities)
+	(latest_pos, identities) = align(selected_uids, output_dir, H_group, hhalign, identities)
 
 	#Write identities to file
 	with open(output_dir+'identities', 'w') as f:
 		for key in identities:
 			f.write(key+'\t'+str(identities[key])+'\n')
 
-	return status
+	
+	return None
 
 def align(selected_uids, output_dir, H_group, hhalign, identities):
 	'''Run hhalign on file pair and extract sequence identity and
@@ -117,10 +116,6 @@ def align(selected_uids, output_dir, H_group, hhalign, identities):
 
 
 	end = len(selected_uids)
-	status = True #Keep track on if sequences are too similar
-		      #If True - no problem
-
-
 
 	parsed_output = {} #Save parsed output from hhalign
 	for i in range(0, end):
@@ -146,20 +141,15 @@ def align(selected_uids, output_dir, H_group, hhalign, identities):
 
 			if (aligned_len < (0.75*min(chain_lens))): #aligned lenght and sequence identity thresholds
 				print('Less than 75 % aligned ' + selected_uids[i], selected_uids[j], str(aligned_len), str((0.75*min(chain_lens))))
-				status = False
 				break #Break out, since too little aligned
-			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos] #Add info to parsed output
-
-		if status == False:
-			break #Break out, since too similar seqs
+			else: #Add to write			
+				parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos] #Add info to parsed output
 
 
-	if status == True: # save all info to files
 
-		write_to_file(output_dir, H_group, parsed_output)
+	write_to_file(output_dir, H_group, parsed_output)
 
-	pdb.set_trace()
-	return(status, i, identities)
+	return(i, identities)
 
 
 def write_to_file(output_dir, H_group, parsed_output):
@@ -192,7 +182,6 @@ def write_to_file(output_dir, H_group, parsed_output):
 args = parser.parse_args()
 
 input_dir = args.input_dir[0]
-filter_file = args.filter_file[0]
 output_dir = args.output_dir[0]
 hhblits = args.hhblits[0]
 hhalign = args.hhalign[0]
@@ -202,11 +191,7 @@ address = args.address[0]
 H_group = input_dir.split('/')[-1] #Get H-group (last part of path)
 
 #Get pdb ids to filter on
-filter_ids = read_newline(filter_file)
-fasta_dict = read_fasta(input_dir, filter_ids, output_dir) #Get fasta sequences - filter on filter_ids
+fasta_dict = read_fasta(input_dir, output_dir) #Get fasta sequences - filter on filter_ids
 uids = [*fasta_dict.keys()] #Get uids
+loop_through_ids(fasta_dict, uids, H_group, input_dir,  output_dir, hhblits, hhalign, uniprot, get_max, address)
 
-status = loop_through_ids(fasta_dict, uids, H_group, input_dir,  output_dir, hhblits, hhalign, uniprot, get_max, address)
-
-if status == False:
-	print('The H-group ' + H_group + ' does not fulfill the criteria.')

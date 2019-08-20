@@ -45,7 +45,7 @@ def run_TMalign(indir, TMalign):
 	measures = {} #Save RMSD to add with MLAA distance from tree-puzzle
 	names = glob.glob(indir+"*.aln") #Use all .aln files
 	status = True #See if H-group has enough entries fulfilling criteria
-	n = 10 #at least n structures compared
+	n = 1 #at least n structures compared
 	if len(names) < (n):
 		status = False
 	if status == True:
@@ -131,7 +131,7 @@ def parse_puzzle(measures, indir):
 def print_tsv(measures, hgroup):
 	'''Print measures in tsv to file
 	'''
-	with open(hgroup+'.tsv', 'w') as file:
+	with open(hgroup+'_str.tsv', 'w') as file:
 		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore_high\tTMscore_low\n')
 		for key in measures:
 			uids = key.split('_')
