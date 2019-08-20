@@ -158,7 +158,7 @@ def align(selected_uids, output_dir, H_group, hhalign, identities):
 
 		write_to_file(output_dir, H_group, parsed_output)
 
-
+	pdb.set_trace()
 	return(status, i, identities)
 
 
