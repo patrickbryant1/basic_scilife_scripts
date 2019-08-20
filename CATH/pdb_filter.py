@@ -51,10 +51,10 @@ def read_fasta(fasta_file , filter_ids, output_dir):
 			if line[0] == '>':
 				uid = line.split('|')[-1].split('/')[0]
 
-			if uid[0:4].upper() in filter_ids: #Make check on pdb search
-    				continue
-			else:
-    				failed_pdb_filter.append(uid)
+				if uid[0:4].upper() in filter_ids: #Make check on pdb search
+    					continue
+				else:
+    					failed_pdb_filter.append(uid)
 
 	with open(output_dir+'failed_pdb_filter', 'w') as f:
 	               for i in failed_pdb_filter:
