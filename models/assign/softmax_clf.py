@@ -128,73 +128,76 @@ average_emb = np.average([emb1, emb2], axis = 0)
 
 #Split data
 #Get test data
-X = average_emb #Should run on emb1, emb2 and average to see which is best
-#Get 5 first of all above 5
-groups = [*df['group_enc']]
-counted_groups = Counter(groups)
-max5labels = []
-max5onehot = []
-for group in [*counted_groups.keys()]:
-    if counted_groups[group]>5:
-        ind = np.asarray(df[df['group_enc'] == group].index)
-        selected = np.random.choice(ind, 5, replace = False)
-        for i in selected:
-            max5labels.append(group)
-            max5onehot.append(X[i])
-    else:
-        ind = np.asarray(df[df['group_enc'] == group].index)
-        for i in ind:
-            max5labels.append(group)
-            max5onehot.append(X[i])
+X = average_emb #Should run on emb1, emb2 and average to see which is best (average seems best)
+# #Get 5 first of all above 5
+# groups = [*df['group_enc']]
+# counted_groups = Counter(groups)
+# max5labels = []
+# max5onehot = []
+# for group in [*counted_groups.keys()]:
+#     if counted_groups[group]>5:
+#         ind = np.asarray(df[df['group_enc'] == group].index)
+#         selected = np.random.choice(ind, 5, replace = False)
+#         for i in selected:
+#             max5labels.append(group)
+#             max5onehot.append(X[i])
+#     else:
+#         ind = np.asarray(df[df['group_enc'] == group].index)
+#         for i in ind:
+#             max5labels.append(group)
+#             max5onehot.append(X[i])
+#
+# #Create np arrays
+# X = np.asarray(max5onehot)
+# y = np.asarray(max5labels)
 
-#Create np arrays
-X = np.asarray(max5onehot)
-y = np.asarray(max5labels)
-
-sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
-for train_index, valid_index in sss.split(X, y):
-    X_train, X_valid = X[train_index], X[valid_index]
-    y_train, y_valid = y[train_index], y[valid_index]
+# sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+# for train_index, valid_index in sss.split(X, y):
+#     X_train, X_valid = X[train_index], X[valid_index]
+#     y_train, y_valid = y[train_index], y[valid_index]
 
 
-#Create words for class encodings
-prod = product('ABCDE', repeat=5)
-words = []
-for i in prod:
-    words.append(list(i))
-
-#Create vectors for class encodings
-letters = {
-'A' : np.asarray([1, 0, 0, 0, 0]),
-'B' : np.asarray([0, 1, 0, 0, 0]),
-'C' : np.asarray([0, 0, 1, 0, 0]),
-'D' : np.asarray([0, 0, 0, 1, 0]),
-'E' : np.asarray([0, 0, 0, 0, 1])
-}
-
-vectors = []
-for i in range(np.unique(y).size):
-    vector = [] #Save full encoding
-    word = words[i]
-    for letter in word:
-        vector.extend(letters[letter])
-
-    vectors.append(np.asarray(vector))
-vectors = np.asarray(vectors)
-
-def custom_one_hot(y, vectors):
-    '''Custom encoding of labels
-    '''
-    enc_labels = []
-    for label in y:
-        enc_labels.append(vectors[label])
-
-    return np.asarray(enc_labels)
+# #Create words for class encodings
+# prod = product('ABCDE', repeat=5)
+# words = []
+# for i in prod:
+#     words.append(list(i))
+#
+# #Create vectors for class encodings
+# letters = {
+# 'A' : np.asarray([1, 0, 0, 0, 0]),
+# 'B' : np.asarray([0, 1, 0, 0, 0]),
+# 'C' : np.asarray([0, 0, 1, 0, 0]),
+# 'D' : np.asarray([0, 0, 0, 1, 0]),
+# 'E' : np.asarray([0, 0, 0, 0, 1])
+# }
+#
+# vectors = []
+# for i in range(np.unique(y).size):
+#     vector = [] #Save full encoding
+#     word = words[i]
+#     for letter in word:
+#         vector.extend(letters[letter])
+#
+#     vectors.append(np.asarray(vector))
+# vectors = np.asarray(vectors)
+#
+# def custom_one_hot(y, vectors):
+#     '''Custom encoding of labels
+#     '''
+#     enc_labels = []
+#     for label in y:
+#         enc_labels.append(vectors[label])
+#
+#     return np.asarray(enc_labels)
 
 #Onehot encode labels
-y_train = custom_one_hot(y_train, vectors)
-y_valid = custom_one_hot(y_valid, vectors)
+#y_train = custom_one_hot(y_train, vectors)
+#y_valid = custom_one_hot(y_valid, vectors)
+X_train, X_valid, y_train, y_valid = train_test_split(X,y,test_size=0.33, random_state=42)
 num_classes = max(y)+1
+y_train = np.eye(num_classes)[y_train]
+y_valid = np.eye(num_classes)[y_valid]
 #Compute L1 distance to all class_embeddings
 # L_dists = []
 # for i in range(0, len(average_emb)):
@@ -254,7 +257,7 @@ num_cycles = 3
 num_epochs = step_size*2*num_cycles
 train_steps = int(len(y_train)/batch_size)
 valid_steps = int(len(y_valid)/batch_size)
-max_lr = 0.001
+max_lr = 0.0005
 min_lr = max_lr/10
 lr_change = (max_lr-min_lr)/step_size  #(step_size*num_steps) #How mauch to change each batch
 lrate = min_lr
@@ -264,7 +267,7 @@ x = keras.Input(shape = input_dim)
 #Flatten
 flat = Flatten()(x)
 #Create softmax classifier
-probability = Dense(25, activation='softmax')(flat) #Has to assign probaiblities in 5x5 fashion
+probability = Dense(num_classes, activation='softmax')(flat) #Has to assign probaiblities in 5x5 fashion
 
 #Custom loss for softmax classifier
 def custom_loss(y_true,y_pred):
@@ -277,20 +280,15 @@ def custom_loss(y_true,y_pred):
         entr = categorical_crossentropy(target, output)
         sum_entr.append(entr)
 
-    sum_entr =  keras.backend.sum(sum_entr, axis = 1)
+    sum_entr =  keras.backend.sum(sum_entr, axis = 1) #Sum over axis 1 since axis 0 is the batch size
 
-
-    # with tf.Session() as sess:
-    #     init = tf.global_variables_initializer()
-    #     sess.run(init)
-    #     print(sum_entr.eval())
     return sum_entr
 
 softmax_clf = Model(inputs = [x], outputs = probability)
 opt = optimizers.Adam(clipnorm=1.)
-softmax_clf.compile(loss=custom_loss,
-              metrics = ['accuracy'],
-              optimizer=opt)
+softmax_clf.compile(loss='categorical_crossentropy',
+                    metrics = ['accuracy'],
+                    optimizer=opt)
 #Summary of model
 print(softmax_clf.summary())
 
@@ -319,24 +317,23 @@ class LRschedule(Callback):
     if epoch > 0 and epoch%step_size == 0:
       self.lr_change = self.lr_change*-1 #Change decrease/increase
     self.lr = self.lr + self.lr_change
-    print(self.lr)
 
-    #Get softmax clf accuracy
-    pred = softmax_clf.predict(X_valid)
-    pred_hot = []
-    for i in range(0,21,5):
-        p = np.argmax(pred[:,i:i+5], axis = 1)
-        p_hot = np.eye(5)[p]
-        pred_hot.append(p_hot)
-    pred_hot = np.asarray(pred_hot)
-    pred_hot = np.concatenate(pred_hot, axis = 1)
 
-    diff = np.absolute(pred_hot-y_valid)
-    diff = np.sum(diff, axis = 0)
-    acc = np.where(diff==0)[0].size/len(diff)
-    print('\tValidation accuracy:',acc)
+    # #Get softmax clf accuracy
+    # pred = softmax_clf.predict(X_valid)
+    # pred_hot = []
+    # for i in range(0,21,5):
+    #     p = np.argmax(pred[:,i:i+5], axis = 1)
+    #     p_hot = np.eye(5)[p]
+    #     pred_hot.append(p_hot)
+    # pred_hot = np.asarray(pred_hot)
+    # pred_hot = np.concatenate(pred_hot, axis = 1)
+    #
+    # diff = np.absolute(pred_hot-y_valid)
+    # diff = np.sum(diff, axis = 1)
+    # acc = np.where(diff==0)[0].size/len(diff)
+    # print('\tValidation accuracy:',acc)
 
-    #Compute accuracy
 
 
 
@@ -349,21 +346,15 @@ softmax_clf.fit(X_train, y_train, batch_size = batch_size,
               shuffle=True, #Dont feed continuously
 	          callbacks=callbacks)
 
+pdb.set_trace()
 
 pred = softmax_clf.predict(X_valid)
-pred_hot = []
-for i in range(0,20,5):
-    p = np.argmax(pred[:,i:i+5], axis = 1)
-    p_hot = np.eye(5)[p]
-    pred_hot.append(p_hot)
-pred_hot = np.concatenate(pred_hot, axis = 1)
-
-
-
-diff = np.absolute(pred_hot-y_valid)
-diff = np.sum(diff, axis = 0)
-acc = np.where(diff==0)[0].size/len(diff)
-pdb.set_trace()
+pred = np.argmax(pred, axis = 1)
+true = np.argmax(y_valid, axis = 1)
+correct_counts = Counter(true[np.where(true==pred)])
+with open(out_dir+'correct_counts.tsv', 'w') as file:
+    for key in correct_counts:
+        file.write(key,'\t',correct_counts[key])
 
 
 #
