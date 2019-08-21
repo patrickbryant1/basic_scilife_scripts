@@ -32,7 +32,7 @@ from tensorflow.keras.layers import Activation, RepeatVector, Permute, Multiply,
 from tensorflow.keras.layers import concatenate, add, Conv1D, BatchNormalization, Flatten, Subtract
 from tensorflow.keras.backend import epsilon, clip, get_value, set_value, transpose, variable, square
 from tensorflow.layers import AveragePooling1D
-from tensorflow.keras.losses import mean_absolute_error, mean_squared_error
+from tensorflow.keras.losses import mean_absolute_error, mean_squared_error, categorical_crossentropy
 
 #Custom
 from lr_finder import LRFinder
@@ -177,7 +177,7 @@ for i in range(np.unique(y).size):
     vector = [] #Save full encoding
     word = words[i]
     for letter in word:
-        vector.append(letters[letter])
+        vector.extend(letters[letter])
 
     vectors.append(np.asarray(vector))
 vectors = np.asarray(vectors)
@@ -195,7 +195,6 @@ def custom_one_hot(y, vectors):
 y_train = custom_one_hot(y_train, vectors)
 y_valid = custom_one_hot(y_valid, vectors)
 num_classes = max(y)+1
-pdb.set_trace()
 #Compute L1 distance to all class_embeddings
 # L_dists = []
 # for i in range(0, len(average_emb)):
@@ -242,6 +241,7 @@ def get_valid(batch_size, s="valid"):
         pairs, targets = get_batch(batch_size,s)
         yield (pairs, targets)
 
+
 #Parameters
 input_dim = average_emb[0].shape
 batch_size = 32
@@ -267,21 +267,24 @@ flat = Flatten()(x)
 probability = Dense(25, activation='softmax')(flat) #Has to assign probaiblities in 5x5 fashion
 
 #Custom loss for softmax classifier
-def custom_loss(ytrue,ypred):
-    output = ypred
-    target = ytrue
-    for i in range(5):
-        output = ypred[:][i]
-        target = ytrue[:][i]
-        # scale preds so that the class probas of each sample sum to 1
-        output /= tf.reduce_sum(output, reduction_indices=len(output.get_shape()) - 1, keep_dims=True)
-        # manual computation of crossentropy
-        epsilon = _to_tensor(_EPSILON, output.dtype.base_dtype)
-        output = tf.clip_by_value(output, epsilon, 1. - epsilon)
-        cross_entropy =  - tf.reduce_sum(target * tf.log(output), reduction_indices=len(output.get_shape()) - 1)
-        pdb.set_trace()
+def custom_loss(y_true,y_pred):
 
-    return K.sum(K.log(yTrue) - K.log(yPred))
+    sum_entr = []
+    for i in range(0,21,5):
+        target = y_true[:,i:i+5]
+        output = y_pred[:,i:i+5]
+
+        entr = categorical_crossentropy(target, output)
+        sum_entr.append(entr)
+
+    sum_entr =  keras.backend.sum(sum_entr, axis = 1)
+
+
+    # with tf.Session() as sess:
+    #     init = tf.global_variables_initializer()
+    #     sess.run(init)
+    #     print(sum_entr.eval())
+    return sum_entr
 
 softmax_clf = Model(inputs = [x], outputs = probability)
 opt = optimizers.Adam(clipnorm=1.)
@@ -316,6 +319,26 @@ class LRschedule(Callback):
     if epoch > 0 and epoch%step_size == 0:
       self.lr_change = self.lr_change*-1 #Change decrease/increase
     self.lr = self.lr + self.lr_change
+    print(self.lr)
+
+    #Get softmax clf accuracy
+    pred = softmax_clf.predict(X_valid)
+    pred_hot = []
+    for i in range(0,21,5):
+        p = np.argmax(pred[:,i:i+5], axis = 1)
+        p_hot = np.eye(5)[p]
+        pred_hot.append(p_hot)
+    pred_hot = np.asarray(pred_hot)
+    pred_hot = np.concatenate(pred_hot, axis = 1)
+
+    diff = np.absolute(pred_hot-y_valid)
+    diff = np.sum(diff, axis = 0)
+    acc = np.where(diff==0)[0].size/len(diff)
+    print('\tValidation accuracy:',acc)
+
+    #Compute accuracy
+
+
 
 #Lrate
 lrate = LRschedule()
@@ -325,6 +348,24 @@ softmax_clf.fit(X_train, y_train, batch_size = batch_size,
               validation_data=[X_valid, y_valid],
               shuffle=True, #Dont feed continuously
 	          callbacks=callbacks)
+
+
+pred = softmax_clf.predict(X_valid)
+pred_hot = []
+for i in range(0,20,5):
+    p = np.argmax(pred[:,i:i+5], axis = 1)
+    p_hot = np.eye(5)[p]
+    pred_hot.append(p_hot)
+pred_hot = np.concatenate(pred_hot, axis = 1)
+
+
+
+diff = np.absolute(pred_hot-y_valid)
+diff = np.sum(diff, axis = 0)
+acc = np.where(diff==0)[0].size/len(diff)
+pdb.set_trace()
+
+
 #
 # softmax_clf.fit_generator(generate(batch_size),
 #              steps_per_epoch=train_steps,
