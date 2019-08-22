@@ -7,6 +7,7 @@ import sys
 import os
 import glob
 import subprocess
+from conversions import make_phylip
 import pdb
 
 
@@ -16,6 +17,7 @@ parser = argparse.ArgumentParser(description = '''A program that runs TMalign an
 						receives the resulting output.''')
 
 parser.add_argument('indir', nargs=1, type= str, default=sys.stdin, help = 'Path to input directory.')
+parser.add_argument('outdir', nargs=1, type= str, default=sys.stdin, help = 'Path to output directory.')
 parser.add_argument('hgroup', nargs=1, type= str, default=sys.stdin, help = 'H-group.')
 parser.add_argument('puzzle', nargs=1, type= str, default=sys.stdin, help = 'Path to tree-puzzle.')
 parser.add_argument('TMalign', nargs=1, type= str, default=sys.stdin, help = 'Path to TMalign.')
@@ -24,10 +26,10 @@ parser.add_argument('TMalign', nargs=1, type= str, default=sys.stdin, help = 'Pa
 #FUNCTIONS
 
 
-def run_puzzle(indir, puzzle):
+def run_puzzle(outdir, puzzle):
 	'''Run tree-puzzle and retrieve output
 	'''
-	for name in glob.glob(indir+"*.phy"): #Use all .phy files
+	for name in glob.glob(outdir+"*.phy"): #Use all .phy files
 		uid_pairs = name.split('/')[-1].split('.')[0].split('_')
 		try:
 			p = subprocess.Popen([puzzle, name], stdin=subprocess.PIPE)
@@ -38,7 +40,7 @@ def run_puzzle(indir, puzzle):
 
 	return None
 
-def run_TMalign(indir, TMalign):
+def run_TMalign(indir,outdir, TMalign):
 	'''Run TMalign on .pdb files
 	'''
 	
@@ -62,7 +64,14 @@ def run_TMalign(indir, TMalign):
 			tmalign_out = subprocess.check_output([TMalign, str1 , str2]) #Performs optimal structural alignment 
 			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
-	
+			#Write .phy file of alignment
+			make_phylip(uids, tm_sequences[0], tm_sequences[1])
+			#Write the alignment
+			with open(outdir+uid1+'_'+uid2+'.aln', 'w') as f:
+				f.write('>'+uids[0]+'|l='+str(chain_lens[0]) + '|aligned_len=' + str(tm_aligned_len) + '|Identity=' + str(tm_identity)+'\n')
+				f.write(tm_sequences[0]+'\n') #write sequences
+				f.write('>'+uids[1]+'|l=' + str(chain_lens[1])+'\n')
+				f.write(tm_sequences[1])
 
 	return measures, status
 
@@ -146,12 +155,14 @@ def print_tsv(measures, hgroup):
 args = parser.parse_args()
 
 indir = args.indir[0]
+outdir = args.outdir[0]
 hgroup = args.hgroup[0]
 puzzle = args.puzzle[0]
 TMalign = args.TMalign[0]
 
-run_puzzle(indir, puzzle)
-(measures, status) = run_TMalign(indir, TMalign)
+measures, status = run_TMalign(indir,outdir, TMalign)
+run_puzzle(outdir, puzzle)
+
 if status == True: #Only if H-groups fulfills criteria
-	measures = parse_puzzle(measures, indir)
+	measures = parse_puzzle(measures, outdir)
 	print_tsv(measures, hgroup)
