@@ -50,8 +50,8 @@ def read_fasta(aln_file):
 			if line[0] == '>':
 				uid = line[1:8]
 				line = line.split('|')
-				start = line[1].split("=")[2].strip('e').strip()
-				end = line[1].split("=")[3]
+				start = line[2].split("=")[1]
+				end = line[3].split("=")[1]
 			else:
 				sequences[uid] = line
 				start_pos[uid] = int(start)
@@ -83,11 +83,11 @@ def run_TMscore(indir, TMscore):
 			structure_1 = indir+uid1+'_to_'+uid2+'_aln.pdb'
 			structure_2 = indir+uid2+'_to_'+uid1+'_aln.pdb'
 			tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_2])
-			(rmsd, score)= parse_tm(tmscore_out)
+			(rmsd, tmscore, gdt_ts, gdt_ha)= parse_tm(tmscore_out)
 			if not rmsd:
 				print('No common residues btw ' + structure_1 + ' and ' + structure_2 + '\n')	
 			else:
-				measures[uid1+'_'+uid2] = [rmsd, score]
+				measures[uid1+'_'+uid2] = [rmsd, tmscore, gdt_ts, gdt_ha]
 			
 			names.pop(0) #remove since done
 
@@ -101,19 +101,24 @@ def parse_tm(tmscore_out):
 	tmscore_out = tmscore_out.decode("utf-8")
 	tmscore_out = tmscore_out.split('\n')
 	rmsd = ''
-	score = ''
+	tmscore = ''
+	gdt_ts = ''
+	gdt_ha = ''
 	for i in range(0, len(tmscore_out)): #Step through all items in list
 		if 'TM-score    =' in tmscore_out[i]:
 			row = tmscore_out[i].split('=')
-			score = row[1].split('(')[0].strip()
+			tmscore = row[1].split('(')[0].strip()
 		if 'Superposition in the TM-score:' in tmscore_out[i]:
 			row = tmscore_out[i].split('=')
 			rmsd = row[-1].strip()	
-		if 'There is no common residues in the input structures' in tmscore_out[i]:
+		if 'GDT-TS-score' in tmscore_out[i]:
+			gdt_ts = tmscore_out[i].split('%')[0].split('=')[1].strip()		
+		if 'GDT-HA-score' in tmscore_out[i]:
+			gdt_ha = tmscore_out[i].split('%')[0].split('=')[1].strip()
+		if 'There are no common residues in the input structures' in tmscore_out[i]:
 			break
-			
 						
-	return(rmsd, score)
+	return(rmsd, tmscore, gdt_ts, gdt_ha)
 
 
 def parse_puzzle(measures, indir):
@@ -122,7 +127,7 @@ def parse_puzzle(measures, indir):
 	keys = [*measures] #Make list of keys in dict
 	for key in keys:
 		uids = key.split('_')
-		rmsd, tmscore =  measures[key]	
+		rmsd, tmscore, gdt_ts, gdt_ha =  measures[key]	
 		try:
 			dist_file = open(indir + key + '.phy.dist')
 		except:
@@ -138,7 +143,7 @@ def parse_puzzle(measures, indir):
 
 			if len(line)>2:
 				seq_dist = line[-1] #Get ML evolutionary distance between sequences
-				measures[key] = [seq_dist, rmsd, tmscore]
+				measures[key] = [seq_dist, rmsd, tmscore, gdt_ts, gdt_ha]
 				break
 		dist_file.close()
 	return measures
@@ -147,13 +152,13 @@ def parse_puzzle(measures, indir):
 def print_tsv(measures, hgroup):
 	'''Print measures in tsv to file
 	'''
-	with open(hgroup+'.tsv', 'w') as file:
-		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore\n')
+	with open(hgroup+'_seq.tsv', 'w') as file:
+		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore\tGDT-TS\tGDT-HA\n')
 		for key in measures:
 			uids = key.split('_')
 			info = measures[key]
-			seq_dist, rmsd, tmscore = info[0], info[1], info[2]
-			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\t'+tmscore+'\n')
+			seq_dist, rmsd, tmscore, gdt_ts, gdt_ha = info
+			file.write(uids[0]+'\t'+uids[1]+'\t'+seq_dist+'\t'+rmsd+'\t'+tmscore+'\t'+gdt_ts+'\t'+gdt_ha+'\n')
 
 	return None
 

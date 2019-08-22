@@ -17,10 +17,8 @@ from hh_reader import read_result
 
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that converts fasta files to HMMs using hhblits.
-						All pairs of x-y randomly selected entries are then aligned with hhalign.
-						If less than 75 % of the shortest sequence has been aligned, the second uid
-						is dropped and a new fasta converted to a HMM, if available.
-						Otherwise the whole H-group is dropped''')
+						All pairs of x randomly selected entries are then aligned with hhalign.
+						''')
 
 parser.add_argument('input_dir', nargs=1, type= str,
                   default=sys.stdin, help = 'path to directory with .fa files.')
@@ -38,19 +36,6 @@ parser.add_argument('address', nargs=1, type= str,
                   default=sys.stdin, help = 'Web adress to download from.') #www.cathdb.info/version/v4_2_0/api/rest/id/
 
 #FUNCTIONS
-def read_newline(file_name):
-	'''Read newline separated file contents into list
-	'''
-	contents = [] #Store contents
-
-	with open(file_name) as file:
-
-		for line in file:
-			line = line.rstrip() #remove \n
-			contents.append(line) #Add
-
-	return(contents)
-
 def read_fasta(input_dir, output_dir):
 	'''Read fasta sequences into dict
 	'''
@@ -92,10 +77,14 @@ def loop_through_ids(fasta_dict, uids, H_group,  input_dir, output_dir, hhblits,
 	get_max = min(get_max, len(uids))
 	selected_uids = uids[0:get_max]
 	for i in range(len(selected_uids)):
-		#Make HMM
-		run_hhblits(selected_uids[i], input_dir, hhblits, uniprot)
-		#Get pdb file
-		subprocess.call(["wget",address+selected_uids[i]+'.pdb'])
+		#Check if .hhm exists
+		if not os.path.isfile(output_dir+selected_uids[i]+'.hhm'):
+			#Make HMM
+			run_hhblits(selected_uids[i], input_dir, hhblits, uniprot)
+		#Check if .pdb exists
+		if not os.path.isfile(output_dir+selected_uids[i]+'.pdb'):
+			#Get pdb file
+			subprocess.call(["wget",address+selected_uids[i]+'.pdb'])
 	#Align
 	(latest_pos, identities) = align(selected_uids, output_dir, H_group, hhalign, identities)
 
@@ -133,18 +122,15 @@ def align(selected_uids, output_dir, H_group, hhalign, identities):
 			template_aln = result[0].template_ali
 			start_pos = result[0].start
 			end_pos = result[0].end
-
+			e_value = result[0].evalue
+			probability = result[0].probability
 			#Save identities to see distributions
 			key = selected_uids[i]+'_'+selected_uids[j]
 			if key not in identities.keys():
 				identities[key] = identity
 
-			if (aligned_len < (0.75*min(chain_lens))): #aligned lenght and sequence identity thresholds
-				print('Less than 75 % aligned ' + selected_uids[i], selected_uids[j], str(aligned_len), str((0.75*min(chain_lens))))
-				break #Break out, since too little aligned
-			else: #Add to write			
-				parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos] #Add info to parsed output
-
+			#Add to write			
+			parsed_output[str(selected_uids[i]+'_'+selected_uids[j])] = [query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos, e_value, probability] #Add info to parsed output
 
 
 	write_to_file(output_dir, H_group, parsed_output)
@@ -161,13 +147,14 @@ def write_to_file(output_dir, H_group, parsed_output):
 	for key in parsed_output:
 		#Get uids and saved aln info
 		uids = key.split('_')
-		query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos = parsed_output[key]
+		query_aln, template_aln, chain_lens, aligned_len, identity, start_pos, end_pos, e_value, probability = parsed_output[key]
 		#Write alignment and info to file
 		with open(output_dir+key+'.aln', 'w') as f:
 			#f.write('#'+'query:' + 'l=' + str(chain_lens[0]) + ' s=' + str(start_pos[0]) + ' e=' + str(end_pos[0]) + '|template: ' + 'l=' + str(chain_lens[1]) + ' s=' + str(start_pos[1]) + ' e=' + str(end_pos[1]) +  '|aligned_len: ' + str(aligned_len) + '|Identity: ' + str(identity) + '\n')
-			f.write('>'+uids[0]+'|l='+str(chain_lens[0]) + ' s=' + str(start_pos[0]) + ' e=' + str(end_pos[0])+'|aligned_len: ' + str(aligned_len) + '|Identity: ' + str(identity) + '\n')
+			f.write('>'+uids[0]+'|l='+str(chain_lens[0]) + '|s=' + str(start_pos[0]) + '|e=' + str(end_pos[0])+'|aligned_len=' + str(aligned_len) + '|Identity=' + str(identity) + 
+			'|e-value='+ str(e_value) + '|probability=' + str(probability) + '\n')
 			f.write(query_aln+'\n') #write sequences
-			f.write('>'+uids[1]+'|'+'l=' + str(chain_lens[1]) + ' s=' + str(start_pos[1]) + ' e=' + str(end_pos[1])+'\n')
+			f.write('>'+uids[1]+'|l=' + str(chain_lens[1]) + '|s=' + str(start_pos[1]) + '|e=' + str(end_pos[1])+'\n')
 			f.write(template_aln)
 
 		#Write new pdb files based on alignment
