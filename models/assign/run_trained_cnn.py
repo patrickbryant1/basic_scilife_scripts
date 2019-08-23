@@ -160,6 +160,16 @@ np.save(out_dir+'class_emb.npy', class_embeddings)
 train_index = np.isin(y, converted_train_classes)
 test_index = np.isin(y, test_classes)
 
+def alternative_sim(class_embeddings, emb):
+    '''Compute an alternative similarity measure
+    '''
+    diff_norm = np.linalg.norm(class_embeddings-emb, axis = 1)
+    class_emb_norm = np.linalg.norm(class_embeddings, axis = 1)
+    emb_norm = np.linalg.norm(emb)
+
+    esim = 1/(1+2*diff_norm/(class_emb_norm+emb_norm))
+    return esim
+
 def zsl_test(indices, type, out_dir):
     "A function that runs ZSL according to provided data"
     item = average_emb[indices]
@@ -170,8 +180,9 @@ def zsl_test(indices, type, out_dir):
     pred_ranks = []
     for i in range(0, len(item)):
         true = targets[i]
-        diff = np.absolute(class_embeddings-item[i])
-        dists = np.sum(diff, axis = 1)
+        #diff = np.absolute(class_embeddings-item[i])
+        #dists = np.sum(diff, axis = 1)
+        dists =  alternative_sim(class_embeddings, item[i])        
         ranks = np.argsort(dists)
         try:
             rank = np.where(ranks == true)[0][0]
