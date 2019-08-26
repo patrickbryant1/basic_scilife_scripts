@@ -161,7 +161,7 @@ def write_to_file(output_dir, H_group, parsed_output):
 		#Get matching alignment from .pdb sequence
 		#seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos)
 		#Write .phy file of alignment
-		make_phylip(uids, query_aln, template_aln)
+		make_phylip(uids, query_aln, template_aln, output_dir)
 
 	return None
 
