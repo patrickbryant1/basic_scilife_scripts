@@ -65,7 +65,7 @@ def run_TMalign(indir,outdir, TMalign):
 			(tm_aligned_len, rmsd, tmscores, tm_identity, chain_lens, tm_sequences)= parse_tm(tmalign_out)	
 			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
 			#Write .phy file of alignment
-			make_phylip(uids, tm_sequences[0], tm_sequences[1])
+			make_phylip(uids, tm_sequences[0], tm_sequences[1], outdir)
 			#Write the alignment
 			with open(outdir+uid1+'_'+uid2+'.aln', 'w') as f:
 				f.write('>'+uids[0]+'|l='+str(chain_lens[0]) + '|aligned_len=' + str(tm_aligned_len) + '|Identity=' + str(tm_identity)+'\n')
@@ -137,10 +137,10 @@ def parse_puzzle(measures, indir):
 	return measures
 
 
-def print_tsv(measures, hgroup):
+def print_tsv(measures, hgroup, outdir):
 	'''Print measures in tsv to file
 	'''
-	with open(hgroup+'_str.tsv', 'w') as file:
+	with open(outdir+hgroup+'_str.tsv', 'w') as file:
 		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore_high\tTMscore_low\n')
 		for key in measures:
 			uids = key.split('_')
@@ -165,4 +165,4 @@ run_puzzle(outdir, puzzle)
 
 if status == True: #Only if H-groups fulfills criteria
 	measures = parse_puzzle(measures, outdir)
-	print_tsv(measures, hgroup)
+	print_tsv(measures, hgroup, outdir)
