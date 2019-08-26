@@ -16,38 +16,69 @@ parser = argparse.ArgumentParser(description = '''A program that renumbers the e
 parser.add_argument('indir', nargs=1, type= str,
 default=sys.stdin, help = 'path to directory with pdb files.')
 
+parser.add_argument('outdir', nargs=1, type= str,
+default=sys.stdin, help = 'path to output directory.')
 
-def run_lddt(indir):
+parser.add_argument('mode', nargs=1, type= str,
+default=sys.stdin, help = 'mode to run lddt in. If mode = "guide", run using aligned pdb files.')
+
+def run_lddt(indir, outdir, mode):
 	'''Renumber pdb files to start with atom 0, residue 1.
 	'''
 
-	pdb_files = glob.glob(indir +'*_aln.pdb')
 	
 	#Run LDDT
-	while pdb_files:
-		pdb_name1 = pdb_files[0].split('/')[-1]
-		uid1 = pdb_name1.split('_')[0]
-		uid2 = pdb_name1.split('_')[2]
-		
-		for i in range(1, len(pdb_files)):
-			if uid1 in pdb_files[i] and uid2 in pdb_files[i]:
-				break
-		pdb_name2 = pdb_files[i].split('/')[-1]
-		#Fix pdb files
-		move_res_number(pdb_name1)
-		move_res_number(pdb_name2)
-		#Run lddt on fixed pdb files
-		command = 'singularity run --app lDDT /home/p/pbryant/pfs/singularity/ost.img -c -x -t ' + 'rf_'+pdb_name1 + ' rf_'+pdb_name2
-		out = subprocess.check_output(command, shell = True)#Save parsed pdb
-		
-		#Write to file
-		write_lddt(indir, out, uid1, uid2)
+	if mode == 'guide':
+		pdb_files = glob.glob(indir +'*_aln.pdb')
+		while pdb_files:
+			pdb_name1 = pdb_files[0].split('/')[-1]
+			uid1 = pdb_name1.split('_')[0]
+			uid2 = pdb_name1.split('_')[2]
+			for i in range(1, len(pdb_files)):
+				if uid1 in pdb_files[i] and uid2 in pdb_files[i]:
+					break
+			pdb_name2 = pdb_files[i].split('/')[-1]
+			#Fix pdb files
+			move_res_number(pdb_name1)
+			move_res_number(pdb_name2)
+			#Run lddt on fixed pdb files
+			command = 'singularity run --app lDDT /home/p/pbryant/pfs/singularity/ost.img -c -x -t ' + 'rf_'+pdb_name1 + ' rf_'+pdb_name2
+			out = subprocess.check_output(command, shell = True)#Save parsed pdb
+			
+			#Write to file
+			write_lddt(indir, outdir, out, uid1, uid2)
 
-		#Pop used pdb files
-		pdb_files.pop(i)
-		pdb_files.pop(0)
-		
+			#Pop used pdb files
+			pdb_files.pop(i)
+			pdb_files.pop(0)
 
+	else:
+		pdb_files = glob.glob(indir +'*.pdb')
+		original_pdb_files = []
+		for i in range(len(pdb_files)):
+			if '_aln' not in pdb_files[i]:
+				original_pdb_files.append(pdb_files[i])
+		pdb_files = original_pdb_files
+		#Fix pdb files		
+		for i in range(len(pdb_files)):
+			pdb_name = pdb_files[i].split('/')[-1]
+			#Fix pdb files
+			move_res_number(pdb_name)
+		#Run lddt
+		for i in range(len(pdb_files)):
+			pdb_name1 = pdb_files[i].split('/')[-1]
+			uid1 = pdb_name1.split('.')[0]
+			for j in range(1, len(pdb_files)):
+				pdb_name2 = pdb_files[j].split('/')[-1]
+				
+				#Run lddt on fixed pdb files
+				command = 'singularity run --app lDDT /home/p/pbryant/pfs/singularity/ost.img -c -x -t ' + 'rf_'+pdb_name1 + ' rf_'+pdb_name2
+				out = subprocess.check_output(command, shell = True)#Save parsed pdb
+				uid2 = pdb_name2.split('.')[0]
+                	        #Write to file
+				write_lddt(indir, outdir, out, uid1, uid2)
+
+				
 	return None
 
 def move_res_number(pdb_name):
@@ -64,7 +95,7 @@ def move_res_number(pdb_name):
 	reformatted_ca = [] #Save reformatted version
 
 	for line in ca:
-		res_number = str(int(line[22:25]))
+		res_number = str(int(line[22:26]))
 		new_line = line[0:23]+' '*(3-len(res_number))+res_number+line[26:]
 		reformatted_ca.append(new_line)
 
@@ -77,7 +108,7 @@ def move_res_number(pdb_name):
 
 
 
-def write_lddt(indir, out, uid1, uid2):
+def write_lddt(indir, outdir, out, uid1, uid2):
 	'''Writes lddt output to file
 	'''
 	aln_files = glob.glob(indir +'*.aln')
@@ -87,7 +118,7 @@ def write_lddt(indir, out, uid1, uid2):
 			break
 	#write to file
 	lddt_name = pdb_name.split('/')[-1].split('.')[0]+'.lddt'
-	with open(lddt_name, 'w') as file:
+	with open(outdir+lddt_name, 'w') as file:
 		out = out.decode() #Returns byte
 		file.write(out)
 
@@ -98,5 +129,7 @@ def write_lddt(indir, out, uid1, uid2):
 #####MAIN#####
 args = parser.parse_args()
 indir = args.indir[0]
-run_lddt(indir)
+outdir = args.outdir[0]
+mode = args.mode[0]
+run_lddt(indir, outdir, mode)
 
