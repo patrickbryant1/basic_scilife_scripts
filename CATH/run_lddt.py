@@ -30,6 +30,13 @@ def run_lddt(indir, outdir, mode):
 	#Run LDDT
 	if mode == 'guide':
 		pdb_files = glob.glob(indir +'*_aln.pdb')
+		#Remove files with rf_, these are older versions of the rf
+		aln_pdbs = []
+		for i in range(len(pdb_files)):
+			if 'rf_' not in pdb_files[i]:
+				aln_pdbs.append(pdb_files[i])
+
+		pdb_files = aln_pdbs
 		while pdb_files:
 			pdb_name1 = pdb_files[0].split('/')[-1]
 			uid1 = pdb_name1.split('_')[0]
