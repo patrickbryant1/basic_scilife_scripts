@@ -94,9 +94,14 @@ def move_res_number(pdb_name):
 
 	reformatted_ca = [] #Save reformatted version
 
+	if mode != 'guide':
+		res_number = 0
 	for line in ca:
-		res_number = str(int(line[22:26]))
-		new_line = line[0:23]+' '*(3-len(res_number))+res_number+line[26:]
+		if mode == 'guide':
+			res_number = str(int(line[22:26]))
+		else:	
+			res_number +=1
+		new_line = line[0:23]+' '*(3-len(str(res_number)))+str(res_number)+line[26:]
 		reformatted_ca.append(new_line)
 
 	#Write to new file

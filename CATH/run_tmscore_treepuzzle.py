@@ -79,7 +79,7 @@ def run_TMscore(indir, TMscore):
 			
 			sequences, start, end = read_fasta(aln_i)	
 			#Write new .pdb files matching alignment
-			seq_to_pdb(uids, sequences[uid1], sequences[uid2], start, end)
+			seq_to_pdb(uids, sequences[uid1], sequences[uid2], start, end, indir)
 			structure_1 = indir+uid1+'_to_'+uid2+'_aln.pdb'
 			structure_2 = indir+uid2+'_to_'+uid1+'_aln.pdb'
 			tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_2])

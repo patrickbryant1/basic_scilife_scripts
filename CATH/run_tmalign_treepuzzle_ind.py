@@ -7,7 +7,7 @@ import sys
 import os
 import glob
 import subprocess
-from conversions import make_phylip
+from conversions import make_phylip, seq_to_pdb
 import pdb
 
 
@@ -66,6 +66,10 @@ def run_TMalign(indir,outdir, TMalign):
 			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
 			#Write .phy file of alignment
 			make_phylip(uids, tm_sequences[0], tm_sequences[1], outdir)
+			#Write new .pdb files matching alignment
+			start = {uid1:1, uid2:1}
+			end = {uid1:tm_aligned_len, uid2:tm_aligned_len}
+			seq_to_pdb(uids, tm_sequences[0], tm_sequences[1], start, end, outdir)
 			#Write the alignment
 			with open(outdir+uid1+'_'+uid2+'.aln', 'w') as f:
 				f.write('>'+uids[0]+'|l='+str(chain_lens[0]) + '|aligned_len=' + str(tm_aligned_len) + '|Identity=' + str(tm_identity)+'\n')

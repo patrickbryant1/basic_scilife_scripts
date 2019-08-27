@@ -70,7 +70,7 @@ def match_aln_pdb(pdb_seq, alphas, aln_seq, start, end):
 
 	return pdb_rep, alpha_rep
 
-def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
+def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos, outdir):
 	'''Extracts CAs from pdb file based on sequence.
 	Enables extraction of residues in alignment for
 	further use.
@@ -103,8 +103,8 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos):
 	q_seq_match, q_ca_match = match_aln_pdb(q_seq, q_ca, query_aln, start_pos[uids[0]], end_pos[uids[0]])
 	t_seq_match, t_ca_match = match_aln_pdb(t_seq, t_ca, template_aln, start_pos[uids[1]], end_pos[uids[1]])	
 	#Match alignment and write to file
-	q_file = open(uids[0]+'_to_'+uids[1]+'_aln.pdb', 'w')
-	t_file = open(uids[1]+'_to_'+uids[0]+'_aln.pdb', 'w')
+	q_file = open(outdir+uids[0]+'_to_'+uids[1]+'_aln.pdb', 'w')
+	t_file = open(outdir+uids[1]+'_to_'+uids[0]+'_aln.pdb', 'w')
 	
 	
 	for i in range(0, len(q_seq_match)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap in extracted pdb alignment
