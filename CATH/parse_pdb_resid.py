@@ -210,7 +210,6 @@ def get_coordinates(pdbfile, chain):
 
         res_dict[res_i].append(np.array(atm))
         
-    pdbfile.close()
     return sorted(res_dict.iteritems(), key=operator.itemgetter(0))
 
 
@@ -248,7 +247,7 @@ def get_res_dict(pdbfile, chain):
         elif atm_record['atm_name'] == 'CB' and last_res_no != atm_record['res_no']:
                atm = [atm_record['x'], atm_record['y'], atm_record['z']]
                res_dict[i].append(np.array(atm)) 
-        
+
     return res_dict
 
 
@@ -378,7 +377,6 @@ def get_ca_coordinates(pdbfile, chain):
     
     for i in sorted_keys:
         ca_lst.append(res_dict[i][0])
-    pdbfile.close()
     return ca_lst
 
 
@@ -430,11 +428,11 @@ def get_atom_seq(pdbfile, chain='', model=1, return_lines=False):
             continue
         resid = atm_record['resid']
         
-        if atm_record['atm_name'] != 'CA':
-            continue
-        # IF you do not use this you read a resid with two CA as two sequnces..
-        #if resid == lastresid:
+        #if atm_record['atm_name'] != 'CA':
         #    continue
+        # IF you do not use this you read a resid with two CA as two sequnces..
+        if resid == lastresid:
+            continue
         if atm_record['res_name'] in three_to_one:
             res_name = three_to_one[atm_record['res_name']]
         if last_res_no != atm_record['res_no']:
