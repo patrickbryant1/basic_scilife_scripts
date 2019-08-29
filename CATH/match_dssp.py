@@ -11,17 +11,13 @@ import pandas as pd
 import pdb
 
 
-
-
-
-
-
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''Parse dssp and match to both structural and sequence alignments''')
 
 parser.add_argument('indir', nargs=1, type= str,
                   default=sys.stdin, help = '''path to input directory. include / in end''')
-
+parser.add_argument('outdir', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to output directory. include / in end''')
 parser.add_argument('df_path', nargs=1, type= str,
                   default=sys.stdin, help = '''path to df.''')
 
@@ -54,7 +50,7 @@ max_acc = { 'A':121,
 
 
 #FUNCTIONS
-def match_dssp_to_aln(df, indir):
+def match_dssp_to_aln(df, indir, outdir):
 	'''Match alignments to dssp surface acc and 2ndary str
 	'''
 
@@ -80,6 +76,8 @@ def match_dssp_to_aln(df, indir):
 			row['2ndarystr_2'+suffix] = matched_secondary_str
 			row['acc_2'+suffix] = matched_surface_acc
 
+	#Write new df to outdir
+	df.to_csv(outdir+'complete_df.csv')
 	return None
 
 def parse_dssp(filepath):
@@ -90,29 +88,33 @@ def parse_dssp(filepath):
 	surface_acc = [] #save acc
 	sequence = '' #save residues
 	fetch_lines = False #Don't fetch unwanted lines
-	with open(filepath, 'r') as file:
-		for line in file:
-			if fetch_lines == True:
-				line = line.rstrip()
-				residue = line[13]
-				str_i = line[16]
-				acc_i = line[35:38].strip()
+	try:
+		with open(filepath, 'r') as file:
+			for line in file:
+				if fetch_lines == True:
+					line = line.rstrip()
+					residue = line[13]
+					str_i = line[16]
+					acc_i = line[35:38].strip()
 				
-				if residue == '!' or residue == '!*':
-					continue
-				else:	                                           
-				#Normalize acc_i by the max acc surface area for the specific amino acid
-				#Round to whole percent
-					acc_i_norm = round((float(acc_i)/max_acc[residue])*100, )
-					acc_i_norm = min(acc_i_norm, 100) #Should not be over 100 percent
+					if residue == '!' or residue == '!*':
+						continue
+					else:	                                           
+					#Normalize acc_i by the max acc surface area for the specific amino acid
+					#Round to whole percent
+						acc_i_norm = round((float(acc_i)/max_acc[residue])*100, )
+						acc_i_norm = min(acc_i_norm, 100) #Should not be over 100 percent
 					
-					#Save
-					secondary_str.append(str_i)
-					surface_acc.append(acc_i_norm)
-					sequence = sequence + residue
-			if '#' in line:
-				fetch_lines = True
-				#now the subsequent lines will be fetched
+						#Save
+						secondary_str.append(str_i)
+						surface_acc.append(acc_i_norm)
+						sequence = sequence + residue
+				if '#' in line:
+					fetch_lines = True
+					#now the subsequent lines will be fetched
+	except:
+		if os.path.isfile(filepath):
+			raise ValueError('File', filepath,'exists but could not be read')
 
 	return(sequence, secondary_str, surface_acc)						
 
@@ -145,8 +147,9 @@ def match(aln, info):
 #MAIN
 args = parser.parse_args()
 indir = args.indir[0]
+outdir = args.outdir[0]
 df_path = args.df_path[0]
 df = pd.read_csv(df_path)
 
-match_dssp_to_aln(df, indir)
+match_dssp_to_aln(df, indir, outdir)
 
