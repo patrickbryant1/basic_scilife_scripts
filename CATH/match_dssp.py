@@ -71,9 +71,14 @@ def match_dssp_to_aln(df, indir):
 			sequence2, secondary_str2, surface_acc2 = parse_dssp(indir+hgroup+'/dssp/'+uid2+'.pdb.dssp')
 			dssp_dict[uid2] = [sequence2, secondary_str2, surface_acc2]
 
-		(matched_secondary_str, matched_surface_acc) = match(row['seq1_seqaln'], row['seq2_seqaln'], dssp_dict[uid1], dssp_dict[uid2])
+		for suffix in ['_seqaln', '_straln']:
+			(matched_secondary_str, matched_surface_acc) = match(row['seq1'+suffix], dssp_dict[uid1])
+			row['2ndarystr_1'+suffix] = matched_secondary_str
+			row['acc_1'+suffix] = matched_surface_acc
 
-		pdb.set_trace()
+			(matched_secondary_str, matched_surface_acc) = match(row['seq2'+suffix], dssp_dict[uid2])
+			row['2ndarystr_2'+suffix] = matched_secondary_str
+			row['acc_2'+suffix] = matched_surface_acc
 
 	return None
 
@@ -111,10 +116,32 @@ def parse_dssp(filepath):
 
 	return(sequence, secondary_str, surface_acc)						
 
-def match(aln1, aln2, info1, info2):
+def match(aln, info):
 	'''Extract secondary structure annotations and surface acc matching the aligned sequences'''
 
-	
+	all_seq = info[0]
+	all_str = info[1]
+	all_acc = info[2]
+
+	matched_str = ''
+	matched_acc = ''
+
+	mi = 0
+	for i in range(len(aln)):
+		if mi<len(all_seq): #May be longer than sequence due to gaps
+			if aln[i] == all_seq[mi]:
+				matched_str += all_str[mi]+','	
+				matched_acc += str(all_acc[mi])+','
+				mi += 1
+			else:
+				matched_str += '-'+','
+				matched_acc += '-'+','
+		else: #If no match and the sequence is run through - add gap
+			matched_str += '-'+','
+			matched_acc += '-'+','
+
+	return (matched_str, matched_acc)
+
 #MAIN
 args = parser.parse_args()
 indir = args.indir[0]
