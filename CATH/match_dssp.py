@@ -55,6 +55,17 @@ def match_dssp_to_aln(df, indir, outdir):
 	'''
 
 	dssp_dict = {}
+
+	#Create new columns in df
+	df['2ndarystr_1_seqaln'] = ''
+	df['acc_1_seqaln'] = ''
+	df['2ndarystr_2_seqaln'] = ''
+	df['acc_2_seqaln'] = ''
+	df['2ndarystr_1_straln'] = ''
+	df['acc_1_straln'] = ''
+	df['2ndarystr_2_straln'] = ''
+	df['acc_2_straln'] = ''
+
 	for index, row in df.iterrows():
 		hgroup = row['H_group_x']
 		uid1 = row['uid1']
@@ -69,12 +80,12 @@ def match_dssp_to_aln(df, indir, outdir):
 
 		for suffix in ['_seqaln', '_straln']:
 			(matched_secondary_str, matched_surface_acc) = match(row['seq1'+suffix], dssp_dict[uid1])
-			row['2ndarystr_1'+suffix] = matched_secondary_str
-			row['acc_1'+suffix] = matched_surface_acc
+			df['2ndarystr_1'+suffix][index] = matched_secondary_str
+			df['acc_1'+suffix][index] = matched_surface_acc
 
 			(matched_secondary_str, matched_surface_acc) = match(row['seq2'+suffix], dssp_dict[uid2])
-			row['2ndarystr_2'+suffix] = matched_secondary_str
-			row['acc_2'+suffix] = matched_surface_acc
+			df['2ndarystr_2'+suffix][index] = matched_secondary_str
+			df['acc_2'+suffix][index] = matched_surface_acc
 
 	#Write new df to outdir
 	df.to_csv(outdir+'complete_df.csv')
