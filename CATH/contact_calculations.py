@@ -33,6 +33,12 @@ def match_contacts(df, indir, outdir):
 	'''Match alignments to dssp surface acc and 2ndary str
 	'''
 
+	#Create empty columns in df
+	df['contacts_1_seqaln'] = ''
+	df['contacts_2_seqaln'] = ''
+	df['contacts_1_straln'] = ''
+	df['contacts_2_straln'] = ''
+
 	contact_dict = {}
 	sequence_dict = {}
 	for index, row in df.iterrows():
@@ -45,16 +51,16 @@ def match_contacts(df, indir, outdir):
 			contact_dict[uid1] = contacts
 			sequence_dict[uid1] = sequence
 		if uid2 not in contact_dict.keys():
-			contacts, sequence = read_cbs(indir+hgroup+'/'+uid1+'.pdb')
+			contacts, sequence = read_cbs(indir+hgroup+'/'+uid2+'.pdb')
 			contact_dict[uid2] = contacts
 			sequence_dict[uid2] = sequence
 
 		for suffix in ['_seqaln', '_straln']:
 			(matched_contacts) = match(row['seq1'+suffix], contact_dict[uid1], sequence_dict[uid1])
-			row['contacts_1_'+suffix] = matched_contacts			
+			df['contacts_1'+suffix][index] = matched_contacts			
 			(matched_contacts) = match(row['seq2'+suffix], contact_dict[uid2], sequence_dict[uid2])
-			row['contacts_2_'+suffix] = matched_contacts
-			pdb.set_trace()
+			df['contacts_2'+suffix][index] = matched_contacts
+		pdb.set_trace()
 	return None
 
 def read_cbs(pdbfile):
@@ -79,7 +85,7 @@ def read_cbs(pdbfile):
 				pos.append(np.array([record['x'], record['y'], record['z']]))
 				sequence += three_to_one[record['res_name']]
 	contacts = get_contacts(pos)
-	return pos, contacts
+	return contacts, sequence
 
 
 def parse_atm_record(line):
@@ -116,23 +122,32 @@ def get_contacts(pos):
 def match(aln, contacts, all_seq):
 	'''Get contacts matching alignment'''
 
-	matched_pos = {} #Save matched positions
+	all_to_aln = {} #Save matched positions
+	aln_to_all = {}
 	mi = 0
+
+	#Match all positions in aln to all_seq in order to get matching contacts
 	for i in range(len(aln)):
 		if mi<len(all_seq): #May be longer than sequence due to gaps
 			if aln[i] == all_seq[mi]: #Matching amino acids
 				
-				matched_positions[mi]=i
+				all_to_aln[mi]=i
+				aln_to_all[i]=mi
 				mi += 1
 		else: #If no match and the sequence is run through
 			break
 
 	#Now the positions in the full sequence is matched to the alignment
 	matched_contacts = []
-	for i in range(len(contacts)):
-		for mi in contacts[i]:
-			matched_contacts.append(matched_pos[mi])
-	pdb.set_trace()
+	for i in range(len(aln)):
+		matched_contacts.append([]) #Save each residues contacts
+		if i in aln_to_all.keys():#If matched - non gap
+			mi = aln_to_all[i] #Get position in full seq
+			for j in contacts[mi]: #Get contacts for mi
+				if j in all_to_aln.keys():
+					matched_contacts[i].append(all_to_aln[j])
+		else:
+			continue #No matching pos in all
 	return matched_contacts
 
 #MAIN
