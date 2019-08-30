@@ -78,8 +78,8 @@ def read_cbs(pdbfile):
 				prev_res = record['res_no']
 				pos.append(np.array([record['x'], record['y'], record['z']]))
 				sequence += three_to_one[record['res_name']]
-	contacts = get_contacts(sequence, pos)
-	return contacts, sequence
+	contacts = get_contacts(pos)
+	return pos, contacts
 
 
 def parse_atm_record(line):
@@ -101,7 +101,7 @@ def parse_atm_record(line):
     
 	return record
 
-def get_contacts(sequence, pos):
+def get_contacts(pos):
 	contacts = [] #Save each residue's contacts
 	for i in range(len(pos)):
 		contacts.append([])
@@ -116,18 +116,22 @@ def get_contacts(sequence, pos):
 def match(aln, contacts, all_seq):
 	'''Get contacts matching alignment'''
 
-	matched_contacts = [] #Save matched contacts
+	matched_pos = {} #Save matched positions
 	mi = 0
 	for i in range(len(aln)):
 		if mi<len(all_seq): #May be longer than sequence due to gaps
-			if aln[i] == all_seq[mi]: #The residue is at position 0
+			if aln[i] == all_seq[mi]: #Matching amino acids
 				
-				matched_contacts.append(contacts[mi])
+				matched_positions[mi]=i
 				mi += 1
-			else:
-				matched_contacts.append(['-'])
-		else: #If no match and the sequence is run through - add gap
-			matched_contacts.append(['-'])
+		else: #If no match and the sequence is run through
+			break
+
+	#Now the positions in the full sequence is matched to the alignment
+	matched_contacts = []
+	for i in range(len(contacts)):
+		for mi in contacts[i]:
+			matched_contacts.append(matched_pos[mi])
 	pdb.set_trace()
 	return matched_contacts
 
