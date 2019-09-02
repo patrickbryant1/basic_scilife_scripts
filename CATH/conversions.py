@@ -137,7 +137,7 @@ def seq_to_pdb(uids, query_aln, template_aln, q_fa, t_fa, outdir):
 			ti+=1
 		if write_to_file == True:
 			replace_str = ' '+str(ti)+' '*(8-len(str(ti)))
-			q_file.write(q_ca_match[i][0:22]+replace_str+q_ca_match[i][31:]+'\n') #Write matching ca coordinates
+			q_file.write(q_ca_match[i][0:22]+replace_str+q_ca_match[i][31:]+'\n') #Write matching ca coordinates - the ca and seq should be matched
 			t_file.write(t_ca_match[i][0:22]+replace_str+t_ca_match[i][31:]+'\n')
 
 	q_file.close()

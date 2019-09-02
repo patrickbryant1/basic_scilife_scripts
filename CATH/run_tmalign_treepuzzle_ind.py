@@ -18,13 +18,36 @@ parser = argparse.ArgumentParser(description = '''A program that runs TMalign an
 
 parser.add_argument('indir', nargs=1, type= str, default=sys.stdin, help = 'Path to input directory.')
 parser.add_argument('outdir', nargs=1, type= str, default=sys.stdin, help = 'Path to output directory.')
+parser.add_argument('fastadir', nargs=1, type= str, default=sys.stdin, help = 'path to directory with .fa files.')
 parser.add_argument('hgroup', nargs=1, type= str, default=sys.stdin, help = 'H-group.')
 parser.add_argument('puzzle', nargs=1, type= str, default=sys.stdin, help = 'Path to tree-puzzle.')
 parser.add_argument('TMalign', nargs=1, type= str, default=sys.stdin, help = 'Path to TMalign.')
 
 
 #FUNCTIONS
-
+def read_fasta(filepath):
+	'''Reads aligned sequences in fasta format
+	'''
+	
+	fasta_dict = {} #Store fasta_sequence
+	with open(filepath, 'r') as file:
+		sequence = ''
+		fetched = False
+		for line in file:
+			line = line.rstrip()
+			if line[0] == '>':
+				if fetched == True:
+					fasta_dict[uid] = sequence
+					sequence = '' #Reset sequence
+					fetched = False
+				uid = line[1:8]
+			else:
+				sequence += line
+				fetched = True
+			
+	#Add last sequence
+	fasta_dict[uid] = sequence
+	return fasta_dict
 
 def run_puzzle(outdir, puzzle):
 	'''Run tree-puzzle and retrieve output
@@ -40,7 +63,7 @@ def run_puzzle(outdir, puzzle):
 
 	return None
 
-def run_TMalign(indir,outdir, TMalign):
+def run_TMalign(indir, outdir, fastadir, TMalign):
 	'''Run TMalign on .pdb files
 	'''
 	
@@ -66,10 +89,11 @@ def run_TMalign(indir,outdir, TMalign):
 			measures[uid1+'_'+uid2] = [rmsd, tmscores[0], tmscores[1]]
 			#Write .phy file of alignment
 			make_phylip(uids, tm_sequences[0], tm_sequences[1], outdir)
-			#Write new .pdb files matching alignment
-			start = {uid1:1, uid2:1}
-			end = {uid1:tm_aligned_len, uid2:tm_aligned_len}
-			seq_to_pdb(uids, tm_sequences[0], tm_sequences[1], start, end, outdir)
+			#Get original fasta sequences
+			org1 = read_fasta(fastadir+uid1+'.fa')
+			org2 = read_fasta(fastadir+uid2+'.fa')
+			#Write new .pdb files matching alignment to be used for lddt
+			seq_to_pdb(uids, tm_sequences[0], tm_sequences[1], org1[uid1], org2[uid2], outdir)
 			#Write the alignment
 			with open(outdir+uid1+'_'+uid2+'.aln', 'w') as f:
 				f.write('>'+uids[0]+'|l='+str(chain_lens[0]) + '|aligned_len=' + str(tm_aligned_len) + '|Identity=' + str(tm_identity)+'\n')
@@ -160,11 +184,12 @@ args = parser.parse_args()
 
 indir = args.indir[0]
 outdir = args.outdir[0]
+fastadir = args.fastadir[0]
 hgroup = args.hgroup[0]
 puzzle = args.puzzle[0]
 TMalign = args.TMalign[0]
 
-measures, status = run_TMalign(indir,outdir, TMalign)
+measures, status = run_TMalign(indir, outdir, fastadir, TMalign)
 run_puzzle(outdir, puzzle)
 
 if status == True: #Only if H-groups fulfills criteria
