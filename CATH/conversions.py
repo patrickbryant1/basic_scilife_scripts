@@ -7,6 +7,8 @@ import sys
 import os
 import pexpect
 import subprocess
+#Remember to give path to singularity container
+from Bio import pairwise2 
 import pdb
 
 #Other script imports
@@ -46,28 +48,28 @@ def run_hhblits(uid, indir, hhblits, uniprot):
 	
 	return None
 
-def match_aln_pdb(pdb_seq, alphas, aln_seq, start, end):
+def match_aln_pdb(pdb_seq, alphas, aln_seq):
 	'''Match fasta sequence to pdb residues
 	'''
 	
-	pdb_rep = '' #Save pdb representation
-	alpha_rep = [] #Save represented CAs
+	pdb_rep = '' #Save pdb representation (the ones that match)
+	alpha_rep = [] #Save represented CAs (the ones that match)
 	#Go through alignment and create pdb representation of the same alignment
-	pdb_i = start-1
-	for i in range(0, len(aln_seq)):
-		if pdb_i < len(pdb_seq):#If match - add
-			if aln_seq[i] == pdb_seq[pdb_i]:
-				pdb_rep += pdb_seq[pdb_i]
-				alpha_rep.append(alphas[pdb_i])
-				pdb_i+=1
-			else:
-                        	pdb_rep += '-' #If no match - add gap
-                        	alpha_rep.append('-')
 
-		else:
-			pdb_rep += '-' #If no match - add gap
-			alpha_rep.append('-')
+	#align
+	alignments = pairwise2.align.globalxx(aln_seq, pdb_seq)
+	seq1 = alignments[0][0] #Will be the alignment of aln_seq to pdb_seq
+	seq2 = alignments[0][1] #Will be the alignment of pdb_seq to aln_seq
 
+	#pdb index
+	pdb_i = 0
+	for i in range(0, len(seq1)):
+		if seq1[i] != '-' and seq2[i] != '-':
+			pdb_rep += seq2[i]
+			alpha_rep.append(alphas[pdb_i])
+		if seq2[i] != '-': #If no gap - increase pdb index
+                        pdb_i += 1
+			
 	return pdb_rep, alpha_rep
 
 def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos, outdir):
@@ -98,15 +100,26 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos, outdir):
 	t_out = t_out.split('\n')
 	t_seq = t_out[0]
 	t_ca = t_out[1:-1]   
+
+	#Save gapless alignments
+	gapless_q_aln = ''
+	gapless_t_aln = ''
+	for i in range(0, len(query_aln)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap in extracted alignment
+		if query_aln[i] == '-' or template_aln[i] == '-' :
+			continue
+		else:
+			gapless_q_aln += query_aln[i]
+			gapless_t_aln += template_aln[i]
+
 	
-	#Create representation of alignment due to pdb file
-	q_seq_match, q_ca_match = match_aln_pdb(q_seq, q_ca, query_aln, start_pos[uids[0]], end_pos[uids[0]])
-	t_seq_match, t_ca_match = match_aln_pdb(t_seq, t_ca, template_aln, start_pos[uids[1]], end_pos[uids[1]])	
+	#Create representation of gapless alignments due to pdb file
+	q_seq_match, q_ca_match = match_aln_pdb(q_seq, q_ca, gapless_q_aln)
+	t_seq_match, t_ca_match = match_aln_pdb(t_seq, t_ca, gapless_t_aln)	
 	#Match alignment and write to file
 	q_file = open(outdir+uids[0]+'_to_'+uids[1]+'_aln.pdb', 'w')
 	t_file = open(outdir+uids[1]+'_to_'+uids[0]+'_aln.pdb', 'w')
 	
-	
+	pdb.set_trace()	
 	for i in range(0, len(q_seq_match)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap in extracted pdb alignment
 		write_to_file = False #Keep track of if or not to write to at each position
 		if q_seq_match[i] != '-' and t_seq_match[i] != '-': #No gap in either query or template

@@ -60,7 +60,9 @@ def match_contacts(df, indir, outdir):
 			df['contacts_1'+suffix][index] = matched_contacts			
 			(matched_contacts) = match(row['seq2'+suffix], contact_dict[uid2], sequence_dict[uid2])
 			df['contacts_2'+suffix][index] = matched_contacts
-		pdb.set_trace()
+	
+	#Write new df to outdir
+	df.to_csv(outdir+'complete_df.csv')
 	return None
 
 def read_cbs(pdbfile):
