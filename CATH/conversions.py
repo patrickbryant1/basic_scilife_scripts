@@ -26,7 +26,6 @@ def pdb_to_fasta(uid, outdir):
 	outp = subprocess.check_output(command, shell = True)#Save AA sequence
 	outp = outp.decode()
 	sequence = outp.split('\n')[0]
-	#pdb.set_trace()
 	with open(outname, "w") as outfile:
 		outfile.write('>'+uid+'\n')
 		i = 0 #index
@@ -48,34 +47,42 @@ def run_hhblits(uid, indir, hhblits, uniprot):
 	
 	return None
 
-def match_aln_pdb(pdb_seq, alphas, aln_seq):
+def aln_to_org(org_seq, pdb_seq, aln_seq, alphas):
 	'''Match fasta sequence to pdb residues
 	'''
 	
-	pdb_rep = '' #Save pdb representation (the ones that match)
-	alpha_rep = [] #Save represented CAs (the ones that match)
-	#Go through alignment and create pdb representation of the same alignment
-
-	#align
-	alignments = pairwise2.align.globalxx(aln_seq, pdb_seq)
-	seq1 = alignments[0][0] #Will be the alignment of aln_seq to pdb_seq
-	seq2 = alignments[0][1] #Will be the alignment of pdb_seq to aln_seq
-
-	#pdb index
-	pdb_i = 0
-	for i in range(0, len(seq1)):
-		if seq1[i] != '-' and seq2[i] != '-':
+	#align to original sequence
+	aln1 = pairwise2.align.globalxx(org_seq, aln_seq)
+	aln2 = pairwise2.align.globalxx(org_seq, pdb_seq)
+	
+	
+	#Match aln seq to pdb
+	seq1 = aln1[0][1] #aln to org
+	seq2 = aln2[0][1] #pdb to org
+	if len(seq1) != len(seq2):
+		raise ValueError('Different lengths of alignments')
+	pdb_rep = ''
+	alpha_rep = []
+	pdbi = 0
+	for i in range(len(seq1)):
+		if seq1[i] != '-': #If no gap in original aln
 			pdb_rep += seq2[i]
-			alpha_rep.append(alphas[pdb_i])
-		if seq2[i] != '-': #If no gap - increase pdb index
-                        pdb_i += 1
-			
+			if seq2[i] != '-': #If no gap in pdb aln
+				alpha_rep.append(alphas[pdbi])
+			else:
+				alpha_rep.append('-')
+
+		if seq2[i] != '-': #If no gap in pdb aln
+			pdbi += 1
+
+	#org seq, aln aligned, pdb aligned			
 	return pdb_rep, alpha_rep
 
-def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos, outdir):
+def seq_to_pdb(uids, query_aln, template_aln, q_fa, t_fa, outdir):
 	'''Extracts CAs from pdb file based on sequence.
 	Enables extraction of residues in alignment for
 	further use.
+	q_fa and q_ta are the original sequences - the full sequences for each domain.
 	'''
 	
 	q_pdb = uids[0] + '.pdb'
@@ -113,19 +120,23 @@ def seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos, outdir):
 
 	
 	#Create representation of gapless alignments due to pdb file
-	q_seq_match, q_ca_match = match_aln_pdb(q_seq, q_ca, gapless_q_aln)
-	t_seq_match, t_ca_match = match_aln_pdb(t_seq, t_ca, gapless_t_aln)	
+	#Match original sequence to alignment and pdb file
+	q_seqmatch, q_ca_match   = aln_to_org(q_fa, q_seq, gapless_q_aln, q_ca)
+	t_seqmatch, t_ca_match = aln_to_org(t_fa, t_seq, gapless_t_aln, t_ca)	
 	#Match alignment and write to file
 	q_file = open(outdir+uids[0]+'_to_'+uids[1]+'_aln.pdb', 'w')
 	t_file = open(outdir+uids[1]+'_to_'+uids[0]+'_aln.pdb', 'w')
 	
-	pdb.set_trace()	
-	for i in range(0, len(q_seq_match)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap in extracted pdb alignment
+	#Keep track of true index
+	ti = 0
+
+	for i in range(0, len(q_seqmatch)): #Go through aligned part of sequence and only select residues when both sequencenes do not have a gap in extracted pdb alignment
 		write_to_file = False #Keep track of if or not to write to at each position
-		if q_seq_match[i] != '-' and t_seq_match[i] != '-': #No gap in either query or template
+		if q_seqmatch[i] != '-' and t_seqmatch[i] != '-': #No gap in either query or template
 			write_to_file = True
+			ti+=1
 		if write_to_file == True:
-			replace_str = ' '+str(i)+' '*(8-len(str(i)))
+			replace_str = ' '+str(ti)+' '*(8-len(str(ti)))
 			q_file.write(q_ca_match[i][0:22]+replace_str+q_ca_match[i][31:]+'\n') #Write matching ca coordinates
 			t_file.write(t_ca_match[i][0:22]+replace_str+t_ca_match[i][31:]+'\n')
 

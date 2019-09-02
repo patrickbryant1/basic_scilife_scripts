@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(description = '''A program that runs TMalign an
 						receives the resulting output.''')
 
 parser.add_argument('indir', nargs=1, type= str, default=sys.stdin, help = 'Path to input directory.')
+parser.add_argument('fastadir', nargs=1, type= str, default=sys.stdin, help = 'path to directory with .fa files.')
 parser.add_argument('hgroup', nargs=1, type= str, default=sys.stdin, help = 'H-group.')
 parser.add_argument('puzzle', nargs=1, type= str, default=sys.stdin, help = 'Path to tree-puzzle.')
 parser.add_argument('TMscore', nargs=1, type= str, default=sys.stdin, help = 'Path to TMscore.')
@@ -41,25 +42,27 @@ def read_fasta(aln_file):
 	'''Reads aligned sequences in fasta format
 	'''
 	
-	sequences = {} #Save sequences
-	start_pos = {}
-	end_pos = {}
+	fasta_dict = {} #Store fasta_sequence
 	with open(aln_file) as file:
+		sequence = ''
+		fetched = False
 		for line in file:
 			line = line.rstrip()
 			if line[0] == '>':
+				if fetched == True:
+					fasta_dict[uid] = sequence
+					sequence = '' #Reset sequence
+					fetched = False
 				uid = line[1:8]
-				line = line.split('|')
-				start = line[2].split("=")[1]
-				end = line[3].split("=")[1]
 			else:
-				sequences[uid] = line
-				start_pos[uid] = int(start)
-				end_pos[uid] = int(end)
+				sequence += line
+				fetched = True
+			
+	#Add last sequence
+	fasta_dict[uid] = sequence
+	return fasta_dict
 
-	return sequences, start_pos, end_pos
-
-def run_TMscore(indir, TMscore):
+def run_TMscore(indir, fastadir, TMscore):
 	'''Run TMalign on extracted CAs from hhalign alignments
 	'''
 	
@@ -77,9 +80,12 @@ def run_TMscore(indir, TMscore):
 			uid1 = uids[0]
 			uid2 = uids[1]
 			
-			sequences, start, end = read_fasta(aln_i)	
+			sequences = read_fasta(aln_i)	
+			#Get original fasta sequences
+			org1 = read_fasta(fastadir+uid1+'.fa')
+			org2 = read_fasta(fastadir+uid2+'.fa')
 			#Write new .pdb files matching alignment
-			seq_to_pdb(uids, sequences[uid1], sequences[uid2], start, end, indir)
+			seq_to_pdb(uids, sequences[uid1], sequences[uid2], org1[uid1], org2[uid2] , indir)
 			structure_1 = indir+uid1+'_to_'+uid2+'_aln.pdb'
 			structure_2 = indir+uid2+'_to_'+uid1+'_aln.pdb'
 			tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_2])
@@ -166,12 +172,13 @@ def print_tsv(measures, hgroup):
 args = parser.parse_args()
 
 indir = args.indir[0]
+fastadir = args.fastadir[0]
 hgroup = args.hgroup[0]
 puzzle = args.puzzle[0]
 TMscore = args.TMscore[0]
 
 run_puzzle(indir, puzzle)
-(measures, status) = run_TMscore(indir, TMscore)
+(measures, status) = run_TMscore(indir, fastadir, TMscore)
 if status == True: #Only if H-groups fulfills criteria
 	measures = parse_puzzle(measures, indir)
 	print_tsv(measures, hgroup)
