@@ -84,6 +84,7 @@ def loop_through_ids(fasta_dict, uids, H_group,  input_dir, output_dir, hhblits,
 		#Check if .pdb exists
 		if not os.path.isfile(output_dir+selected_uids[i]+'.pdb'):
 			#Get pdb file
+			pdb.set_trace()
 			subprocess.call(["wget",address+selected_uids[i]+'.pdb'])
 	#Align
 	(latest_pos, identities) = align(selected_uids, output_dir, H_group, hhalign, identities)
