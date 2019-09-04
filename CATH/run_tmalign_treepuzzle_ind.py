@@ -7,7 +7,8 @@ import sys
 import os
 import glob
 import subprocess
-from conversions import make_phylip, seq_to_pdb
+from conversions import make_phylip 
+from match_pdb import seq_to_pdb
 import pdb
 
 

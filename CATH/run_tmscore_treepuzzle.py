@@ -9,13 +9,13 @@ import glob
 import subprocess
 import pdb
 
-
-from conversions import seq_to_pdb
+from match_pdb import seq_to_pdb
 #Arguments for argparse module:
 parser = argparse.ArgumentParser(description = '''A program that runs TMalign and tree-puzzle and
 						receives the resulting output.''')
 
 parser.add_argument('indir', nargs=1, type= str, default=sys.stdin, help = 'Path to input directory.')
+parser.add_argument('outdir', nargs=1, type= str, default=sys.stdin, help = 'Path to output directory.')
 parser.add_argument('fastadir', nargs=1, type= str, default=sys.stdin, help = 'path to directory with .fa files.')
 parser.add_argument('hgroup', nargs=1, type= str, default=sys.stdin, help = 'H-group.')
 parser.add_argument('puzzle', nargs=1, type= str, default=sys.stdin, help = 'Path to tree-puzzle.')
@@ -155,10 +155,10 @@ def parse_puzzle(measures, indir):
 	return measures
 
 
-def print_tsv(measures, hgroup):
+def print_tsv(measures, hgroup, outdir):
 	'''Print measures in tsv to file
 	'''
-	with open(hgroup+'_seq.tsv', 'w') as file:
+	with open(outdir+hgroup+'_seq.tsv', 'w') as file:
 		file.write('uid1\tuid2\tMLAAdist\tRMSD\tTMscore\tGDT-TS\tGDT-HA\n')
 		for key in measures:
 			uids = key.split('_')
@@ -172,6 +172,7 @@ def print_tsv(measures, hgroup):
 args = parser.parse_args()
 
 indir = args.indir[0]
+outdir = args.outdir[0]
 fastadir = args.fastadir[0]
 hgroup = args.hgroup[0]
 puzzle = args.puzzle[0]
@@ -181,4 +182,4 @@ run_puzzle(indir, puzzle)
 (measures, status) = run_TMscore(indir, fastadir, TMscore)
 if status == True: #Only if H-groups fulfills criteria
 	measures = parse_puzzle(measures, indir)
-	print_tsv(measures, hgroup)
+	print_tsv(measures, hgroup, outdir)

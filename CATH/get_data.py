@@ -12,7 +12,7 @@ import glob
 import pdb
 
 #Custom imports
-from conversions import run_hhblits, seq_to_pdb, make_phylip, pdb_to_fasta
+from conversions import run_hhblits, make_phylip, pdb_to_fasta
 from hh_reader import read_result
 
 #Arguments for argparse module:
@@ -84,7 +84,6 @@ def loop_through_ids(fasta_dict, uids, H_group,  input_dir, output_dir, hhblits,
 		#Check if .pdb exists
 		if not os.path.isfile(output_dir+selected_uids[i]+'.pdb'):
 			#Get pdb file
-			pdb.set_trace()
 			subprocess.call(["wget",address+selected_uids[i]+'.pdb'])
 	#Align
 	(latest_pos, identities) = align(selected_uids, output_dir, H_group, hhalign, identities)
@@ -100,7 +99,6 @@ def loop_through_ids(fasta_dict, uids, H_group,  input_dir, output_dir, hhblits,
 def align(selected_uids, output_dir, H_group, hhalign, identities):
 	'''Run hhalign on file pair and extract sequence identity and
 	% aligned of shortest sequence.
-	Remove file2 if less than 75 % has been aligned of the shortest domain.
 	'''
 
 
@@ -142,7 +140,6 @@ def align(selected_uids, output_dir, H_group, hhalign, identities):
 def write_to_file(output_dir, H_group, parsed_output):
 	'''Write all extracted information from hhalign to files
 	that will be used downstream.
-	Also create new .pdb files based on the alignments.
 	'''
 
 	for key in parsed_output:
@@ -158,9 +155,6 @@ def write_to_file(output_dir, H_group, parsed_output):
 			f.write('>'+uids[1]+'|l=' + str(chain_lens[1]) + '|s=' + str(start_pos[1]) + '|e=' + str(end_pos[1])+'\n')
 			f.write(template_aln)
 
-		#Write new pdb files based on alignment
-		#Get matching alignment from .pdb sequence
-		#seq_to_pdb(uids, query_aln, template_aln, start_pos, end_pos)
 		#Write .phy file of alignment
 		make_phylip(uids, query_aln, template_aln, output_dir)
 

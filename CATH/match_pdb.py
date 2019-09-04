@@ -6,6 +6,7 @@ import sys
 import os
 #Remember to give path to singularity container
 from Bio import pairwise2 
+import subprocess
 import pdb
 
 def aln_to_org(org_seq, pdb_seq, aln_seq, alphas):
@@ -49,10 +50,6 @@ def seq_to_pdb(uids, query_aln, template_aln, q_fa, t_fa, outdir):
 	q_pdb = uids[0] + '.pdb'
 	t_pdb = uids[1] + '.pdb'
 	
-	#Get the .pdb if they do not exist
-	for uid in uids:
-		if not os.path.isfile(uid+'.pdb'):
-			subprocess.call(["wget",'www.cathdb.info/version/v4_2_0/api/rest/id/'+uid+'.pdb'])
 	#Get query CAs
 	q_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + q_pdb
 	q_out = subprocess.check_output(q_command, shell = True)#Save parsed pdb
