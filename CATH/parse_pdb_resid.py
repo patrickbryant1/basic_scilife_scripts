@@ -428,8 +428,8 @@ def get_atom_seq(pdbfile, chain='', model=1, return_lines=False):
             continue
         resid = atm_record['resid']
         
-        #if atm_record['atm_name'] != 'CA':
-        #    continue
+        if atm_record['atm_name'] != 'CA':
+            continue
         # IF you do not use this you read a resid with two CA as two sequnces..
         if resid == lastresid:
             continue

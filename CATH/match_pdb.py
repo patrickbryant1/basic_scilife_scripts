@@ -17,26 +17,29 @@ def aln_to_org(org_seq, pdb_seq, aln_seq, alphas):
 	aln1 = pairwise2.align.globalxx(org_seq, aln_seq)
 	aln2 = pairwise2.align.globalxx(org_seq, pdb_seq)
 	
-	
+
+	if len(pdb_seq) != len(alphas):
+		#pdb.set_trace()
+		print(alphas)	
 	#Match aln seq to pdb
 	seq1 = aln1[0][1] #aln to org
 	seq2 = aln2[0][1] #pdb to org
 	if len(seq1) != len(seq2):
 		raise ValueError('Different lengths of alignments')
-	pdb_rep = ''
+	pdb_rep = ''#The matching of the pdb residues to the gapless correspondence in the alignment
 	alpha_rep = []
 	pdbi = 0
 	for i in range(len(seq1)):
-		if seq1[i] != '-': #If no gap in original aln
-			pdb_rep += seq2[i]
+		if seq1[i] != '-': #If no gap in original aln (which has been matched to be gapless)
 			if seq2[i] != '-': #If no gap in pdb aln
+				pdb_rep += seq2[i]
 				alpha_rep.append(alphas[pdbi])
 			else:
 				alpha_rep.append('-')
-
+				pdb_rep += '-'
 		if seq2[i] != '-': #If no gap in pdb aln
 			pdbi += 1
-
+			
 	#org seq, aln aligned, pdb aligned			
 	return pdb_rep, alpha_rep
 
@@ -57,7 +60,9 @@ def seq_to_pdb(uids, query_aln, template_aln, q_fa, t_fa, outdir):
 	q_out = q_out.split('\n')
 	q_seq = q_out[0]	
 	q_ca = q_out[1:-1] 
-	
+
+	if len(q_seq) != len(q_ca):
+		print(q_pdb)	
 	#Get template CAs
 	t_command = 'python /home/p/pbryant/pfs/evolution/CATH/parse_pdb_resid.py ' + t_pdb
 	t_out = subprocess.check_output(t_command, shell = True)#Save parsed pdb
@@ -65,6 +70,9 @@ def seq_to_pdb(uids, query_aln, template_aln, q_fa, t_fa, outdir):
 	t_out = t_out.split('\n')
 	t_seq = t_out[0]
 	t_ca = t_out[1:-1]   
+
+	if len(t_seq) != len(t_ca):
+                print(t_pdb)
 
 	#Save gapless alignments
 	gapless_q_aln = ''
