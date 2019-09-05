@@ -88,13 +88,18 @@ def run_TMscore(indir, fastadir, TMscore):
 			seq_to_pdb(uids, sequences[uid1], sequences[uid2], org1[uid1], org2[uid2] , indir)
 			structure_1 = indir+uid1+'_to_'+uid2+'_aln.pdb'
 			structure_2 = indir+uid2+'_to_'+uid1+'_aln.pdb'
-			tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_2])
+			try:
+				tmscore_out = subprocess.check_output([TMscore, structure_1 , structure_2])
+			except:
+				names.pop(0) #remove since done
+				continue #The files could not be aligned 
+
 			(rmsd, tmscore, gdt_ts, gdt_ha)= parse_tm(tmscore_out)
 			if not rmsd:
 				print('No common residues btw ' + structure_1 + ' and ' + structure_2 + '\n')	
 			else:
 				measures[uid1+'_'+uid2] = [rmsd, tmscore, gdt_ts, gdt_ha]
-			
+		
 			names.pop(0) #remove since done
 
 	return measures, status
