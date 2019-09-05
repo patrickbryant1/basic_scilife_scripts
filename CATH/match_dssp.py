@@ -21,6 +21,8 @@ parser.add_argument('outdir', nargs=1, type= str,
                   default=sys.stdin, help = '''path to output directory. include / in end''')
 parser.add_argument('fastadir', nargs=1, type= str,
                   default=sys.stdin, help = '''path to fasta directory. include / in end''')
+parser.add_argument('hgroup', nargs=1, type= str,
+                  default=sys.stdin, help = '''H-group.''')
 parser.add_argument('df_path', nargs=1, type= str,
                   default=sys.stdin, help = '''path to df.''')
 
@@ -87,7 +89,6 @@ def match_dssp_to_aln(df, indir, outdir, fastadir):
 	df['acc2_straln'] = ''
 
 	for index, row in df.iterrows():
-		print(index)
 		
 		hgroup = row['H_group_x']
 		uid1 = row['uid1']
@@ -95,11 +96,11 @@ def match_dssp_to_aln(df, indir, outdir, fastadir):
 
         #Get dssp and fasta info
 		if uid1 not in dssp_dict.keys():
-			sequence1, secondary_str1, surface_acc1 = parse_dssp(indir+hgroup+'/dssp/'+uid1+'.pdb.dssp')
+			sequence1, secondary_str1, surface_acc1 = parse_dssp(indir+hgroup+'/'+uid1+'.pdb.dssp')
 			dssp_dict[uid1] = [sequence1, secondary_str1, surface_acc1]
 			fasta_dict[uid1] = read_fasta(fastadir+hgroup+'/'+uid1+'.fa')
 		if uid2 not in dssp_dict.keys():
-			sequence2, secondary_str2, surface_acc2 = parse_dssp(indir+hgroup+'/dssp/'+uid2+'.pdb.dssp')
+			sequence2, secondary_str2, surface_acc2 = parse_dssp(indir+hgroup+'/'+uid2+'.pdb.dssp')
 			dssp_dict[uid2] = [sequence2, secondary_str2, surface_acc2]
 			fasta_dict[uid2] = read_fasta(fastadir+hgroup+'/'+uid2+'.fa')
 
@@ -130,7 +131,7 @@ def match_dssp_to_aln(df, indir, outdir, fastadir):
 			df['acc2'+suffix][index] = acc2
 
 	#Write new df to outdir
-	df.to_csv(outdir+'complete_df.csv')
+	df.to_csv(outdir+hgroup+'_df.csv')
 	return None
 
 def parse_dssp(filepath):
@@ -209,7 +210,9 @@ args = parser.parse_args()
 indir = args.indir[0]
 outdir = args.outdir[0]
 fastadir = args.fastadir[0]
+hgroup = args.hgroup[0]
 df_path = args.df_path[0]
 df = pd.read_csv(df_path)
+df = df[df['H_group_x']==hgroup]
 
 match_dssp_to_aln(df, indir, outdir, fastadir)
