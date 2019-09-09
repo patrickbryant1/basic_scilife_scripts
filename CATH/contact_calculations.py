@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 from scipy.spatial import distance
+from Bio import pairwise2 
 import pdb
 
 #Arguments for argparse module:
@@ -73,7 +74,7 @@ def match_contacts(df, indir, outdir, fastadir):
 		if uid2 not in contact_dict.keys():
 			contacts, sequence = read_cbs(indir+hgroup+'/'+uid2+'.pdb')
 			contact_dict[uid2] = [contacts, sequence]
-                        fasta_dict[uid2] = read_fasta(fastadir+hgroup+'/'+uid2+'.fa')
+			fasta_dict[uid2] = read_fasta(fastadir+hgroup+'/'+uid2+'.fa')
 
 
 		for suffix in ['_seqaln', '_straln']:
@@ -93,18 +94,19 @@ def match_contacts(df, indir, outdir, fastadir):
 					gapless_aln2 += aln2[i]
 
 
-			(mc1, M) = match(gapless_aln1, contact_dict[uid1], sequence_dict[uid1])
-			(mc2, N) = match(gapless_aln2, contact_dict[uid2], sequence_dict[uid2])
+			(mc1, M) = match(gapless_aln1, contact_dict[uid1], fasta_dict[uid1])
+			(mc2, N) = match(gapless_aln2, contact_dict[uid2], fasta_dict[uid2])
 	
 			C = 0 #Keep track of the number of conserved contacts in the alignment
-			for i in range(len(mc1):
+			for i in range(len(mc1)):
 				c1 = mc1[i]
 				c2 = mc2[i]
 				for j in c1:
 					if j in c2:#If the contacts at the same position is shared.
 						C+=1 
 						
-			diff = C/(M+N-C)
+			diff = 1-(C/(M+N-C))
+			df.loc[index,'DIFFC'+suffix] = diff
 	#Write new df to outdir
 	df.to_csv(outdir+hgroup+'_df.csv')
 	return None
@@ -179,32 +181,38 @@ def match(gapless_aln, contact_info, org_seq):
 	seq1 = aln1[0][1] #aln to org
 	seq2 = aln2[0][1] #c_seq to org
 
-	index1 = {} #Create an index of the conversion from positions in the two sequences of the alignment
-	i1=0
+	index = np.zeros([len(seq1),3], dtype=int) #Create an index of the conversion btw positions in the alignments
+	i1=1
+	i2=1
 	for i in range(len(seq1)):
+		index[i,0] = i+1 #Can't have 0 index - since non-matches are zeros
 		if seq1[i] != '-':
-			index1[i1]=i
+			index[i,1] = i1
 			i1+=1
+		if seq2[i] != '-':
+                        index[i,2] = i2
+                        i2+=1
+
 	
-	index2 = {} #Create an index of the conversion from positions in the two sequences of the alignment
-        i2=0
-        for i in range(len(seq2)):
-                if seq2[i] != '-':
-                        index2[i2]=i
-			i2+=1
-
-
 
 	#Save matched contacts
-        matched_contacts = []
-	ci=0
+	matched_contacts = []
+	#Save number of contacts
+	T = 0
 	for i in range(len(seq1)):
 		if seq1[i] != '-':
+			matched_contacts.append([])
 			if seq2[i] != '-': #If there are no gaps in the alignment
-			else:
-				matched_contacts.append([0])
-		if seq2[i] != '-':
-			dsspi += 1
+				match = index[np.where(index[:,0]==i+1)[0][0]] #Get index matches
+				cis = contacts[match[2]-1] #One minus in contacts compared to contact index match
+				
+				for c in cis:
+					alni = index[np.where(index[:,2]==c+1)[0][0]][1] #One plus in index compared to contact index
+					
+					if alni != 0: #If not zero; zero = not present
+						matched_contacts[-1].append(alni-1) #One minus in aln compared to contact index match
+						T+=1	
+
 
 
 	return matched_contacts, T
