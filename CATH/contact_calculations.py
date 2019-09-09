@@ -21,26 +21,46 @@ parser.add_argument('indir', nargs=1, type= str,
                   default=sys.stdin, help = '''path to input directory. include / in end''')
 parser.add_argument('outdir', nargs=1, type= str,
                   default=sys.stdin, help = '''path to output directory. include / in end''')
+parser.add_argument('fastadir', nargs=1, type= str,
+                  default=sys.stdin, help = '''path to fasta directory. include / in end''')
 parser.add_argument('df_path', nargs=1, type= str,
                   default=sys.stdin, help = '''path to df.''')
+parser.add_argument('hgroup', nargs=1, type= str,
+                  default=sys.stdin, help = '''H-group.''')
 
 
 
 
 
 #FUNCTIONS
-def match_contacts(df, indir, outdir):
+def read_fasta(filepath):
+	'''Read fasta sequence
+	'''
+
+
+	with open(filepath, 'r') as file:
+		sequence = ''
+		for line in file:
+			line = line.rstrip() #remove \n
+			if line[0] == '>':
+				uid = line[1:]
+			else:
+				sequence += line
+
+	return(sequence)
+
+def match_contacts(df, indir, outdir, fastadir):
 	'''Match alignments to dssp surface acc and 2ndary str
 	'''
 
-	#Create empty columns in df
-	df['contacts_1_seqaln'] = ''
-	df['contacts_2_seqaln'] = ''
-	df['contacts_1_straln'] = ''
-	df['contacts_2_straln'] = ''
 
 	contact_dict = {}
-	sequence_dict = {}
+	fasta_dict = {}
+	
+	#Create new columns in df
+	df['DIFFC_seqaln'] = 0
+	df['DIFFC_straln'] = 0
+
 	for index, row in df.iterrows():
 		hgroup = row['H_group_x']
 		uid1 = row['uid1']
@@ -48,21 +68,45 @@ def match_contacts(df, indir, outdir):
 		
 		if uid1 not in contact_dict.keys():
 			contacts, sequence = read_cbs(indir+hgroup+'/'+uid1+'.pdb')
-			contact_dict[uid1] = contacts
-			sequence_dict[uid1] = sequence
+			contact_dict[uid1] = [contacts, sequence]
+			fasta_dict[uid1] = read_fasta(fastadir+hgroup+'/'+uid1+'.fa')
 		if uid2 not in contact_dict.keys():
 			contacts, sequence = read_cbs(indir+hgroup+'/'+uid2+'.pdb')
-			contact_dict[uid2] = contacts
-			sequence_dict[uid2] = sequence
+			contact_dict[uid2] = [contacts, sequence]
+                        fasta_dict[uid2] = read_fasta(fastadir+hgroup+'/'+uid2+'.fa')
+
 
 		for suffix in ['_seqaln', '_straln']:
-			(matched_contacts) = match(row['seq1'+suffix], contact_dict[uid1], sequence_dict[uid1])
-			df['contacts_1'+suffix][index] = matched_contacts			
-			(matched_contacts) = match(row['seq2'+suffix], contact_dict[uid2], sequence_dict[uid2])
-			df['contacts_2'+suffix][index] = matched_contacts
+			
+			#Match sequences to alignments
+			aln1 = row['seq1'+suffix]
+			aln2 = row['seq2'+suffix]
+			#Save gapless alignments
+			gapless_aln1 = ''
+			gapless_aln2 = ''	
+
+			for i in range(len(aln1)):
+				if aln1[i] == '-' or aln2[i] == '-':
+					    continue
+				else:
+					gapless_aln1 += aln1[i]
+					gapless_aln2 += aln2[i]
+
+
+			(mc1, M) = match(gapless_aln1, contact_dict[uid1], sequence_dict[uid1])
+			(mc2, N) = match(gapless_aln2, contact_dict[uid2], sequence_dict[uid2])
 	
+			C = 0 #Keep track of the number of conserved contacts in the alignment
+			for i in range(len(mc1):
+				c1 = mc1[i]
+				c2 = mc2[i]
+				for j in c1:
+					if j in c2:#If the contacts at the same position is shared.
+						C+=1 
+						
+			diff = C/(M+N-C)
 	#Write new df to outdir
-	df.to_csv(outdir+'complete_df.csv')
+	df.to_csv(outdir+hgroup+'_df.csv')
 	return None
 
 def read_cbs(pdbfile):
@@ -121,42 +165,58 @@ def get_contacts(pos):
 
 	return contacts
 
-def match(aln, contacts, all_seq):
+def match(gapless_aln, contact_info, org_seq):
 	'''Get contacts matching alignment'''
 
-	all_to_aln = {} #Save matched positions
-	aln_to_all = {}
-	mi = 0
 
-	#Match all positions in aln to all_seq in order to get matching contacts
-	for i in range(len(aln)):
-		if mi<len(all_seq): #May be longer than sequence due to gaps
-			if aln[i] == all_seq[mi]: #Matching amino acids
-				
-				all_to_aln[mi]=i
-				aln_to_all[i]=mi
-				mi += 1
-		else: #If no match and the sequence is run through
-			break
+	contacts = contact_info[0]
+	c_seq = contact_info[1]
 
-	#Now the positions in the full sequence is matched to the alignment
-	matched_contacts = []
-	for i in range(len(aln)):
-		matched_contacts.append([]) #Save each residues contacts
-		if i in aln_to_all.keys():#If matched - non gap
-			mi = aln_to_all[i] #Get position in full seq
-			for j in contacts[mi]: #Get contacts for mi
-				if j in all_to_aln.keys():
-					matched_contacts[i].append(all_to_aln[j])
-		else:
-			continue #No matching pos in all
-	return matched_contacts
+	#align to original sequence
+	aln1 = pairwise2.align.globalxx(org_seq, gapless_aln)
+	aln2 = pairwise2.align.globalxx(org_seq, c_seq)
+
+	seq1 = aln1[0][1] #aln to org
+	seq2 = aln2[0][1] #c_seq to org
+
+	index1 = {} #Create an index of the conversion from positions in the two sequences of the alignment
+	i1=0
+	for i in range(len(seq1)):
+		if seq1[i] != '-':
+			index1[i1]=i
+			i1+=1
+	
+	index2 = {} #Create an index of the conversion from positions in the two sequences of the alignment
+        i2=0
+        for i in range(len(seq2)):
+                if seq2[i] != '-':
+                        index2[i2]=i
+			i2+=1
+
+
+
+	#Save matched contacts
+        matched_contacts = []
+	ci=0
+	for i in range(len(seq1)):
+		if seq1[i] != '-':
+			if seq2[i] != '-': #If there are no gaps in the alignment
+			else:
+				matched_contacts.append([0])
+		if seq2[i] != '-':
+			dsspi += 1
+
+
+	return matched_contacts, T
 
 #MAIN
 args = parser.parse_args()
 indir = args.indir[0]
 outdir = args.outdir[0]
+fastadir = args.fastadir[0]
+hgroup = args.hgroup[0]
 df_path = args.df_path[0]
 df = pd.read_csv(df_path)
 
-match_contacts(df, indir, outdir)
+df = df[df['H_group_x']==hgroup]
+match_contacts(df, indir, outdir, fastadir)
