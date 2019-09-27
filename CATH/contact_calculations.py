@@ -104,8 +104,10 @@ def match_contacts(df, indir, outdir, fastadir):
 				for j in c1:
 					if j in c2:#If the contacts at the same position is shared.
 						C+=1 
-						
-			diff = 1-(C/(M+N-C))
+			try:				
+				diff = 1-(C/(M+N-C))
+			except:
+				diff = 'NaN'
 			df.loc[index,'DIFFC'+suffix] = diff
 	#Write new df to outdir
 	df.to_csv(outdir+hgroup+'_df.csv')
@@ -203,7 +205,10 @@ def match(gapless_aln, contact_info, org_seq):
 		if seq1[i] != '-':
 			matched_contacts.append([])
 			if seq2[i] != '-': #If there are no gaps in the alignment
-				match = index[np.where(index[:,0]==i+1)[0][0]] #Get index matches
+				try:
+					match = index[np.where(index[:,0]==i+1)[0][0]] #Get index matches
+				except:
+					continue
 				cis = contacts[match[2]-1] #One minus in contacts compared to contact index match
 				
 				for c in cis:
