@@ -90,7 +90,7 @@ def match_dssp_to_aln(df, indir, outdir, fastadir):
 
 	for index, row in df.iterrows():
 		
-		hgroup = row['H_group_x']
+		hgroup = row['H_group']
 		uid1 = row['uid1']
 		uid2 = row['uid2']
 
@@ -213,7 +213,7 @@ fastadir = args.fastadir[0]
 hgroup = args.hgroup[0]
 df_path = args.df_path[0]
 df = pd.read_csv(df_path)
-df = df[df['H_group_x']==hgroup]
+df = df[df['H_group']==hgroup]
 if len(df) ==0:
 	raise IOError('Empty selection', hgroup)
 match_dssp_to_aln(df, indir, outdir, fastadir)
