@@ -103,11 +103,12 @@ def seq_to_pdb(uids, query_aln, template_aln, q_fa, t_fa, outdir):
 			if q_seqmatch[i] != '-' and t_seqmatch[i] != '-': #No gap in either query or template
 				write_to_file = True
 				ti+=1
+				print(q_seqmatch[i], t_seqmatch[i])
 			if write_to_file == True:
 				replace_str = ' '+str(ti)+' '*(8-len(str(ti)))
 				q_file.write(q_ca_match[i][0:22]+replace_str+q_ca_match[i][31:]+'\n') #Write matching ca coordinates - the ca and seq should be matched
 				t_file.write(t_ca_match[i][0:22]+replace_str+t_ca_match[i][31:]+'\n')
-
+				
 		q_file.close()
 		t_file.close()
 	return None

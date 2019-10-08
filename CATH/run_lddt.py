@@ -79,12 +79,15 @@ def run_lddt(indir, outdir, mode):
 				pdb_name2 = pdb_files[j].split('/')[-1]
 				
 				#Run lddt on fixed pdb files
-				command = 'singularity run --app lDDT /home/p/pbryant/pfs/singularity/ost.img -c -x -t ' + 'rf_'+pdb_name1 + ' rf_'+pdb_name2
-				out = subprocess.check_output(command, shell = True)#Save parsed pdb
-				uid2 = pdb_name2.split('.')[0]
-                	        #Write to file
-				write_lddt(indir, outdir, out, uid1, uid2)
-
+				try:
+					command = 'singularity run --app lDDT /home/p/pbryant/pfs/singularity/ost.img -c -x -t ' + 'rf_'+pdb_name1 + ' rf_'+pdb_name2
+					out = subprocess.check_output(command, shell = True)#Save parsed pdb
+					uid2 = pdb_name2.split('.')[0]
+                	        	#Write to file
+					write_lddt(indir, outdir, out, uid1, uid2)
+				except:
+					print(uid1+'_'+uid2+' failed lddt')
+					continue
 				
 	return None
 
