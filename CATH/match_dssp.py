@@ -76,10 +76,11 @@ def run_dssp(indir,hgroup, uid):
 	'''Run dssp
 	'''
 	DSSP = '/home/p/pbryant/pfs/dssp'
-	command = DSSP +' '+indir+hgroup+'/'+uid1+'.pdb'
+	command = DSSP +' '+indir+hgroup+'/'+uid+'.pdb'
 	outp = subprocess.check_output(command, shell = True)#run dssp
-
-	with open(indir+hgroup+'/dssp/'+uid+'.pdb.dssp', 'r') as file:
+	outp = outp.decode()
+	pdb.set_trace()
+	with open(indir+hgroup+'/dssp/'+uid+'.pdb.dssp', 'w') as file:
 		file.write(outp)
 	return None
 
@@ -102,7 +103,7 @@ def match_dssp_to_aln(df, indir, outdir, fastadir):
 
 	for index, row in df.iterrows():
 		
-		hgroup = row['H_group_x']
+		hgroup = row['H_group']
 		uid1 = row['uid1']
 		uid2 = row['uid2']
 
@@ -116,8 +117,9 @@ def match_dssp_to_aln(df, indir, outdir, fastadir):
 			dssp_dict[uid1] = [sequence1, secondary_str1, surface_acc1]
 			fasta_dict[uid1] = read_fasta(fastadir+hgroup+'/'+uid1+'.fa')
 		if uid2 not in dssp_dict.keys():
+			dssp_file = indir+hgroup+'/dssp/'+uid2+'.pdb.dssp'
 			if not os.path.isfile(dssp_file):
-                                run_dssp(indir,hgroup, uid1)
+                                run_dssp(indir,hgroup, uid2)
 			sequence2, secondary_str2, surface_acc2 = parse_dssp(indir+hgroup+'/dssp/'+uid2+'.pdb.dssp')
 			dssp_dict[uid2] = [sequence2, secondary_str2, surface_acc2]
 			fasta_dict[uid2] = read_fasta(fastadir+hgroup+'/'+uid2+'.fa')
@@ -231,7 +233,7 @@ fastadir = args.fastadir[0]
 hgroup = args.hgroup[0]
 df_path = args.df_path[0]
 df = pd.read_csv(df_path)
-df = df[df['H_group_x']==hgroup]
+df = df[df['H_group']==hgroup]
 if len(df) ==0:
 	raise IOError('Empty')
 match_dssp_to_aln(df, indir, outdir, fastadir)
