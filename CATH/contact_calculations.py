@@ -58,10 +58,11 @@ def match_contacts(df, indir, outdir, fastadir):
 	contact_dict = {}
 	fasta_dict = {}
 	
-	#Create new columns in df
-	df['DIFFC_seqaln'] = 0
-	df['DIFFC_straln'] = 0
+	#Create new columns to add in df
+	DIFFC_seqaln = []
+	DIFFC_straln = []
 
+	
 	for index, row in df.iterrows():
 		hgroup = row['H_group_x']
 		uid1 = row['uid1']
@@ -108,7 +109,14 @@ def match_contacts(df, indir, outdir, fastadir):
 				diff = 1-(C/(M+N-C))
 			except:
 				diff = 'NaN'
-			df.loc[index,'DIFFC'+suffix] = diff
+			if suffix == '_seqaln':
+				DIFFC_seqaln.append(diff)
+			else:
+				DIFFC_straln.append(diff)
+
+	#Set new columns in df
+	df['DIFFC_seqaln'] = DIFFC_seqaln
+	df['DIFFC_straln'] = DIFFC_straln
 	#Write new df to outdir
 	df.to_csv(outdir+hgroup+'_df.csv')
 	return None
