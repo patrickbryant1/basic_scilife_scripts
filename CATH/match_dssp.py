@@ -8,6 +8,7 @@ import os
 import glob
 import numpy as np
 import pandas as pd
+import subprocess
 from Bio import pairwise2 
 import pdb
 
@@ -71,10 +72,22 @@ def read_fasta(filepath):
 
 	return(sequence)
 
+def run_dssp(indir,hgroup, uid):
+	'''Run dssp
+	'''
+	DSSP = '/home/p/pbryant/pfs/dssp'
+	command = DSSP +' '+indir+hgroup+'/'+uid+'.pdb'
+	outp = subprocess.check_output(command, shell = True)#run dssp
+	outp = outp.decode()
+	pdb.set_trace()
+	with open(indir+hgroup+'/dssp/'+uid+'.pdb.dssp', 'w') as file:
+		file.write(outp)
+	return None
+
 def match_dssp_to_aln(df, indir, outdir, fastadir):
 	'''Match alignments to dssp surface acc and 2ndary str
 	'''
-
+	DSSP = '/home/p/pbryant/pfs/dssp'
 	dssp_dict = {}
 	fasta_dict = {}
 
@@ -96,10 +109,17 @@ def match_dssp_to_aln(df, indir, outdir, fastadir):
 
         #Get dssp and fasta info
 		if uid1 not in dssp_dict.keys():
+			dssp_file = indir+hgroup+'/dssp/'+uid1+'.pdb.dssp'
+			if not os.path.isfile(dssp_file): 
+				run_dssp(indir,hgroup, uid1)				
+
 			sequence1, secondary_str1, surface_acc1 = parse_dssp(indir+hgroup+'/dssp/'+uid1+'.pdb.dssp')
 			dssp_dict[uid1] = [sequence1, secondary_str1, surface_acc1]
 			fasta_dict[uid1] = read_fasta(fastadir+hgroup+'/'+uid1+'.fa')
 		if uid2 not in dssp_dict.keys():
+			dssp_file = indir+hgroup+'/dssp/'+uid2+'.pdb.dssp'
+			if not os.path.isfile(dssp_file):
+                                run_dssp(indir,hgroup, uid2)
 			sequence2, secondary_str2, surface_acc2 = parse_dssp(indir+hgroup+'/dssp/'+uid2+'.pdb.dssp')
 			dssp_dict[uid2] = [sequence2, secondary_str2, surface_acc2]
 			fasta_dict[uid2] = read_fasta(fastadir+hgroup+'/'+uid2+'.fa')
@@ -215,5 +235,5 @@ df_path = args.df_path[0]
 df = pd.read_csv(df_path)
 df = df[df['H_group']==hgroup]
 if len(df) ==0:
-	raise IOError('Empty selection', hgroup)
+	raise IOError('Empty')
 match_dssp_to_aln(df, indir, outdir, fastadir)
