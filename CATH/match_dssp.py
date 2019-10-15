@@ -79,7 +79,6 @@ def run_dssp(indir,hgroup, uid):
 	command = DSSP +' '+indir+hgroup+'/'+uid+'.pdb'
 	outp = subprocess.check_output(command, shell = True)#run dssp
 	outp = outp.decode()
-	pdb.set_trace()
 	with open(indir+hgroup+'/dssp/'+uid+'.pdb.dssp', 'w') as file:
 		file.write(outp)
 	return None
