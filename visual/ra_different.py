@@ -22,16 +22,13 @@ default=sys.stdin, help = 'path to directory with pdb files.')
 parser.add_argument('--outdir', nargs=1, type= str,
 default=sys.stdin, help = 'path to output directory.')
 
-parser.add_argument('--aln_type', nargs=1, type= str,
-default=sys.stdin, help = '_straln or _seqaln.')
-
 parser.add_argument('--plot_gradients', nargs=1, type= bool,
 default=sys.stdin, help = 'Wether to plot gradients or not.')
 
 parser.add_argument('--plot_percentage', nargs=1, type= bool,
 default=sys.stdin, help = 'Wether to plot percentages or not.')
 
-def ra_different(df, aln_type, score, cardinalities, plot_num, pdf, fig):
+def ra_different(df, aln_type, score, cardinalities, plot_num, pdf, fig, ylim):
     '''Produce running average plots for df
     '''
 
@@ -64,13 +61,15 @@ def ra_different(df, aln_type, score, cardinalities, plot_num, pdf, fig):
 
         plt.plot(js, avs, label = cardinalities[i][1:] +  ' total average', linewidth = 1)
         sizes[cardinality] = [js, perc_points]
-    plt.legend(loc = 'best')
-    plt.xlabel('MLAAdist'+aln_type)
-    plt.ylabel('Running average '+ score)
-    plt.title('Running average plot '+score+' '+aln_type[1:])
+    #plt.legend(loc = 'best')
+    #plt.xlabel('MLAAdist'+aln_type)
+    plt.ylabel(score)
+    plt.ylim(ylim)
+    #plt.title('Running average plot '+score)
 
-    if score == 'DIFF_ACC':
-        plt.subplot(plot_num+1) #set plot_num
+    if score == 'DIFF_ACC'+aln_type:
+        plot_num+=2
+        plt.subplot(plot_num) #set plot_num
         for i in range(len(cardinalities)):
             cardinality = cardinalities[i]
             if cardinality == '_AA20':
@@ -79,6 +78,7 @@ def ra_different(df, aln_type, score, cardinalities, plot_num, pdf, fig):
         plt.xlabel('MLAAdist'+aln_type)
         plt.ylabel('% of points')
         plt.legend(loc = 'best')
+        plt.ylim([0,20])
 
     return pdf, fig
 
@@ -87,18 +87,23 @@ def ra_different(df, aln_type, score, cardinalities, plot_num, pdf, fig):
 args = parser.parse_args()
 df = pd.read_csv(args.df[0])
 outdir = args.outdir[0]
-aln_type = args.aln_type[0]
+
 plot_gradients = args.plot_gradients[0]
 plot_percentage = args.plot_percentage[0]
 
 cardinalities = ['_AA2', '_AA3','_AA6', '_AA20']
-pdf = PdfPages(outdir+aln_type[1:]+'.pdf')
-fig = plt.figure(figsize=(20,10)) #set figsize
-plot_num = 411 #rows,columns,number
-
-for score in ['RMSD', 'DIFFSS', 'DIFF_ACC']:
-    pdf, fig = ra_different(df, aln_type, score, cardinalities, plot_num, pdf, fig)
-    plot_num += 1
+pdf = PdfPages(outdir+'all_cards.pdf')
+fig = plt.figure(figsize=(10,10)) #set figsize
+plot_nums = [421, 422] #rows,columns,number
+aln_types = ['_seqaln', '_straln']
+ylims = {'RMSD':[0,5], 'DIFFSS':[0, 0.6], 'DIFF_ACC':[0,0.6]}
+for i in range(2):
+    aln_type = aln_types[i]
+    plot_num = plot_nums[i]
+    for score in ['RMSD', 'DIFFSS', 'DIFF_ACC']:
+        ylim = ylims[score]
+        pdf, fig = ra_different(df, aln_type, score, cardinalities, plot_num, pdf, fig, ylim)
+        plot_num += 2
 
 pdf.savefig(fig)
 pdf.close()
