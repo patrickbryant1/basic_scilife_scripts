@@ -28,34 +28,32 @@ default=sys.stdin, help = '_straln or _seqaln.')
 parser.add_argument('--score', nargs=1, type= str,
 default=sys.stdin, help = 'score to plot.')
 
-parser.add_argument('--cardinality', nargs=1, type= str,
-default=sys.stdin, help = 'cardinality to plot.')
-
 parser.add_argument('--plot_gradients', nargs=1, type= bool,
 default=sys.stdin, help = 'Wether to plot gradients or not.')
 
 parser.add_argument('--plot_percentage', nargs=1, type= bool,
 default=sys.stdin, help = 'Wether to plot percentages or not.')
 
-def runnning_average(outdir, complete_df, aln_type, score, cardinality, plot_gradients, plot_percentage, pdf):
+def runnning_average(outdir, complete_df, aln_type, score, cardinality, plot_gradients, plot_percentage, pdf, plot_num, fig):
     '''Produce running average plots for df
     '''
-    figs = plt.figure()
-    plot_num = 321 #3 rows 1 columns = 1 graphs per page
 
+    plt.rc('axes', titlesize=10, labelsize=10) #set title and label text sizes
+    xlabel = 'MLAAdist'+cardinality+aln_type
     classes = {1.:'Alpha', 2: 'Beta', 3: 'Alpha Beta', 4: 'Few 2ndary structures', 'total': 'Total'}
     colors = {1: 'royalblue', 2: 'k', 3: 'yellow', 4: 'violet', 'total': 'r'}
     ucas = [1.,2.,3.,4.] #unique C.A.s
-    fig = plt.figure(figsize=(20,10)) #set figsize
     sizes = {}
+    sizes['total'] = 100
 
-    if cardinality == 'AA20':
+    if cardinality == '_AA20':
         cardinality = ''
     score = score+aln_type
     #Plot total average
     avs = [] #Save average score
     js = {} #Save dists
     perc_points = {}
+    range = [] #range to plot gradients in
     total_avs = {}
     step = 0.1 #what they used 2009
     df = complete_df
@@ -73,8 +71,14 @@ def runnning_average(outdir, complete_df, aln_type, score, cardinality, plot_gra
         total_avs[j-step/2] = av #used to calculate distance from total average
         perc_points['total'].append(len(below_df)/len(complete_df)*100)
 
+        #if less than 0.5 of points - set area to plot gradients
+        if perc_points['total'][-1] > 0.5 and len(range)<1:
+            range.append(len(perc_points['total'])-1)
+        if np.sum(perc_points['total']) > 95.5 and len(range)<3: #looks like heart <3 :)
+            range.append(len(perc_points['total'])-1)
+
     plt.subplot(plot_num) #set plot_num
-    plt.plot(js['total'], avs, label = 'Total average', color = colors['total'], linewidth = 6)
+    plt.plot(js['total'], avs, label = 'Total average', color = colors['total'], linewidth = 1)
 
     #Include derivatives
     grads = np.gradient(avs)
@@ -109,43 +113,41 @@ def runnning_average(outdir, complete_df, aln_type, score, cardinality, plot_gra
         perc = np.round(len(df)*100/len(complete_df),2)
         sizes[uca] = perc
 
-        plt.plot(js[uca], avs, label = classes[int(uca)]+', '+str(perc)+' %, '+str(len(df))+' points', color =colors[int(df['C._x'].values[0])], linewidth = 3)
+        plt.plot(js[uca], avs, label = classes[int(uca)]+', '+str(perc)+' %, '+str(len(df))+' points', color =colors[int(df['C._x'].values[0])], linewidth = 1)
 
 
-    plt.legend(loc = 'best')
+    #plt.legend(loc = 'best')
     #plt.xscale('log')
-    plt.xlabel('MLAAdist'+cardinality+aln_type)
+    #plt.xlabel('MLAAdist'+cardinality+aln_type)
     plt.ylabel('Running average '+ score)
-    plt.title('Running average plot '+aln_type[1:])
-    plt.rc('axes', titlesize=18, labelsize=14)
-    fig.savefig(outdir+score+cardinality+'.png')#Save
+    plt.title('Running average plot '+cardinality[1:]+' '+aln_type[1:])
+    #fig.savefig(outdir+score+cardinality+'.png')#Save
 
     #Plot gradients
     if plot_gradients == True:
-        plot_num+=1
+        plot_num+=2
         plt.subplot(plot_num) #set plot_num
-        plt.scatter(js['total'][0:40], grads[0:40])
-        plt.xlabel('MLAAdist'+cardinality+aln_type)
+        plt.scatter(js['total'][range[0]:range[1]+1], grads[range[0]:range[1]+1],s=2)
+        #plt.xlabel('MLAAdist'+cardinality+aln_type)
         plt.ylabel('gradient_'+score)
-        plt.title('Running average gradients '+aln_type[1:])
-        fig.savefig(outdir+score+cardinality+'_gradients.png')#Save
+        #plt.title('Running average gradients '+aln_type[1:])
+        #fig.savefig(outdir+score+cardinality+'_gradients.png')#Save
 
 
     if plot_percentage == True:
-        plot_num+=1
+        plot_num+=2
         plt.subplot(plot_num) #set plot_num
         for label in ['total', 1.,2.,3.,4.]:
-            plt.plot(js[label], perc_points[label], label = classes[label], color = colors[label], linewidth = 6)
-        plt.xlabel('MLAAdist')
+            plt.plot(js[label], perc_points[label], label = classes[label]+', '+str(sizes[label])+' %', color = colors[label], linewidth = 1)
+        plt.xlabel(xlabel)
         plt.ylabel('% of points')
-        plt.title('Percent of pairs within step')
+        #plt.title('Percent of pairs within step')
         plt.legend(loc = 'best')
         #plt.yscale('log')
-        fig.savefig(outdir+score+cardinality+'_percentages.png')#Save
+        #fig.savefig(outdir+score+cardinality+'_percentages.png')#Save
 
-    pdf.savefig(fig)
-    pdf.close()
-    return None
+
+    return pdf, fig
 
 
 #####MAIN#####
@@ -154,10 +156,18 @@ df = pd.read_csv(args.df[0])
 outdir = args.outdir[0]
 aln_type = args.aln_type[0]
 score = args.score[0]
-cardinality = args.cardinality[0]
 plot_gradients = args.plot_gradients[0]
 plot_percentage = args.plot_percentage[0]
 
-#Define pdf
-pdf = PdfPages(outdir+score+cardinality+'.pdf')
-runnning_average(outdir, df, aln_type, score, cardinality, plot_gradients, plot_percentage, pdf)
+
+for cards in [['_AA2', '_AA3'],['_AA6', '_AA20']]:
+    #Define pdf
+    pdf = PdfPages(outdir+score+aln_type+cards[0]+cards[1]+'.pdf')
+    fig = plt.figure(figsize=(10,10)) #set figsize
+    plot_num = 321 #3 rows 1 columns = 3 graphs per page
+    for cardinality in cards:
+        pdf, fig = runnning_average(outdir, df, aln_type, score, cardinality, plot_gradients, plot_percentage, pdf, plot_num, fig)
+        plot_num += 1
+
+    pdf.savefig(fig)
+    pdf.close()
