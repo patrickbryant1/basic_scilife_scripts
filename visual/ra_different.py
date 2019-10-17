@@ -97,6 +97,12 @@ outdir = args.outdir[0]
 calc = args.calc[0]
 plot_gradients = args.plot_gradients[0]
 
+Hgroups = [*Counter(df['H_group']).keys()]
+for group in Hgroups:
+    partial_df = df[df['H_group']==group]
+    i = np.random.randint(len(partial_df), size=1)
+    pdb.set_trace()
+
 
 cardinalities = ['_AA2', '_AA3','_AA6', '_AA20']
 pdf = PdfPages(outdir+calc+'_all_cards.pdf')
