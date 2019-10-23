@@ -74,7 +74,7 @@ def ra_different(df, aln_type, score, cardinalities, calc, plot_num, pdf, fig, y
         plt.title(title)
 
     if score == 'DIFF_ACC'+aln_type:
-        plot_num+=2
+        plot_num+=3
         plt.subplot(plot_num) #set plot_num
         for i in range(len(cardinalities)):
             cardinality = cardinalities[i]
@@ -107,7 +107,7 @@ for group in Hgroups:
 cardinalities = ['_AA2', '_AA3','_AA6', '_AA20']
 pdf = PdfPages(outdir+calc+'_all_cards.pdf')
 fig = plt.figure(figsize=(10,10)) #set figsize
-plot_nums = [421, 422] #rows,columns,number
+plot_nums = [421, 423] #rows,columns,number
 aln_types = ['_seqaln', '_straln']
 titles = ['Sequence alignments', 'Structural alignments']
 ylims = {'RMSD':[0,5], 'DIFFSS':[0, 0.6], 'DIFF_ACC':[0,0.6]}
@@ -118,7 +118,7 @@ for i in range(2):
     for score in ['RMSD', 'DIFFSS', 'DIFF_ACC']:
         ylim = ylims[score]
         pdf, fig = ra_different(df, aln_type, score, cardinalities, calc, plot_num, pdf, fig, ylim, title)
-        plot_num += 2
+        plot_num += 3
 
 pdf.savefig(fig)
 pdf.close()
